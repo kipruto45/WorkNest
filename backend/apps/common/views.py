@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from apps.common.constants import API_NAME, HEALTH_STATUS_DEGRADED, HEALTH_STATUS_OK
 from apps.common.health import get_cache_health, get_database_health
-from apps.common.responses import build_response_payload, success_response
+from apps.common.responses import success_response
 from apps.common.utils import get_api_version, get_runtime_environment
 
 
@@ -54,9 +54,14 @@ class HealthCheckView(APIView):
     permission_classes = [permissions.AllowAny]
 
     @staticmethod
-    def _json_success_response(*, request, message: str, data: dict, status_code: int = 200) -> JsonResponse:
+    def _json_probe_response(*, request, message: str, data: dict, status_code: int = 200) -> JsonResponse:
         return JsonResponse(
-            build_response_payload(request=request, success=True, message=message, data=data),
+            {
+                "success": True,
+                "message": message,
+                "request_id": getattr(request, "request_id", None),
+                "data": data,
+            },
             status=status_code,
         )
 
@@ -85,38 +90,38 @@ class HealthCheckView(APIView):
         )
     )
     def get(self, request, *args, **kwargs):  # type: ignore[override]
-        probe = kwargs.get("probe", "full")
-        if probe == "live":
-            return self._json_success_response(
-                request=request,
-                message="Liveness probe completed.",
-                data={
-                    "status": HEALTH_STATUS_OK,
-                    "environment": get_runtime_environment(),
-                    "services": {
-                        "application": "ok",
-                    },
-                },
-            )
-
-        if probe == "ready" and not getattr(settings, "HEALTH_REQUIRE_CACHE", False):
-            return self._json_success_response(
-                request=request,
-                message="Readiness probe completed.",
-                data={
-                    "status": HEALTH_STATUS_OK,
-                    "environment": get_runtime_environment(),
-                    "services": {
-                        "application": "ok",
-                        "database": "optional",
-                        "redis": "optional",
-                        "channels": "configured",
-                        "celery": "configured",
-                    },
-                },
-            )
-
         try:
+            probe = kwargs.get("probe", "full")
+            if probe == "live":
+                return self._json_probe_response(
+                    request=request,
+                    message="Liveness probe completed.",
+                    data={
+                        "status": "ok",
+                        "environment": getattr(settings, "ENVIRONMENT", "production"),
+                        "services": {
+                            "application": "ok",
+                        },
+                    },
+                )
+
+            if probe == "ready" and not getattr(settings, "HEALTH_REQUIRE_CACHE", False):
+                return self._json_probe_response(
+                    request=request,
+                    message="Readiness probe completed.",
+                    data={
+                        "status": "ok",
+                        "environment": getattr(settings, "ENVIRONMENT", "production"),
+                        "services": {
+                            "application": "ok",
+                            "database": "ok",
+                            "redis": "optional",
+                            "channels": "configured",
+                            "celery": "configured",
+                        },
+                    },
+                )
+
             database_status, cache_status = self._build_dependency_snapshot()
             cache_is_required = bool(getattr(settings, "HEALTH_REQUIRE_CACHE", False))
             database_ok = database_status == "ok"
@@ -127,7 +132,7 @@ class HealthCheckView(APIView):
                 else status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
-            return success_response(
+            return self._json_probe_response(
                 request=request,
                 message="Readiness probe completed." if probe == "ready" else "Healthcheck completed.",
                 data={
@@ -143,7 +148,7 @@ class HealthCheckView(APIView):
                 status_code=response_status,
             )
         except Exception:
-            return self._json_success_response(
+            return self._json_probe_response(
                 request=request,
                 message="Readiness probe completed with degraded dependencies.",
                 data={
