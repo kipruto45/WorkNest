@@ -1,4 +1,4 @@
-from django.urls import include, path
+from django.urls import path
 
 from apps.authentication.views import (
     GoogleAuthView,
@@ -29,5 +29,4 @@ urlpatterns = [
     path("google/login/", GoogleLoginView.as_view(), name="google-login"),
     path("google/auth/", GoogleAuthView.as_view(), name="google-auth"),
     path("google/callback/", GoogleOAuthCallbackView.as_view(), name="google-callback"),
-    path("oauth/", include("allauth.urls")),
 ]
