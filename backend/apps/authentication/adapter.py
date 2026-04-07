@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 import json
-import secrets
-import urllib.parse
-from typing import Any
 from urllib.parse import urlencode
 
 from django.http import HttpResponseRedirect, HttpRequest
 from django.contrib.auth import get_user_model
 from django.conf import settings
 
-from apps.authentication.services import create_user_account, issue_tokens_for_user
+from apps.authentication.services import create_user_account, issue_tokens_for_user, sync_google_account_profile
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_auth_action
+from apps.users.serializers import CurrentUserSerializer
 from apps.users.models import User as UserModel
 
 User = get_user_model()
@@ -65,27 +63,43 @@ def get_google_user_info(access_token: str) -> dict:
     return response.json()
 
 
-def find_or_create_google_user(email: str, first_name: str = "", last_name: str = "", name: str = "") -> UserModel:
+def find_or_create_google_user(
+    email: str,
+    first_name: str = "",
+    last_name: str = "",
+    name: str = "",
+    avatar: str = "",
+) -> UserModel:
     """Find existing user or create new one for Google auth."""
     try:
         user = User.objects.get(email__iexact=email)
-        
-        if user.auth_provider != UserModel.AuthProvider.GOOGLE:
-            user.auth_provider = UserModel.AuthProvider.GOOGLE
-            user.email_verified = True
-            user.save(update_fields=['auth_provider', 'email_verified', 'updated_at'])
-        
-        return user
-        
+
+        return sync_google_account_profile(
+            user=user,
+            name=name,
+            first_name=first_name,
+            last_name=last_name,
+            avatar=avatar,
+            email_verified=True,
+        )
+
     except User.DoesNotExist:
         full_name = name or f"{first_name} {last_name}".strip() or email.split('@')[0]
-        return create_user_account(
+        user = create_user_account(
             email=email,
             password=User.objects.make_random_password(),
             name=full_name,
             first_name=first_name,
             last_name=last_name,
             auth_provider=UserModel.AuthProvider.GOOGLE,
+        )
+        return sync_google_account_profile(
+            user=user,
+            name=full_name,
+            first_name=first_name,
+            last_name=last_name,
+            avatar=avatar,
+            email_verified=True,
         )
 
 
@@ -124,12 +138,13 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
         first_name = user_info.get('given_name', '')
         last_name = user_info.get('family_name', '')
         name = user_info.get('name', '')
+        avatar = user_info.get('picture', '')
         
         if not email:
             redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?error=no_email"
             return HttpResponseRedirect(redirect_url)
         
-        user = find_or_create_google_user(email, first_name, last_name, name)
+        user = find_or_create_google_user(email, first_name, last_name, name, avatar)
         
         log_auth_action(
             action=AuditAction.USER_LOGGED_IN,
@@ -141,17 +156,7 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
         token_payload = issue_tokens_for_user(user=user)
         
         frontend_url = f"{settings.FRONTEND_URL.rstrip('/')}/auth/google/callback"
-        user_payload = json.dumps(
-            {
-                "id": str(user.id),
-                "email": user.email,
-                "name": user.name,
-                "avatar": user.avatar or "",
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-            },
-            separators=(",", ":"),
-        )
+        user_payload = json.dumps(CurrentUserSerializer(user).data, separators=(",", ":"))
         params = urlencode(
             {
                 "access": token_payload["access"],

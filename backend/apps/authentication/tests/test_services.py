@@ -2,7 +2,9 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import RequestFactory, TestCase, override_settings
 
-from apps.authentication.services import create_user_account, request_password_reset
+from apps.authentication.adapter import find_or_create_google_user
+from apps.authentication.google_service import get_or_create_google_user
+from apps.authentication.services import create_user_account, request_password_reset, sync_google_account_profile
 from apps.users.models import User
 
 User = get_user_model()
@@ -39,3 +41,76 @@ class AuthenticationServiceTests(TestCase):
         request_password_reset(email="unknown@example.com", request=request)
 
         self.assertEqual(len(mail.outbox), 0)
+
+    def test_sync_google_account_profile_fills_missing_details(self) -> None:
+        user = User.objects.create_user(
+            email="google-user@example.com",
+            password="StrongPass123!",
+            name="google-user",
+            auth_provider=User.AuthProvider.EMAIL,
+            email_verified=False,
+        )
+
+        sync_google_account_profile(
+            user=user,
+            name="Google User",
+            first_name="Google",
+            last_name="User",
+            avatar="https://example.com/avatar.png",
+            email_verified=True,
+        )
+
+        user.refresh_from_db()
+
+        self.assertEqual(user.auth_provider, User.AuthProvider.GOOGLE)
+        self.assertTrue(user.email_verified)
+        self.assertEqual(user.first_name, "Google")
+        self.assertEqual(user.last_name, "User")
+        self.assertEqual(user.avatar, "https://example.com/avatar.png")
+
+    def test_find_or_create_google_user_persists_avatar_for_new_users(self) -> None:
+        user = find_or_create_google_user(
+            "new-google@example.com",
+            "New",
+            "Google",
+            "New Google",
+            "https://example.com/new-google.png",
+        )
+
+        self.assertEqual(user.auth_provider, User.AuthProvider.GOOGLE)
+        self.assertEqual(user.avatar, "https://example.com/new-google.png")
+        self.assertEqual(user.first_name, "New")
+        self.assertEqual(user.last_name, "Google")
+
+    def test_get_or_create_google_user_repairs_existing_google_profile(self) -> None:
+        user = User.objects.create_user(
+            email="existing-google@example.com",
+            password="StrongPass123!",
+            name="existing-google",
+            auth_provider=User.AuthProvider.GOOGLE,
+            email_verified=False,
+            first_name="",
+            last_name="",
+            avatar="",
+        )
+
+        result_user, is_new = get_or_create_google_user(
+            {
+                "email": user.email,
+                "email_verified": True,
+                "name": "Existing Google",
+                "first_name": "Existing",
+                "last_name": "Google",
+                "avatar": "https://example.com/existing-google.png",
+                "google_sub": "sub-123",
+            }
+        )
+
+        user.refresh_from_db()
+
+        self.assertFalse(is_new)
+        self.assertEqual(str(result_user.id), str(user.id))
+        self.assertTrue(user.email_verified)
+        self.assertEqual(user.first_name, "Existing")
+        self.assertEqual(user.last_name, "Google")
+        self.assertEqual(user.avatar, "https://example.com/existing-google.png")

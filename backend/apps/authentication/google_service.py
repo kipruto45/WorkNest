@@ -6,16 +6,14 @@ Handles verification of Google ID tokens and user creation/login.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
 
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from rest_framework import exceptions
 
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_auth_action
-from apps.authentication.services import create_user_account, issue_tokens_for_user
+from apps.authentication.services import create_user_account, issue_tokens_for_user, sync_google_account_profile
 from apps.users.models import User as UserModel
 
 User = get_user_model()
@@ -93,24 +91,30 @@ def get_or_create_google_user(google_user_info: dict, create_if_not_exists: bool
     - Case D: Conflicting state -> raise error
     """
     email = google_user_info['email']
-    google_sub = google_user_info.get('google_sub', '')
-    
     try:
         existing_user = User.objects.get(email__iexact=email)
         
         if existing_user.auth_provider == UserModel.AuthProvider.GOOGLE:
-            existing_user.last_login = None
-            existing_user.save(update_fields=['last_login'])
+            sync_google_account_profile(
+                user=existing_user,
+                name=google_user_info.get('name', ''),
+                first_name=google_user_info.get('first_name', ''),
+                last_name=google_user_info.get('last_name', ''),
+                avatar=google_user_info.get('avatar', ''),
+                email_verified=google_user_info.get('email_verified', False),
+            )
             return existing_user, False
         
         if existing_user.auth_provider == UserModel.AuthProvider.EMAIL:
             if google_user_info.get('email_verified', False):
-                existing_user.auth_provider = UserModel.AuthProvider.GOOGLE
-                existing_user.email_verified = True
-                existing_user.name = google_user_info.get('name') or existing_user.name
-                existing_user.avatar = google_user_info.get('avatar', '') or existing_user.avatar
-                existing_user.save(
-                    update_fields=['auth_provider', 'email_verified', 'name', 'avatar', 'updated_at']
+                sync_google_account_profile(
+                    user=existing_user,
+                    name=google_user_info.get('name', ''),
+                    first_name=google_user_info.get('first_name', ''),
+                    last_name=google_user_info.get('last_name', ''),
+                    avatar=google_user_info.get('avatar', ''),
+                    email_verified=True,
+                    overwrite_profile=True,
                 )
                 
                 log_auth_action(
@@ -153,13 +157,14 @@ def get_or_create_google_user(google_user_info: dict, create_if_not_exists: bool
             last_name=last_name,
             auth_provider=UserModel.AuthProvider.GOOGLE,
         )
-        
-        if google_user_info.get('avatar'):
-            new_user.avatar = google_user_info['avatar']
-            new_user.save(update_fields=['avatar'])
-        
-        new_user.email_verified = True
-        new_user.save(update_fields=['email_verified'])
+        sync_google_account_profile(
+            user=new_user,
+            name=name or first_name or email.split('@')[0],
+            first_name=first_name,
+            last_name=last_name,
+            avatar=google_user_info.get('avatar', ''),
+            email_verified=google_user_info.get('email_verified', False),
+        )
         
         log_auth_action(
             actor=new_user,

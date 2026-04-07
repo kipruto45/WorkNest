@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { CLIENT_STORAGE_KEYS } from './clientConfig.js'
-import { clearAuthSession, extractAuthSession, persistCurrentUser } from './authSession.js'
+import { clearAuthSession, extractAuthSession, hasCompleteCurrentUser, persistCurrentUser } from './authSession.js'
 
 test('extractAuthSession returns a valid session for auth payloads', () => {
   const session = extractAuthSession({
@@ -26,6 +26,26 @@ test('extractAuthSession handles empty payloads safely', () => {
   assert.equal(session.accessToken, null)
   assert.equal(session.refreshToken, null)
   assert.equal(session.user, null)
+})
+
+test('hasCompleteCurrentUser detects partial cached auth users', () => {
+  assert.equal(
+    hasCompleteCurrentUser({ id: '1', email: 'user@example.com', name: 'User Example' }),
+    false
+  )
+
+  assert.equal(
+    hasCompleteCurrentUser({
+      id: '1',
+      email: 'user@example.com',
+      name: 'User Example',
+      auth_provider: 'google',
+      email_verified: true,
+      notification_preferences: {},
+      profile_completion: 50,
+    }),
+    true
+  )
 })
 
 test('persistCurrentUser stores the serialized user in localStorage', () => {

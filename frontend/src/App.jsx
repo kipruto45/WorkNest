@@ -5,6 +5,7 @@ import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import Layout from './components/Layout'
 import { hydrateCurrentUser } from './features/authSlice'
+import { hasCompleteCurrentUser } from './utils/authSession'
 
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
@@ -63,7 +64,7 @@ function App() {
   const { token, user } = useSelector((state) => state.auth)
 
   useEffect(() => {
-    if (token && !user) {
+    if (token && !hasCompleteCurrentUser(user)) {
       dispatch(hydrateCurrentUser())
     }
   }, [dispatch, token, user])

@@ -1,5 +1,7 @@
 import { CLIENT_STORAGE_KEYS } from './clientConfig.js'
 
+const CURRENT_USER_REQUIRED_KEYS = ['auth_provider', 'email_verified', 'notification_preferences', 'profile_completion']
+
 export function extractAuthSession(payload) {
   const tokens = payload?.tokens
   const user = payload?.user ?? null
@@ -12,6 +14,14 @@ export function extractAuthSession(payload) {
     refreshToken,
     isValid: Boolean(accessToken),
   }
+}
+
+export function hasCompleteCurrentUser(user) {
+  if (!user || typeof user !== 'object') {
+    return false
+  }
+
+  return CURRENT_USER_REQUIRED_KEYS.every((key) => Object.prototype.hasOwnProperty.call(user, key))
 }
 
 export function persistAuthSession(session) {

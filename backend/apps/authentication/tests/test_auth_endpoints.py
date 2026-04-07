@@ -5,6 +5,7 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+from unittest.mock import patch
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -311,3 +312,37 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertIn("accounts.google.com", response["Location"])
         self.assertIn("accounts.google.com", response["Location"])
         self.assertIn("redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fv1%2Fauth%2Fgoogle%2Fcallback%2F", response["Location"])
+
+    @patch("apps.authentication.google_service.authenticate_google_user")
+    def test_google_auth_endpoint_returns_full_current_user_payload(self, authenticate_google_user_mock) -> None:
+        user = User.objects.create_user(
+            email="google-user@example.com",
+            password="StrongPass123!",
+            name="Google User",
+            auth_provider=User.AuthProvider.GOOGLE,
+            email_verified=True,
+            first_name="Google",
+            last_name="User",
+            bio="Synced from Google",
+        )
+        authenticate_google_user_mock.return_value = {
+            "user": user,
+            "tokens": {
+                "access": "access-token",
+                "refresh": "refresh-token",
+                "refresh_expires_in": 3600,
+                "token_type": "Bearer",
+            },
+            "is_new_user": False,
+        }
+
+        response = self.client.post(
+            reverse("api_v1:authentication:google-auth"),
+            {"credential": "fake-google-id-token"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data"]["user"]["email"], user.email)
+        self.assertEqual(response.data["data"]["user"]["auth_provider"], User.AuthProvider.GOOGLE)
+        self.assertEqual(response.data["data"]["user"]["bio"], "Synced from Google")

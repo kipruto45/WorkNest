@@ -6,7 +6,7 @@ import LoadingState from '../components/LoadingState'
 import { setSession } from '../features/authSlice'
 import { authAPI, unwrapData } from '../services/api'
 import { CLIENT_STORAGE_KEYS } from '../utils/clientConfig.js'
-import { persistAuthSession, persistCurrentUser } from '../utils/authSession'
+import { hasCompleteCurrentUser, persistAuthSession, persistCurrentUser } from '../utils/authSession'
 
 export default function OAuthCallback() {
   const dispatch = useDispatch()
@@ -41,7 +41,7 @@ export default function OAuthCallback() {
 
       try {
         let currentUser = session.user
-        if (!currentUser) {
+        if (!hasCompleteCurrentUser(currentUser)) {
           const userResponse = await authAPI.getCurrentUser()
           currentUser = unwrapData(userResponse)
         }

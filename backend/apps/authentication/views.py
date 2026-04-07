@@ -369,12 +369,7 @@ class GoogleAuthView(APIView):
                 request=request,
                 message="Google authentication successful",
                 data={
-                    "user": {
-                        "id": str(user.id),
-                        "email": user.email,
-                        "name": user.name,
-                        "avatar": user.avatar or "",
-                    },
+                    "user": CurrentUserSerializer(user).data,
                     "tokens": tokens,
                     "is_new_user": is_new_user,
                 },

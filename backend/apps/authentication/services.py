@@ -26,6 +26,48 @@ from apps.users.selectors import get_user_by_email
 User = get_user_model()
 
 
+def sync_google_account_profile(
+    *,
+    user,
+    name: str = "",
+    first_name: str = "",
+    last_name: str = "",
+    avatar: str = "",
+    email_verified: bool = True,
+    overwrite_profile: bool = False,
+):
+    updated_fields: list[str] = []
+
+    if user.auth_provider != UserModel.AuthProvider.GOOGLE:
+        user.auth_provider = UserModel.AuthProvider.GOOGLE
+        updated_fields.append("auth_provider")
+
+    if email_verified and not user.email_verified:
+        user.email_verified = True
+        updated_fields.append("email_verified")
+
+    profile_updates = {
+        "name": name.strip(),
+        "first_name": first_name.strip(),
+        "last_name": last_name.strip(),
+        "avatar": avatar.strip(),
+    }
+
+    for field, value in profile_updates.items():
+        if not value:
+            continue
+        current_value = getattr(user, field, "")
+        should_update = overwrite_profile or not current_value
+        if should_update and current_value != value:
+            setattr(user, field, value)
+            updated_fields.append(field)
+
+    if updated_fields:
+        user.save(update_fields=[*updated_fields, "updated_at"])
+
+    return user
+
+
 def create_user_account(
     *,
     name: str,
