@@ -3,9 +3,17 @@ from __future__ import annotations
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from apps.audit_logs.serializers import AuditLogListSerializer
 from apps.memberships.models import Membership
-from apps.tasks.models import SavedTaskView, Task, TaskTemplate
-from apps.tasks.services import create_task, create_task_from_template, create_task_template
+from apps.tasks.models import FavoriteTask, RecentTaskVisit, SavedTaskView, Task, TaskChecklistItem, TaskLabel, TaskTemplate, TaskWatcher
+from apps.tasks.services import (
+    create_task,
+    create_task_from_template,
+    create_task_label,
+    create_task_template,
+    update_task,
+    validate_task_labels,
+)
 from apps.teams.models import Team
 
 User = get_user_model()
@@ -18,6 +26,44 @@ class TaskUserSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class TaskLabelSerializer(serializers.ModelSerializer):
+    team = serializers.UUIDField(source="team_id", read_only=True)
+
+    class Meta:
+        model = TaskLabel
+        fields = ("id", "team", "name", "color", "created_at", "updated_at")
+        read_only_fields = fields
+
+
+class TaskChecklistItemSerializer(serializers.ModelSerializer):
+    created_by = TaskUserSerializer(read_only=True)
+    completed_by = TaskUserSerializer(read_only=True)
+
+    class Meta:
+        model = TaskChecklistItem
+        fields = (
+            "id",
+            "title",
+            "is_completed",
+            "completed_at",
+            "position",
+            "created_by",
+            "completed_by",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+
+class TaskWatcherSerializer(serializers.ModelSerializer):
+    user = TaskUserSerializer(read_only=True)
+
+    class Meta:
+        model = TaskWatcher
+        fields = ("id", "user", "created_at", "updated_at")
+        read_only_fields = fields
+
+
 class TaskListSerializer(serializers.ModelSerializer):
     team = serializers.UUIDField(source="team_id", read_only=True)
     team_name = serializers.CharField(source="team.name", read_only=True)
@@ -26,6 +72,11 @@ class TaskListSerializer(serializers.ModelSerializer):
     assigned_to = serializers.UUIDField(source="assigned_to_id", read_only=True, allow_null=True)
     assigned_to_data = TaskUserSerializer(source="assigned_to", read_only=True)
     is_overdue = serializers.BooleanField(read_only=True)
+    labels = TaskLabelSerializer(many=True, read_only=True)
+    watcher_count = serializers.SerializerMethodField()
+    checklist_summary = serializers.SerializerMethodField()
+    is_favorite = serializers.SerializerMethodField()
+    is_watching = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
@@ -46,6 +97,11 @@ class TaskListSerializer(serializers.ModelSerializer):
             "created_by_data",
             "assigned_to",
             "assigned_to_data",
+            "labels",
+            "watcher_count",
+            "checklist_summary",
+            "is_favorite",
+            "is_watching",
             "completed_at",
             "position",
             "is_overdue",
@@ -54,6 +110,34 @@ class TaskListSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    def get_watcher_count(self, obj):
+        watchers = getattr(obj, "watchers", None)
+        return watchers.count() if hasattr(watchers, "count") else obj.watchers.count()
+
+    def get_checklist_summary(self, obj):
+        items = list(getattr(obj, "checklist_items", []).all() if hasattr(getattr(obj, "checklist_items", None), "all") else getattr(obj, "checklist_items", []) or [])
+        total = len(items) if items else obj.checklist_items.count()
+        completed = len([item for item in items if item.is_completed]) if items else obj.checklist_items.filter(is_completed=True).count()
+        return {"total": total, "completed": completed}
+
+    def get_is_favorite(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        favorites = getattr(obj, "favorited_by", None)
+        if hasattr(favorites, "all"):
+            return any(str(favorite.user_id) == str(request.user.id) for favorite in favorites.all())
+        return obj.favorited_by.filter(user=request.user).exists()
+
+    def get_is_watching(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        watchers = getattr(obj, "watchers", None)
+        if hasattr(watchers, "all"):
+            return any(str(watcher.user_id) == str(request.user.id) for watcher in watchers.all())
+        return obj.watchers.filter(user=request.user).exists()
+
 
 class TaskDetailSerializer(TaskListSerializer):
     source_template = serializers.UUIDField(source="source_template_id", read_only=True, allow_null=True)
@@ -61,6 +145,8 @@ class TaskDetailSerializer(TaskListSerializer):
     last_status_changed_by_data = TaskUserSerializer(source="last_status_changed_by", read_only=True)
     comment_count = serializers.SerializerMethodField()
     attachment_count = serializers.SerializerMethodField()
+    checklist_items = TaskChecklistItemSerializer(many=True, read_only=True)
+    watchers = TaskWatcherSerializer(many=True, read_only=True)
 
     class Meta(TaskListSerializer.Meta):
         fields = TaskListSerializer.Meta.fields + [
@@ -73,6 +159,8 @@ class TaskDetailSerializer(TaskListSerializer):
             "last_status_changed_by_data",
             "comment_count",
             "attachment_count",
+            "checklist_items",
+            "watchers",
         ]
         read_only_fields = fields
 
@@ -117,6 +205,7 @@ class TaskCreateSerializer(serializers.Serializer):
     recurrence_interval = serializers.IntegerField(required=False, min_value=1, default=1)
     assigned_to = serializers.UUIDField(required=False, allow_null=True)
     source_template = serializers.UUIDField(required=False, allow_null=True)
+    labels = serializers.ListField(child=serializers.UUIDField(), required=False, default=list)
 
     def validate_title(self, value: str) -> str:
         value = value.strip()
@@ -155,6 +244,8 @@ class TaskCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError({"source_template": "Selected template does not exist for this team."})
             attrs["source_template_object"] = template
 
+        attrs["labels_queryset"] = validate_task_labels(team=team, labels=attrs.get("labels", []))
+
         attrs["team"] = team
         return attrs
 
@@ -165,6 +256,7 @@ class TaskCreateSerializer(serializers.Serializer):
         validated_data.pop("assigned_to", None)
         validated_data.pop("source_template", None)
         validated_data["source_template"] = validated_data.pop("source_template_object", None)
+        validated_data["labels"] = validated_data.pop("labels_queryset", [])
         return create_task(
             team=team,
             created_by=self.context["request"].user,
@@ -183,6 +275,7 @@ class TaskUpdateSerializer(serializers.Serializer):
     due_date = serializers.DateTimeField(required=False, allow_null=True)
     recurrence_pattern = serializers.ChoiceField(choices=Task.Recurrence.choices, required=False)
     recurrence_interval = serializers.IntegerField(required=False, min_value=1)
+    labels = serializers.ListField(child=serializers.UUIDField(), required=False)
     position = serializers.IntegerField(required=False, min_value=0)
 
     def validate_title(self, value: str) -> str:
@@ -190,6 +283,12 @@ class TaskUpdateSerializer(serializers.Serializer):
         if len(value) < 3:
             raise serializers.ValidationError("Title must be at least 3 characters long.")
         return value
+
+    def validate(self, attrs):
+        task = self.context.get("task")
+        if task is not None and "labels" in attrs:
+            attrs["labels_queryset"] = validate_task_labels(team=task.team, labels=attrs.get("labels", []))
+        return attrs
 
 
 class TaskStatusUpdateSerializer(serializers.Serializer):
@@ -333,3 +432,64 @@ class SavedTaskViewCreateSerializer(serializers.Serializer):
     layout = serializers.ChoiceField(choices=SavedTaskView.Layout.choices, required=False, default=SavedTaskView.Layout.LIST)
     filters = serializers.DictField(required=False, default=dict)
     is_default = serializers.BooleanField(required=False, default=False)
+
+
+class TaskLabelCreateSerializer(serializers.Serializer):
+    team_id = serializers.UUIDField()
+    name = serializers.CharField(max_length=60)
+    color = serializers.CharField(max_length=16, required=False, default="#10b981")
+
+    def validate(self, attrs):
+        team = Team.objects.filter(pk=attrs["team_id"]).first()
+        if not team:
+            raise serializers.ValidationError({"team_id": "Selected team does not exist."})
+        membership = Membership.objects.filter(team=team, user=self.context["request"].user, status=Membership.Status.ACTIVE).first()
+        if not membership:
+            raise serializers.ValidationError({"team_id": "You are not a member of this team."})
+        attrs["team"] = team
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop("team_id")
+        team = validated_data.pop("team")
+        return create_task_label(team=team, created_by=self.context["request"].user, **validated_data)
+
+
+class TaskChecklistItemCreateSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=255)
+
+
+class TaskChecklistItemUpdateSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=255, required=False)
+    is_completed = serializers.BooleanField(required=False)
+    position = serializers.IntegerField(required=False, min_value=0)
+
+
+class TaskBulkActionSerializer(serializers.Serializer):
+    task_ids = serializers.ListField(child=serializers.UUIDField(), min_length=1)
+    action = serializers.ChoiceField(choices=[("assign", "Assign"), ("status", "Status"), ("archive", "Archive")])
+    status = serializers.ChoiceField(choices=Task.Status.choices, required=False)
+    assigned_to = serializers.UUIDField(required=False, allow_null=True)
+
+
+class FavoriteTaskSerializer(serializers.ModelSerializer):
+    task = TaskListSerializer(read_only=True)
+
+    class Meta:
+        model = FavoriteTask
+        fields = ("id", "task", "created_at", "updated_at")
+        read_only_fields = fields
+
+
+class RecentTaskVisitSerializer(serializers.ModelSerializer):
+    task = TaskListSerializer(read_only=True)
+
+    class Meta:
+        model = RecentTaskVisit
+        fields = ("id", "task", "last_accessed_at")
+        read_only_fields = fields
+
+
+class TaskTimelineEntrySerializer(AuditLogListSerializer):
+    class Meta(AuditLogListSerializer.Meta):
+        fields = AuditLogListSerializer.Meta.fields + ["metadata"]

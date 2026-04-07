@@ -78,6 +78,8 @@ export default function MyTasks() {
   const [templateCreating, setTemplateCreating] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
   const [activeViewKey, setActiveViewKey] = useState('all')
+  const [selectedTaskIds, setSelectedTaskIds] = useState([])
+  const [bulkDraft, setBulkDraft] = useState({ action: 'status', status: 'in_progress', assigned_to: '' })
   const [draft, setDraft] = useState(initialDraft)
   const currentUser = useSelector((state) => state.auth.user)
   const dispatch = useDispatch()
@@ -308,6 +310,32 @@ export default function MyTasks() {
     }
   }
 
+  const handleToggleSelectedTask = (taskId) => {
+    setSelectedTaskIds((current) =>
+      current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId]
+    )
+  }
+
+  const handleBulkAction = async () => {
+    if (!selectedTaskIds.length) {
+      return
+    }
+
+    try {
+      await tasksAPI.bulkAction({
+        task_ids: selectedTaskIds,
+        action: bulkDraft.action,
+        status: bulkDraft.action === 'status' ? bulkDraft.status : undefined,
+        assigned_to: bulkDraft.action === 'assign' ? bulkDraft.assigned_to || null : undefined,
+      })
+      setSelectedTaskIds([])
+      toast.success('Bulk action applied.')
+      await loadTasks()
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to apply bulk action.')
+    }
+  }
+
   if (loading) {
     return <LoadingState label="Loading your tasks" />
   }
@@ -428,6 +456,63 @@ export default function MyTasks() {
         )}
       </section>
 
+      {selectedTaskIds.length ? (
+        <section className="card fade-in">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Bulk actions</p>
+              <h3 className="mt-2 text-xl font-semibold text-slate-950">{selectedTaskIds.length} tasks selected</h3>
+            </div>
+            <div className="grid gap-3 md:grid-cols-4">
+              <select
+                value={bulkDraft.action}
+                onChange={(event) => setBulkDraft((current) => ({ ...current, action: event.target.value }))}
+                className="input-field"
+              >
+                <option value="status">Change status</option>
+                <option value="assign">Assign teammate</option>
+                <option value="archive">Archive tasks</option>
+              </select>
+              {bulkDraft.action === 'status' ? (
+                <select
+                  value={bulkDraft.status}
+                  onChange={(event) => setBulkDraft((current) => ({ ...current, status: event.target.value }))}
+                  className="input-field"
+                >
+                  <option value="todo">To Do</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="in_review">In Review</option>
+                  <option value="done">Done</option>
+                </select>
+              ) : bulkDraft.action === 'assign' ? (
+                <select
+                  value={bulkDraft.assigned_to}
+                  onChange={(event) => setBulkDraft((current) => ({ ...current, assigned_to: event.target.value }))}
+                  className="input-field"
+                >
+                  <option value="">Unassigned</option>
+                  {teamMembers.map((membership) => (
+                    <option key={membership.id} value={membership.user?.id || ''}>
+                      {membership.user?.name || membership.user?.email || 'Team member'}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  Tasks will be archived.
+                </div>
+              )}
+              <button type="button" onClick={handleBulkAction} className="btn-primary">
+                Apply
+              </button>
+              <button type="button" onClick={() => setSelectedTaskIds([])} className="btn-secondary">
+                Clear
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {visibleTasks.length === 0 ? (
         <EmptyState
           title={focusMode ? 'No focus tasks right now' : 'No tasks in this view yet'}
@@ -445,7 +530,20 @@ export default function MyTasks() {
       ) : (
         <div className="grid gap-4">
           {visibleTasks.map((task) => (
-            <Link key={task.id} to={`/tasks/${task.id}`} className="feature-tile fade-in">
+            <div key={task.id} className="feature-tile fade-in">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={selectedTaskIds.includes(task.id)}
+                    onChange={() => handleToggleSelectedTask(task.id)}
+                  />
+                  Select
+                </label>
+                <Link to={`/tasks/${task.id}`} className="btn-ghost">
+                  Open detail
+                </Link>
+              </div>
               <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[1.2fr,0.8fr] lg:items-center">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -454,6 +552,7 @@ export default function MyTasks() {
                       <div className="stat-chip bg-emerald-100 text-emerald-800">{toSentenceCase(task.recurrence_pattern)}</div>
                     ) : null}
                     {task.blocked_reason ? <div className="stat-chip bg-amber-100 text-amber-800">Blocked</div> : null}
+                    {task.is_favorite ? <div className="stat-chip bg-amber-100 text-amber-800">Favorite</div> : null}
                   </div>
                   <h3 className="mt-3 text-xl font-bold text-emerald-950">{task.title}</h3>
                   <p className="mt-2 text-sm text-soft">
@@ -462,7 +561,21 @@ export default function MyTasks() {
                   <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-600">
                     <span>Estimate: {formatEstimate(task.estimated_minutes)}</span>
                     <span>Planned: {task.planned_for_date ? formatDate(task.planned_for_date) : 'Not scheduled'}</span>
+                    <span>Watchers: {task.watcher_count || 0}</span>
                   </div>
+                  {task.labels?.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {task.labels.map((label) => (
+                        <span
+                          key={label.id}
+                          className="rounded-full px-3 py-1 text-xs font-semibold text-white"
+                          style={{ backgroundColor: label.color || '#10b981' }}
+                        >
+                          {label.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   {task.blocked_reason ? <p className="mt-3 text-sm font-medium text-amber-700">Blocked: {task.blocked_reason}</p> : null}
                 </div>
 
@@ -477,7 +590,7 @@ export default function MyTasks() {
                   </div>
                 </div>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import LoadingState from '../components/LoadingState'
 import EmptyState from '../components/EmptyState'
-import { dashboardAPI, notificationsAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { dashboardAPI, notificationsAPI, tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
 import { formatDate, formatRelativeDate, getInitials, toSentenceCase } from '../utils/formatters'
 
 const dashboardSurface = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
@@ -18,18 +18,37 @@ export default function Dashboard() {
   const [completedThisWeek, setCompletedThisWeek] = useState([])
   const [notifications, setNotifications] = useState([])
   const [teams, setTeams] = useState([])
+  const [pinnedTeams, setPinnedTeams] = useState([])
+  const [recentTeams, setRecentTeams] = useState([])
+  const [favoriteTasks, setFavoriteTasks] = useState([])
+  const [recentTasks, setRecentTasks] = useState([])
 
   useEffect(() => {
     const loadDashboard = async () => {
       setLoading(true)
       try {
-        const [summaryResponse, tasksResponse, overdueResponse, completedResponse, notificationsResponse, teamsResponse] = await Promise.all([
+        const [
+          summaryResponse,
+          tasksResponse,
+          overdueResponse,
+          completedResponse,
+          notificationsResponse,
+          teamsResponse,
+          pinnedTeamsResponse,
+          recentTeamsResponse,
+          favoriteTasksResponse,
+          recentTasksResponse,
+        ] = await Promise.all([
           dashboardAPI.getPersonalSummary(),
           dashboardAPI.getPersonalTasks(),
           dashboardAPI.getPersonalOverdue(),
           dashboardAPI.getCompletedThisWeek(),
           notificationsAPI.getNotifications(),
           teamsAPI.getTeams({ page_size: 6 }),
+          teamsAPI.getPinnedTeams({ page_size: 6 }),
+          teamsAPI.getRecentTeams({ page_size: 6 }),
+          tasksAPI.getFavorites({ page_size: 6 }),
+          tasksAPI.getRecent({ page_size: 6 }),
         ])
 
         setSummary(unwrapData(summaryResponse)?.summary || {})
@@ -38,6 +57,10 @@ export default function Dashboard() {
         setCompletedThisWeek(unwrapResults(completedResponse))
         setNotifications(unwrapResults(notificationsResponse))
         setTeams(unwrapResults(teamsResponse))
+        setPinnedTeams(unwrapResults(pinnedTeamsResponse))
+        setRecentTeams(unwrapResults(recentTeamsResponse))
+        setFavoriteTasks(unwrapResults(favoriteTasksResponse))
+        setRecentTasks(unwrapResults(recentTasksResponse))
       } finally {
         setLoading(false)
       }
@@ -133,6 +156,10 @@ export default function Dashboard() {
       .sort((left, right) => right.myTaskCount - left.myTaskCount || right.dueSoonCount - left.dueSoonCount)
       .slice(0, 3)
   }, [assignedTasks, now, teams])
+  const continueItems = useMemo(() => recentTasks.slice(0, 4), [recentTasks])
+  const favoriteTaskItems = useMemo(() => favoriteTasks.slice(0, 4), [favoriteTasks])
+  const pinnedTeamItems = useMemo(() => pinnedTeams.slice(0, 4), [pinnedTeams])
+  const recentTeamItems = useMemo(() => recentTeams.slice(0, 4), [recentTeams])
 
   if (loading) {
     return <LoadingState label="Loading your personal dashboard" />
@@ -367,6 +394,107 @@ export default function Dashboard() {
               </Link>
             ))
           )}
+        </div>
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+          <SectionHeader eyebrow="Continue" title="Recent task context" />
+          <div className="mt-5 space-y-3">
+            {continueItems.length === 0 ? (
+              <EmptyState
+                eyebrow="Recent tasks"
+                title="No recent work yet"
+                description="As you open tasks, your recent items will show up here so you can jump back in quickly."
+              />
+            ) : (
+              continueItems.map((entry) => (
+                <Link key={entry.id} to={`/tasks/${entry.task?.id}`} className={`block ${compactSurface} p-4 transition hover:-translate-y-0.5 hover:bg-white`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-950">{entry.task?.title}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {entry.task?.team_name || 'Workspace'} • {formatRelativeDate(entry.last_accessed_at)}
+                      </p>
+                    </div>
+                    <StatusChip status={entry.task?.status || 'todo'} />
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+          <SectionHeader eyebrow="Favorites" title="Pinned workspaces and starred tasks" />
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div className={`${compactSurface} p-4`}>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Pinned teams</p>
+              <div className="mt-4 space-y-3">
+                {pinnedTeamItems.length === 0 ? (
+                  <p className="text-sm text-slate-500">Pin your most-used teams to keep them close.</p>
+                ) : (
+                  pinnedTeamItems.map((entry) => (
+                    <Link key={entry.id} to={`/teams/${entry.team?.id}/overview`} className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition hover:border-slate-300">
+                      {entry.team?.name}
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className={`${compactSurface} p-4`}>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Favorite tasks</p>
+              <div className="mt-4 space-y-3">
+                {favoriteTaskItems.length === 0 ? (
+                  <p className="text-sm text-slate-500">Star high-signal tasks from the task detail page.</p>
+                ) : (
+                  favoriteTaskItems.map((entry) => (
+                    <Link key={entry.id} to={`/tasks/${entry.task?.id}`} className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 transition hover:border-slate-300">
+                      <p className="truncate text-sm font-semibold text-slate-950">{entry.task?.title}</p>
+                      <p className="mt-1 text-xs text-slate-500">{entry.task?.team_name || 'Workspace'}</p>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section className={`${dashboardSurface} p-6 lg:p-7`}>
+        <SectionHeader eyebrow="Workspaces" title="Pinned and recent teams" />
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div className={`${compactSurface} p-5`}>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Pinned first</p>
+            <div className="mt-4 space-y-3">
+              {(pinnedTeamItems.length ? pinnedTeamItems : recentTeamItems).slice(0, 4).map((entry) => {
+                const team = entry.team || entry
+                return (
+                  <Link key={entry.id} to={`/teams/${team?.id}/overview`} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 transition hover:border-slate-300">
+                    <span className="text-sm font-semibold text-slate-950">{team?.name}</span>
+                    <span className="text-xs uppercase tracking-[0.16em] text-slate-500">{team?.member_count || 0} members</span>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className={`${compactSurface} p-5`}>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Recently opened</p>
+            <div className="mt-4 space-y-3">
+              {recentTeamItems.length === 0 ? (
+                <p className="text-sm text-slate-500">As you move through team workspaces, they’ll show up here.</p>
+              ) : (
+                recentTeamItems.map((entry) => (
+                  <Link key={entry.id} to={`/teams/${entry.team?.id}/overview`} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 transition hover:border-slate-300">
+                    <span className="text-sm font-semibold text-slate-950">{entry.team?.name}</span>
+                    <span className="text-xs text-slate-500">{formatRelativeDate(entry.last_accessed_at)}</span>
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </section>
 

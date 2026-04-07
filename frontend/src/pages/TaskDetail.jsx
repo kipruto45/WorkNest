@@ -6,7 +6,7 @@ import { toast } from 'react-toastify'
 import LoadingState from '../components/LoadingState'
 import { attachmentsAPI, commentsAPI, tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
 import { deleteTask, updateTask } from '../features/tasksSlice'
-import { formatDate, toSentenceCase } from '../utils/formatters'
+import { formatDate, formatRelativeDate, toSentenceCase } from '../utils/formatters'
 import { TASK_FIELD_KEYS } from '../utils/clientConfig.js'
 import {
   canAssignTask,
@@ -20,6 +20,7 @@ import {
 const allowedAttachmentExtensions = ['pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip']
 const maxAttachmentSizeBytes = 10 * 1024 * 1024
 const commentReactionOptions = ['👍', '❤️', '🎉', '👀', '🔥']
+const labelPalette = ['#10b981', '#0f766e', '#2563eb', '#7c3aed', '#f59e0b', '#ef4444']
 
 export default function TaskDetail() {
   const { taskId } = useParams()
@@ -31,14 +32,19 @@ export default function TaskDetail() {
   const [attachments, setAttachments] = useState([])
   const [team, setTeam] = useState(null)
   const [teamMembers, setTeamMembers] = useState([])
+  const [teamLabels, setTeamLabels] = useState([])
+  const [timeline, setTimeline] = useState([])
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [commentValue, setCommentValue] = useState('')
   const [attachmentFile, setAttachmentFile] = useState(null)
+  const [checklistDraft, setChecklistDraft] = useState('')
+  const [labelDraft, setLabelDraft] = useState({ name: '', color: labelPalette[0] })
   const [submittingComment, setSubmittingComment] = useState(false)
   const [uploadingAttachment, setUploadingAttachment] = useState(false)
   const [savingAssignment, setSavingAssignment] = useState(false)
   const [savingStatus, setSavingStatus] = useState(false)
+  const [savingMetaAction, setSavingMetaAction] = useState('')
   const [selectedAssigneeId, setSelectedAssigneeId] = useState('')
   const [statusDraft, setStatusDraft] = useState('todo')
   const [attachmentActionKey, setAttachmentActionKey] = useState('')
@@ -59,11 +65,13 @@ export default function TaskDetail() {
         return
       }
 
-      const [commentsResponse, attachmentsResponse, teamResponse, membersResponse] = await Promise.all([
+      const [commentsResponse, attachmentsResponse, teamResponse, membersResponse, labelsResponse, timelineResponse] = await Promise.all([
         commentsAPI.getComments(taskId, { page_size: 100 }),
         attachmentsAPI.getForTask(taskId),
         teamsAPI.getTeam(taskData.team).catch(() => null),
         teamsAPI.getTeamMembers(taskData.team, { page_size: 100 }).catch(() => null),
+        tasksAPI.getLabels({ team: taskData.team, page_size: 100 }).catch(() => null),
+        tasksAPI.getTimeline(taskId, { page_size: 20 }).catch(() => null),
       ])
 
       setTask(taskData)
@@ -71,6 +79,8 @@ export default function TaskDetail() {
       setAttachments(unwrapResults(attachmentsResponse))
       setTeam(teamResponse ? unwrapData(teamResponse) : null)
       setTeamMembers(membersResponse ? unwrapResults(membersResponse) : [])
+      setTeamLabels(labelsResponse ? unwrapResults(labelsResponse) : [])
+      setTimeline(timelineResponse ? unwrapResults(timelineResponse) : [])
       setSelectedAssigneeId(taskData.assigned_to || '')
       setStatusDraft(taskData.status)
       reset({
@@ -305,6 +315,118 @@ export default function TaskDetail() {
     }
   }
 
+  const handleToggleFavorite = async () => {
+    setSavingMetaAction('favorite')
+    try {
+      await tasksAPI.toggleFavorite(taskId)
+      await loadTaskData()
+      toast.success(task.is_favorite ? 'Task removed from favorites.' : 'Task added to favorites.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to update favorite state.')
+    } finally {
+      setSavingMetaAction('')
+    }
+  }
+
+  const handleToggleWatch = async () => {
+    setSavingMetaAction('watch')
+    try {
+      if (task.is_watching) {
+        await tasksAPI.unwatchTask(taskId)
+      } else {
+        await tasksAPI.watchTask(taskId)
+      }
+      await loadTaskData()
+      toast.success(task.is_watching ? 'Stopped watching this task.' : 'You are now watching this task.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to update watcher state.')
+    } finally {
+      setSavingMetaAction('')
+    }
+  }
+
+  const handleLabelsUpdate = async (event) => {
+    const selectedIds = Array.from(event.target.selectedOptions, (option) => option.value)
+    setSavingMetaAction('labels')
+    try {
+      await tasksAPI.updateTask(taskId, { labels: selectedIds })
+      await loadTaskData()
+      toast.success('Task labels updated.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to update labels.')
+    } finally {
+      setSavingMetaAction('')
+    }
+  }
+
+  const handleCreateLabel = async (event) => {
+    event.preventDefault()
+    if (!labelDraft.name.trim()) {
+      toast.error('Add a label name first.')
+      return
+    }
+
+    setSavingMetaAction('create-label')
+    try {
+      await tasksAPI.createLabel({
+        team_id: task.team,
+        name: labelDraft.name.trim(),
+        color: labelDraft.color,
+      })
+      setLabelDraft({ name: '', color: labelPalette[0] })
+      await loadTaskData()
+      toast.success('Label created.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to create label.')
+    } finally {
+      setSavingMetaAction('')
+    }
+  }
+
+  const handleChecklistCreate = async (event) => {
+    event.preventDefault()
+    if (!checklistDraft.trim()) {
+      return
+    }
+
+    setSavingMetaAction('checklist-create')
+    try {
+      await tasksAPI.createChecklistItem(taskId, { title: checklistDraft.trim() })
+      setChecklistDraft('')
+      await loadTaskData()
+      toast.success('Checklist item added.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to add checklist item.')
+    } finally {
+      setSavingMetaAction('')
+    }
+  }
+
+  const handleChecklistToggle = async (item) => {
+    setSavingMetaAction(`checklist-${item.id}`)
+    try {
+      await tasksAPI.updateChecklistItem(item.id, { is_completed: !item.is_completed })
+      await loadTaskData()
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to update checklist item.')
+    } finally {
+      setSavingMetaAction('')
+    }
+  }
+
+  const handleChecklistDelete = async (itemId) => {
+    setSavingMetaAction(`checklist-delete-${itemId}`)
+    try {
+      await tasksAPI.deleteChecklistItem(itemId)
+      await loadTaskData()
+      toast.success('Checklist item removed.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to remove checklist item.')
+    } finally {
+      setSavingMetaAction('')
+    }
+  }
+
   if (loading || !task) {
     return <LoadingState label="Loading task detail" />
   }
@@ -342,6 +464,12 @@ export default function TaskDetail() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={handleToggleFavorite} className="btn-secondary" disabled={savingMetaAction === 'favorite'}>
+              {savingMetaAction === 'favorite' ? 'Saving...' : task.is_favorite ? 'Favorited' : 'Favorite'}
+            </button>
+            <button type="button" onClick={handleToggleWatch} className="btn-secondary" disabled={savingMetaAction === 'watch'}>
+              {savingMetaAction === 'watch' ? 'Saving...' : task.is_watching ? 'Watching' : 'Watch task'}
+            </button>
             {canManage ? (
               <button type="button" onClick={() => setIsEditing((current) => !current)} className="btn-secondary">
                 {isEditing ? 'Close editor' : 'Edit task'}
@@ -456,8 +584,71 @@ export default function TaskDetail() {
               <DetailRow label="Due date" value={formatDate(task.due_date)} />
               <DetailRow label="Created by" value={task.created_by_data?.name || 'Unknown'} />
               <DetailRow label="Assigned to" value={task.assigned_to_data?.name || 'Unassigned'} />
+              <DetailRow label="Watchers" value={String(task.watchers?.length || 0)} />
               <DetailRow label="Comments" value={String(task.comment_count || comments.length)} />
               <DetailRow label="Attachments" value={String(task.attachment_count || attachments.length)} />
+            </div>
+
+            <div className="mt-5">
+              <p className="text-sm font-semibold text-emerald-950">Labels</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {task.labels?.length ? (
+                  task.labels.map((label) => (
+                    <span
+                      key={label.id}
+                      className="rounded-full px-3 py-1 text-xs font-semibold text-white"
+                      style={{ backgroundColor: label.color || '#10b981' }}
+                    >
+                      {label.name}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-soft">No labels attached yet.</span>
+                )}
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <select
+                  multiple
+                  className="input-field min-h-[136px]"
+                  value={task.labels?.map((label) => label.id) || []}
+                  onChange={handleLabelsUpdate}
+                  disabled={savingMetaAction === 'labels'}
+                >
+                  {teamLabels.map((label) => (
+                    <option key={label.id} value={label.id}>
+                      {label.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500">Hold Ctrl/Cmd to select multiple labels.</p>
+
+                <form onSubmit={handleCreateLabel} className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+                  <p className="text-sm font-semibold text-emerald-950">Create a new label</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[1fr,auto,auto]">
+                    <input
+                      value={labelDraft.name}
+                      onChange={(event) => setLabelDraft((current) => ({ ...current, name: event.target.value }))}
+                      className="input-field"
+                      placeholder="Customer-facing"
+                    />
+                    <select
+                      value={labelDraft.color}
+                      onChange={(event) => setLabelDraft((current) => ({ ...current, color: event.target.value }))}
+                      className="input-field"
+                    >
+                      {labelPalette.map((color) => (
+                        <option key={color} value={color}>
+                          {color}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="submit" disabled={savingMetaAction === 'create-label'} className="btn-secondary">
+                      {savingMetaAction === 'create-label' ? 'Creating...' : 'Create label'}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
 
             {canAssignCurrentTask ? (
@@ -509,6 +700,107 @@ export default function TaskDetail() {
                 </div>
               </div>
             ) : null}
+
+            <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+              <p className="text-sm font-semibold text-emerald-950">Watchers</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {task.watchers?.length ? (
+                  task.watchers.map((watcher) => (
+                    <span key={watcher.id} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                      {watcher.user?.name || watcher.user?.email || 'Watcher'}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-slate-500">No watchers yet.</span>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="card fade-in">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Checklist</p>
+                <h2 className="mt-2 text-2xl font-bold text-emerald-950">Subtasks and progress</h2>
+              </div>
+              <div className="stat-chip">
+                {(task.checklist_items || []).filter((item) => item.is_completed).length}/{task.checklist_items?.length || 0}
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {(task.checklist_items || []).length === 0 ? (
+                <div className="rounded-[24px] bg-emerald-50/70 p-5 text-sm text-soft">Break this task into checklist items to make progress visible.</div>
+              ) : (
+                task.checklist_items.map((item) => (
+                  <div key={item.id} className="glass-panel flex items-center justify-between gap-3 p-4">
+                    <label className="flex min-w-0 flex-1 items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={item.is_completed}
+                        onChange={() => handleChecklistToggle(item)}
+                        disabled={savingMetaAction === `checklist-${item.id}`}
+                      />
+                      <span className={`text-sm ${item.is_completed ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+                        {item.title}
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleChecklistDelete(item.id)}
+                      disabled={savingMetaAction === `checklist-delete-${item.id}`}
+                      className="btn-ghost"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handleChecklistCreate} className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <input
+                value={checklistDraft}
+                onChange={(event) => setChecklistDraft(event.target.value)}
+                className="input-field flex-1"
+                placeholder="Add a checklist item"
+              />
+              <button type="submit" disabled={savingMetaAction === 'checklist-create'} className="btn-primary">
+                {savingMetaAction === 'checklist-create' ? 'Adding...' : 'Add item'}
+              </button>
+            </form>
+          </section>
+
+          <section className="card fade-in">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Activity</p>
+                <h2 className="mt-2 text-2xl font-bold text-emerald-950">Task timeline</h2>
+              </div>
+              <div className="stat-chip">{timeline.length}</div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {timeline.length === 0 ? (
+                <div className="rounded-[24px] bg-emerald-50/70 p-5 text-sm text-soft">Important changes to this task will appear here.</div>
+              ) : (
+                timeline.map((entry) => (
+                  <div key={entry.id} className="glass-panel p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{toSentenceCase((entry.action || '').replaceAll('_', ' '))}</p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {entry.actor?.name || 'System'} • {entry.target_repr || 'Task update'}
+                        </p>
+                      </div>
+                      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                        {formatRelativeDate(entry.created_at)}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </section>
 
           <section className="card fade-in">

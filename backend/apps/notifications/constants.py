@@ -19,3 +19,4 @@ class NotificationType(models.TextChoices):
     INVITATION_ACCEPTED = "invitation_accepted", "Invitation Accepted"
     INVITATION_DECLINED = "invitation_declined", "Invitation Declined"
     ADMIN_MESSAGE = "admin_message", "Admin Message"
+    TEAM_ANNOUNCEMENT = "team_announcement", "Team Announcement"

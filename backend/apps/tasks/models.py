@@ -63,6 +63,7 @@ class Task(models.Model):
         blank=True,
         related_name="generated_tasks",
     )
+    labels = models.ManyToManyField("tasks.TaskLabel", blank=True, related_name="tasks")
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -161,6 +162,109 @@ class SavedTaskView(TimeStampedUUIDModel):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.user.email})"
+
+
+class TaskLabel(TimeStampedUUIDModel):
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="task_labels")
+    name = models.CharField(max_length=60)
+    color = models.CharField(max_length=16, default="#10b981")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_task_labels",
+    )
+
+    class Meta:
+        db_table = "task_labels"
+        ordering = ["name", "-created_at"]
+        unique_together = ("team", "name")
+        indexes = [
+            models.Index(fields=["team", "name"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.team.name})"
+
+
+class TaskChecklistItem(TimeStampedUUIDModel):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="checklist_items")
+    title = models.CharField(max_length=255)
+    is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    position = models.PositiveIntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_checklist_items",
+    )
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="completed_checklist_items",
+    )
+
+    class Meta:
+        db_table = "task_checklist_items"
+        ordering = ["position", "created_at"]
+        indexes = [
+            models.Index(fields=["task", "position"]),
+            models.Index(fields=["task", "is_completed"]),
+        ]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class TaskWatcher(TimeStampedUUIDModel):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="watchers")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="watched_tasks")
+
+    class Meta:
+        db_table = "task_watchers"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["task", "user"], name="unique_task_watcher"),
+        ]
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+        ]
+
+
+class FavoriteTask(TimeStampedUUIDModel):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorite_tasks")
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="favorited_by")
+
+    class Meta:
+        db_table = "favorite_tasks"
+        ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "task"], name="unique_favorite_task"),
+        ]
+        indexes = [
+            models.Index(fields=["user", "updated_at"]),
+        ]
+
+
+class RecentTaskVisit(TimeStampedUUIDModel):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recent_task_visits")
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="recent_visits")
+    last_accessed_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "recent_task_visits"
+        ordering = ["-last_accessed_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "task"], name="unique_recent_task_visit"),
+        ]
+        indexes = [
+            models.Index(fields=["user", "last_accessed_at"]),
+        ]
 
 
 def _shift_date(value: date | None, recurrence_pattern: str, interval: int) -> date | None:

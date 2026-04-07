@@ -2,6 +2,8 @@ from django.urls import path
 
 from apps.teams.views import (
     TeamArchiveView,
+    TeamAnnouncementDetailView,
+    TeamAnnouncementListCreateView,
     TeamDetailView,
     TeamInvitationListCreateView,
     TeamInvitationRoleUpdateView,
@@ -9,14 +11,24 @@ from apps.teams.views import (
     TeamMemberListView,
     TeamMemberRemoveView,
     TeamMemberRoleUpdateView,
+    TeamPinToggleView,
+    TeamTimelineView,
+    PinnedTeamListView,
+    RecentTeamListView,
 )
 
 app_name = "teams"
 
 urlpatterns = [
     path("", TeamListCreateView.as_view(), name="list-create"),
+    path("pinned/", PinnedTeamListView.as_view(), name="pinned"),
+    path("recent/", RecentTeamListView.as_view(), name="recent"),
     path("<uuid:pk>/", TeamDetailView.as_view(), name="detail"),
     path("<uuid:pk>/archive/", TeamArchiveView.as_view(), name="archive"),
+    path("<uuid:pk>/pin/", TeamPinToggleView.as_view(), name="pin"),
+    path("<uuid:pk>/timeline/", TeamTimelineView.as_view(), name="timeline"),
+    path("<uuid:pk>/announcements/", TeamAnnouncementListCreateView.as_view(), name="announcements"),
+    path("<uuid:pk>/announcements/<uuid:announcement_id>/", TeamAnnouncementDetailView.as_view(), name="announcement-detail"),
     path("<uuid:pk>/members/", TeamMemberListView.as_view(), name="members"),
     path("<uuid:pk>/members/invite/", TeamInvitationListCreateView.as_view(), name="invite-member"),
     path("<uuid:pk>/invitations/", TeamInvitationListCreateView.as_view(), name="invitations"),

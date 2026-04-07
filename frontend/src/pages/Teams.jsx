@@ -6,10 +6,12 @@ import { toast } from 'react-toastify'
 import PageHero from '../components/PageHero'
 import EmptyState from '../components/EmptyState'
 import { fetchTeams, createTeam } from '../features/teamsSlice'
+import { teamsAPI } from '../services/api'
 import { toSentenceCase } from '../utils/formatters'
 
 export default function Teams() {
   const [showModal, setShowModal] = useState(false)
+  const [pinningTeamId, setPinningTeamId] = useState('')
   const { teams, loading } = useSelector((state) => state.teams)
   const dispatch = useDispatch()
   const navigate = useNavigate()
@@ -24,6 +26,13 @@ export default function Teams() {
     dispatch(fetchTeams())
   }, [dispatch])
 
+  const sortedTeams = [...teams].sort((left, right) => {
+    if (left.is_pinned === right.is_pinned) {
+      return left.name.localeCompare(right.name)
+    }
+    return left.is_pinned ? -1 : 1
+  })
+
   const onSubmit = async (data) => {
     try {
       const team = await dispatch(createTeam(data)).unwrap()
@@ -33,6 +42,19 @@ export default function Teams() {
       navigate(`/teams/${team.id}/invitations?compose=1&created=1`)
     } catch (error) {
       toast.error(error || 'Failed to create team')
+    }
+  }
+
+  const handleTogglePin = async (teamId) => {
+    setPinningTeamId(teamId)
+    try {
+      await teamsAPI.togglePin(teamId)
+      await dispatch(fetchTeams()).unwrap()
+      toast.success('Team pin updated.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to update pin right now.')
+    } finally {
+      setPinningTeamId('')
     }
   }
 
@@ -77,13 +99,16 @@ export default function Teams() {
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {teams.map((team) => (
+          {sortedTeams.map((team) => (
             <div key={team.id} className="feature-tile fade-in">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-xl font-bold text-white">
                   {team.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="stat-chip">{toSentenceCase(team.my_role || 'member')}</div>
+                <div className="flex items-center gap-2">
+                  {team.is_pinned ? <div className="stat-chip">Pinned</div> : null}
+                  <div className="stat-chip">{toSentenceCase(team.my_role || 'member')}</div>
+                </div>
               </div>
               <h3 className="mt-5 text-2xl font-bold text-emerald-950">{team.name}</h3>
               <p className="mt-2 min-h-[48px] text-sm leading-6 text-soft">
@@ -116,6 +141,14 @@ export default function Teams() {
                 <Link to={`/teams/${team.id}/analytics`} className="btn-ghost">
                   Analytics
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => handleTogglePin(team.id)}
+                  disabled={pinningTeamId === team.id}
+                  className="btn-ghost"
+                >
+                  {pinningTeamId === team.id ? 'Updating...' : team.is_pinned ? 'Unpin' : 'Pin'}
+                </button>
               </div>
             </div>
           ))}

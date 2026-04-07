@@ -6,11 +6,13 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 from apps.audit_logs.constants import AuditAction
-from apps.audit_logs.services import build_audit_metadata, log_team_action
+from apps.audit_logs.services import build_audit_metadata, create_audit_log, log_team_action
 from rest_framework.exceptions import ValidationError
 
 from apps.memberships.models import Membership
-from apps.teams.models import Team
+from apps.notifications.constants import NotificationType
+from apps.notifications.services import create_bulk_notifications
+from apps.teams.models import FavoriteTeam, RecentTeamVisit, Team, TeamAnnouncement
 
 logger = logging.getLogger(__name__)
 
@@ -107,3 +109,95 @@ def delete_team_if_allowed(*, team: Team, actor) -> None:
     )
     logger.info("team_deleted", extra={"team_id": str(team.id), "actor_id": str(actor.id)})
     team.delete()
+
+
+@transaction.atomic
+def create_team_announcement(*, team: Team, actor, title: str, content: str, pinned_until=None) -> TeamAnnouncement:
+    announcement = TeamAnnouncement.objects.create(
+        team=team,
+        title=title.strip(),
+        content=content.strip(),
+        pinned_until=pinned_until,
+        published_by=actor,
+    )
+    log_team_action(
+        actor=actor,
+        action=AuditAction.TEAM_ANNOUNCEMENT_CREATED,
+        team=team,
+        target=announcement,
+        metadata=build_audit_metadata(title=announcement.title, pinned_until=announcement.pinned_until),
+    )
+
+    recipients = [
+        membership.user
+        for membership in team.memberships.select_related("user").filter(status=Membership.Status.ACTIVE)
+        if membership.user_id != actor.id
+    ]
+    if recipients:
+        create_bulk_notifications(
+            users=recipients,
+            notification_type=NotificationType.TEAM_ANNOUNCEMENT,
+            title=announcement.title,
+            message_builder=lambda _user: announcement.content,
+            actor=actor,
+            team=team,
+            metadata_builder=lambda _user: {"announcement_id": str(announcement.id), "team_id": str(team.id)},
+            target_type="team_announcement",
+            target_id=announcement.id,
+        )
+    return announcement
+
+
+@transaction.atomic
+def update_team_announcement(*, announcement: TeamAnnouncement, actor, title: str | None = None, content: str | None = None, pinned_until=...):
+    changes = {}
+    if title is not None:
+        changes["title"] = {"old": announcement.title, "new": title.strip()}
+        announcement.title = title.strip()
+    if content is not None:
+        changes["content"] = {"old": announcement.content, "new": content.strip()}
+        announcement.content = content.strip()
+    if pinned_until is not ...:
+        changes["pinned_until"] = {"old": announcement.pinned_until, "new": pinned_until}
+        announcement.pinned_until = pinned_until
+    if changes:
+        announcement.save()
+        log_team_action(
+            actor=actor,
+            action=AuditAction.TEAM_ANNOUNCEMENT_UPDATED,
+            team=announcement.team,
+            target=announcement,
+            metadata=build_audit_metadata(changes=changes),
+        )
+    return announcement
+
+
+def touch_recent_team(*, team: Team, user) -> None:
+    RecentTeamVisit.objects.update_or_create(
+        user=user,
+        team=team,
+        defaults={"last_accessed_at": timezone.now()},
+    )
+
+
+@transaction.atomic
+def toggle_team_pin(*, team: Team, user) -> bool:
+    favorite, created = FavoriteTeam.objects.get_or_create(team=team, user=user)
+    if created:
+        create_audit_log(
+            actor=user,
+            action=AuditAction.TEAM_PINNED,
+            team=team,
+            target=team,
+            metadata=build_audit_metadata(team_id=team.id),
+        )
+        return True
+    favorite.delete()
+    create_audit_log(
+        actor=user,
+        action=AuditAction.TEAM_UNPINNED,
+        team=team,
+        target=team,
+        metadata=build_audit_metadata(team_id=team.id),
+    )
+    return False

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import Forbidden from './Forbidden'
@@ -29,8 +30,12 @@ export default function TeamOverview() {
   const [priorities, setPriorities] = useState([])
   const [calendarItems, setCalendarItems] = useState([])
   const [activityEntries, setActivityEntries] = useState([])
+  const [announcements, setAnnouncements] = useState([])
   const [members, setMembers] = useState([])
   const [taskBuckets, setTaskBuckets] = useState(emptyBuckets)
+  const [announcementDraft, setAnnouncementDraft] = useState({ title: '', content: '' })
+  const [savingAnnouncement, setSavingAnnouncement] = useState(false)
+  const [pinningTeam, setPinningTeam] = useState(false)
 
   useEffect(() => {
     const loadWorkspace = async () => {
@@ -58,8 +63,10 @@ export default function TeamOverview() {
           priorityResult,
           calendarResult,
           activityResult,
+          announcementsResult,
           membersResult,
           kanbanResult,
+          timelineResult,
           auditLogsResult,
         ] = await Promise.allSettled([
           dashboardAPI.getTeamSummary(teamId),
@@ -69,8 +76,10 @@ export default function TeamOverview() {
           dashboardAPI.getTeamPriorityDistribution(teamId),
           dashboardAPI.getTeamCalendar(teamId, { page_size: 20 }),
           dashboardAPI.getTeamActivity(teamId),
+          teamsAPI.getAnnouncements(teamId, { page_size: 10 }),
           teamsAPI.getTeamMembers(teamId, { page_size: 50 }),
           tasksAPI.getKanban(teamId),
+          teamsAPI.getTimeline(teamId, { page_size: 12 }),
           auditLogsAPI.getForTeam(teamId, { page_size: 12 }),
         ])
 
@@ -83,6 +92,7 @@ export default function TeamOverview() {
         setStatuses(readPayload(statusResult)?.status_distribution || [])
         setPriorities(readPayload(priorityResult)?.priority_distribution || [])
         setCalendarItems(readCollection(readPayload(calendarResult), ['results', 'events', 'calendar']))
+        setAnnouncements(readCollection(readPayload(announcementsResult)))
         setMembers(readCollection(readPayload(membersResult)))
 
         const kanbanPayload = readPayload(kanbanResult) || {}
@@ -93,7 +103,7 @@ export default function TeamOverview() {
           done: kanbanPayload.done?.tasks || [],
         })
 
-        const rawActivity = readPayload(activityResult)
+        const rawActivity = readPayload(timelineResult) || readPayload(activityResult)
         const fallbackLogs = unwrapIfFulfilled(auditLogsResult)
         setActivityEntries(normalizeActivity(rawActivity, fallbackLogs))
       } catch (error) {
@@ -270,6 +280,45 @@ export default function TeamOverview() {
   const canCreateTasks = canCreateTask(currentRole)
   const canInviteMembers = canManageInvitations({ role: currentRole, allowManagerInvites: team.allow_manager_invites })
   const canManageTeamMembers = canManageMembers(currentRole)
+  const canPublishAnnouncements = currentRole === 'admin'
+
+  const handleTogglePin = async () => {
+    setPinningTeam(true)
+    try {
+      const response = await teamsAPI.togglePin(teamId)
+      const payload = unwrapData(response)
+      setTeam((current) => (current ? { ...current, is_pinned: Boolean(payload?.is_pinned) } : current))
+      toast.success(payload?.is_pinned ? 'Team pinned to your workspace.' : 'Team unpinned.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to update team pin.')
+    } finally {
+      setPinningTeam(false)
+    }
+  }
+
+  const handleCreateAnnouncement = async (event) => {
+    event.preventDefault()
+    if (!announcementDraft.title.trim() || !announcementDraft.content.trim()) {
+      toast.error('Add a title and message for the announcement.')
+      return
+    }
+
+    setSavingAnnouncement(true)
+    try {
+      await teamsAPI.createAnnouncement(teamId, {
+        title: announcementDraft.title.trim(),
+        content: announcementDraft.content.trim(),
+      })
+      const refreshed = await teamsAPI.getAnnouncements(teamId, { page_size: 10 })
+      setAnnouncements(unwrapResults(refreshed))
+      setAnnouncementDraft({ title: '', content: '' })
+      toast.success('Announcement published.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to publish announcement right now.')
+    } finally {
+      setSavingAnnouncement(false)
+    }
+  }
 
   if (loading) {
     return <LoadingState label="Loading team dashboard" />
@@ -317,6 +366,14 @@ export default function TeamOverview() {
               <Link to={`/teams/${teamId}`} className="inline-flex items-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
                 Open board
               </Link>
+              <button
+                type="button"
+                onClick={handleTogglePin}
+                disabled={pinningTeam}
+                className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50"
+              >
+                {pinningTeam ? 'Updating...' : team.is_pinned ? 'Unpin team' : 'Pin team'}
+              </button>
               {canInviteMembers ? (
                 <Link to={`/teams/${teamId}/invitations`} className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50">
                   Invite member
@@ -375,6 +432,59 @@ export default function TeamOverview() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.02fr,0.98fr]">
+        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+          <SectionHeader eyebrow="Announcements" title="Shared team updates" />
+
+          {canPublishAnnouncements ? (
+            <form onSubmit={handleCreateAnnouncement} className={`${compactSurface} mt-5 space-y-3 p-4`}>
+              <input
+                value={announcementDraft.title}
+                onChange={(event) => setAnnouncementDraft((current) => ({ ...current, title: event.target.value }))}
+                className="input-field"
+                placeholder="Announcement title"
+              />
+              <textarea
+                value={announcementDraft.content}
+                onChange={(event) => setAnnouncementDraft((current) => ({ ...current, content: event.target.value }))}
+                className="input-field min-h-[120px]"
+                placeholder="Share a milestone, risk, or team update"
+              />
+              <div className="flex justify-end">
+                <button type="submit" disabled={savingAnnouncement} className="btn-primary">
+                  {savingAnnouncement ? 'Publishing...' : 'Publish announcement'}
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          <div className="mt-5 space-y-3">
+            {announcements.length === 0 ? (
+              <EmptyState
+                eyebrow="Announcements"
+                title="No announcements yet"
+                description="Important team-wide updates will show up here to keep everyone aligned."
+              />
+            ) : (
+              announcements.map((announcement) => (
+                <div key={announcement.id} className={`${compactSurface} p-4`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-950">{announcement.title}</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">{announcement.content}</p>
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      {formatRelativeDate(announcement.created_at)}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-xs text-slate-500">
+                    Published by {announcement.published_by?.name || 'Team admin'}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
         <section className={`${dashboardSurface} p-6 lg:p-7`}>
           <SectionHeader
             eyebrow="Progress"

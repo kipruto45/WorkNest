@@ -9,6 +9,8 @@ from rest_framework.views import APIView
 from apps.common.api.mixins import PaginatedAPIViewMixin
 from apps.common.responses import success_response
 from apps.common.utils import coerce_bool_query_param
+from apps.audit_logs.serializers import AuditLogListSerializer
+from apps.audit_logs.selectors import filter_audit_logs, get_team_audit_logs
 from apps.memberships.serializers import (
     InviteMemberSerializer,
     MembershipSerializer,
@@ -24,9 +26,35 @@ from apps.memberships.services import (
     update_team_invitation_role,
 )
 from apps.teams.permissions import require_team_admin, require_team_inviter, require_team_member
-from apps.teams.selectors import get_team_by_id_for_user, get_user_teams
-from apps.teams.serializers import TeamCreateSerializer, TeamDetailSerializer, TeamListSerializer, TeamUpdateSerializer
-from apps.teams.services import archive_team, create_team_with_owner, delete_team_if_allowed, update_team
+from apps.teams.selectors import (
+    get_pinned_teams,
+    get_recent_team_visits,
+    get_team_announcements,
+    get_team_by_id_for_user,
+    get_user_teams,
+)
+from apps.teams.serializers import (
+    FavoriteTeamSerializer,
+    RecentTeamVisitSerializer,
+    TeamAnnouncementCreateSerializer,
+    TeamAnnouncementSerializer,
+    TeamAnnouncementUpdateSerializer,
+    TeamCreateSerializer,
+    TeamDetailSerializer,
+    TeamListSerializer,
+    TeamUpdateSerializer,
+)
+from apps.teams.services import (
+    archive_team,
+    create_team_announcement,
+    create_team_with_owner,
+    delete_team_if_allowed,
+    toggle_team_pin,
+    touch_recent_team,
+    update_team,
+    update_team_announcement,
+)
+from apps.teams.models import TeamAnnouncement
 
 
 class TeamListCreateView(PaginatedAPIViewMixin, APIView):
@@ -80,6 +108,7 @@ class TeamDetailView(APIView):
     def get(self, request, pk, *args, **kwargs):  # type: ignore[override]
         team = self.get_team(team_id=pk, user=request.user)
         require_team_member(team=team, user=request.user)
+        touch_recent_team(team=team, user=request.user)
         return success_response(
             request=request,
             message="Team retrieved successfully.",
@@ -273,4 +302,132 @@ class TeamMemberRemoveView(APIView):
             message="Member removed successfully.",
             data=None,
             status_code=status.HTTP_204_NO_CONTENT,
+        )
+
+
+class TeamAnnouncementListCreateView(PaginatedAPIViewMixin, APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):  # type: ignore[override]
+        team = get_team_by_id_for_user(team_id=pk, user=request.user)
+        if not team:
+            raise NotFound("Team not found.")
+        require_team_member(team=team, user=request.user)
+        queryset = get_team_announcements(team=team)
+        return self.paginate_success_response(
+            request=request,
+            queryset=queryset,
+            serializer_class=TeamAnnouncementSerializer,
+            message="Team announcements retrieved successfully.",
+        )
+
+    @extend_schema(request=TeamAnnouncementCreateSerializer, responses=TeamAnnouncementSerializer)
+    def post(self, request, pk, *args, **kwargs):  # type: ignore[override]
+        team = get_team_by_id_for_user(team_id=pk, user=request.user)
+        if not team:
+            raise NotFound("Team not found.")
+        require_team_admin(team=team, user=request.user)
+        serializer = TeamAnnouncementCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        announcement = create_team_announcement(
+            team=team,
+            actor=request.user,
+            title=serializer.validated_data["title"],
+            content=serializer.validated_data["content"],
+            pinned_until=serializer.validated_data.get("pinned_until"),
+        )
+        return success_response(
+            request=request,
+            message="Announcement published successfully.",
+            data=TeamAnnouncementSerializer(announcement, context={"request": request}).data,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class TeamAnnouncementDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(request=TeamAnnouncementUpdateSerializer, responses=TeamAnnouncementSerializer)
+    def patch(self, request, pk, announcement_id, *args, **kwargs):  # type: ignore[override]
+        team = get_team_by_id_for_user(team_id=pk, user=request.user)
+        if not team:
+            raise NotFound("Team not found.")
+        require_team_admin(team=team, user=request.user)
+        announcement = TeamAnnouncement.objects.filter(team=team, pk=announcement_id).first()
+        if not announcement:
+            raise NotFound("Announcement not found.")
+        serializer = TeamAnnouncementUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        announcement = update_team_announcement(
+            announcement=announcement,
+            actor=request.user,
+            title=serializer.validated_data.get("title"),
+            content=serializer.validated_data.get("content"),
+            pinned_until=serializer.validated_data["pinned_until"] if "pinned_until" in serializer.validated_data else ...,
+        )
+        return success_response(
+            request=request,
+            message="Announcement updated successfully.",
+            data=TeamAnnouncementSerializer(announcement, context={"request": request}).data,
+        )
+
+
+class TeamTimelineView(PaginatedAPIViewMixin, APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):  # type: ignore[override]
+        team = get_team_by_id_for_user(team_id=pk, user=request.user)
+        if not team:
+            raise NotFound("Team not found.")
+        require_team_member(team=team, user=request.user)
+        queryset = filter_audit_logs(get_team_audit_logs(team=team), {})
+        return self.paginate_success_response(
+            request=request,
+            queryset=queryset,
+            serializer_class=AuditLogListSerializer,
+            message="Team activity timeline retrieved successfully.",
+        )
+
+
+class TeamPinToggleView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):  # type: ignore[override]
+        team = get_team_by_id_for_user(team_id=pk, user=request.user, include_archived=None)
+        if not team:
+            raise NotFound("Team not found.")
+        require_team_member(team=team, user=request.user)
+        pinned = toggle_team_pin(team=team, user=request.user)
+        return success_response(
+            request=request,
+            message="Team pin updated successfully.",
+            data={"is_pinned": pinned},
+        )
+
+
+class PinnedTeamListView(PaginatedAPIViewMixin, APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):  # type: ignore[override]
+        queryset = get_pinned_teams(user=request.user)
+        return self.paginate_success_response(
+            request=request,
+            queryset=queryset,
+            serializer_class=FavoriteTeamSerializer,
+            message="Pinned teams retrieved successfully.",
+            serializer_context={"request": request},
+        )
+
+
+class RecentTeamListView(PaginatedAPIViewMixin, APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):  # type: ignore[override]
+        queryset = get_recent_team_visits(user=request.user)
+        return self.paginate_success_response(
+            request=request,
+            queryset=queryset,
+            serializer_class=RecentTeamVisitSerializer,
+            message="Recent teams retrieved successfully.",
+            serializer_context={"request": request},
         )

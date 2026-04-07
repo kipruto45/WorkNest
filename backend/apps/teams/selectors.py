@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.db.models import Count, Prefetch, Q
 
 from apps.memberships.models import Membership
-from apps.teams.models import Team
+from apps.teams.models import FavoriteTeam, RecentTeamVisit, Team, TeamAnnouncement
 
 
 def get_user_teams(*, user, include_archived: bool | None = False):
@@ -27,7 +27,8 @@ def get_user_teams(*, user, include_archived: bool | None = False):
                 "memberships",
                 queryset=active_membership_queryset,
                 to_attr="active_memberships_for_request_user",
-            )
+            ),
+            "pinned_by",
         )
         .annotate(
             member_count=Count(
@@ -43,3 +44,15 @@ def get_user_teams(*, user, include_archived: bool | None = False):
 
 def get_team_by_id_for_user(*, team_id, user, include_archived: bool | None = False):
     return get_user_teams(user=user, include_archived=include_archived).filter(id=team_id).first()
+
+
+def get_team_announcements(*, team: Team):
+    return TeamAnnouncement.objects.select_related("published_by").filter(team=team, is_active=True).order_by("-created_at")
+
+
+def get_pinned_teams(*, user):
+    return FavoriteTeam.objects.select_related("team", "team__created_by").filter(user=user).order_by("-updated_at")
+
+
+def get_recent_team_visits(*, user):
+    return RecentTeamVisit.objects.select_related("team", "team__created_by").filter(user=user).order_by("-last_accessed_at")

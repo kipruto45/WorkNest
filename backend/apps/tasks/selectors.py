@@ -3,9 +3,19 @@ from __future__ import annotations
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 
+from apps.audit_logs.models import AuditLog
 from apps.memberships.models import Membership
 from apps.tasks.constants import TASK_ORDERING_FIELDS
-from apps.tasks.models import SavedTaskView, Task, TaskTemplate
+from apps.tasks.models import (
+    FavoriteTask,
+    RecentTaskVisit,
+    SavedTaskView,
+    Task,
+    TaskChecklistItem,
+    TaskLabel,
+    TaskTemplate,
+    TaskWatcher,
+)
 from apps.teams.models import Team
 
 
@@ -16,6 +26,11 @@ def _base_task_queryset() -> QuerySet[Task]:
         "assigned_to",
         "last_status_changed_by",
         "source_template",
+    ).prefetch_related(
+        "labels",
+        "checklist_items",
+        "watchers__user",
+        "favorited_by",
     )
 
 
@@ -113,6 +128,17 @@ def get_task_templates(*, user, team_id: str | None = None):
     return queryset.distinct()
 
 
+def get_task_labels(*, user, team_id: str | None = None):
+    queryset = TaskLabel.objects.filter(
+        team__memberships__user=user,
+        team__memberships__status=Membership.Status.ACTIVE,
+        team__is_archived=False,
+    ).select_related("team", "created_by")
+    if team_id:
+        queryset = queryset.filter(team_id=team_id)
+    return queryset.distinct().order_by("name")
+
+
 def get_saved_task_views(*, user, team_id: str | None = None, layout: str | None = None):
     queryset = SavedTaskView.objects.select_related("team").filter(user=user)
     if team_id:
@@ -120,6 +146,54 @@ def get_saved_task_views(*, user, team_id: str | None = None, layout: str | None
     if layout:
         queryset = queryset.filter(layout=layout)
     return queryset.order_by("-is_default", "name", "-updated_at")
+
+
+def get_task_timeline(*, task: Task):
+    return (
+        AuditLog.objects.select_related("actor", "team")
+        .filter(team=task.team)
+        .filter(
+            Q(target_type="task", target_id=str(task.id))
+            | Q(metadata__task_id=str(task.id))
+        )
+        .order_by("-created_at")
+    )
+
+
+def get_task_watchers(*, task: Task):
+    return TaskWatcher.objects.select_related("user").filter(task=task).order_by("-created_at")
+
+
+def get_task_checklist_items(*, task: Task):
+    return TaskChecklistItem.objects.select_related("created_by", "completed_by").filter(task=task).order_by("position", "created_at")
+
+
+def get_favorite_tasks(*, user):
+    return FavoriteTask.objects.select_related(
+        "task",
+        "task__team",
+        "task__created_by",
+        "task__assigned_to",
+    ).prefetch_related(
+        "task__labels",
+        "task__checklist_items",
+        "task__watchers__user",
+        "task__favorited_by",
+    ).filter(user=user).order_by("-updated_at")
+
+
+def get_recent_task_visits(*, user):
+    return RecentTaskVisit.objects.select_related(
+        "task",
+        "task__team",
+        "task__created_by",
+        "task__assigned_to",
+    ).prefetch_related(
+        "task__labels",
+        "task__checklist_items",
+        "task__watchers__user",
+        "task__favorited_by",
+    ).filter(user=user).order_by("-last_accessed_at")
 
 
 def filter_tasks(queryset: QuerySet[Task], filters) -> QuerySet[Task]:
@@ -161,6 +235,8 @@ def filter_tasks(queryset: QuerySet[Task], filters) -> QuerySet[Task]:
         queryset = queryset.filter(due_date__date=timezone.localdate())
     if recurrence_pattern := filters.get("recurrence_pattern"):
         queryset = queryset.filter(recurrence_pattern=recurrence_pattern)
+    if label_id := filters.get("label"):
+        queryset = queryset.filter(labels__id=label_id)
 
     ordering = filters.get("ordering") or "-created_at"
     if ordering not in TASK_ORDERING_FIELDS:

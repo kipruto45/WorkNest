@@ -3,7 +3,7 @@ from __future__ import annotations
 from rest_framework import serializers
 
 from apps.memberships.models import Membership
-from apps.teams.models import Team
+from apps.teams.models import FavoriteTeam, RecentTeamVisit, Team, TeamAnnouncement
 from apps.users.serializers import UserPublicSerializer
 
 
@@ -39,6 +39,7 @@ class TeamListSerializer(serializers.ModelSerializer):
     created_by = UserPublicSerializer(read_only=True)
     member_count = serializers.IntegerField(read_only=True)
     my_role = serializers.SerializerMethodField()
+    is_pinned = serializers.SerializerMethodField()
 
     class Meta:
         model = Team
@@ -53,6 +54,7 @@ class TeamListSerializer(serializers.ModelSerializer):
             "created_by",
             "member_count",
             "my_role",
+            "is_pinned",
             "created_at",
             "updated_at",
         )
@@ -73,11 +75,18 @@ class TeamListSerializer(serializers.ModelSerializer):
             ).first()
         return membership.role if membership else None
 
+    def get_is_pinned(self, obj: Team) -> bool:
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.pinned_by.filter(user=request.user).exists()
+
 
 class TeamDetailSerializer(serializers.ModelSerializer):
     created_by = UserPublicSerializer(read_only=True)
     member_count = serializers.IntegerField(read_only=True)
     my_membership = serializers.SerializerMethodField()
+    is_pinned = serializers.SerializerMethodField()
 
     class Meta:
         model = Team
@@ -92,6 +101,7 @@ class TeamDetailSerializer(serializers.ModelSerializer):
             "created_by",
             "member_count",
             "my_membership",
+            "is_pinned",
             "created_at",
             "updated_at",
         )
@@ -114,3 +124,57 @@ class TeamDetailSerializer(serializers.ModelSerializer):
             "status": membership.status,
             "joined_at": membership.joined_at,
         }
+
+    def get_is_pinned(self, obj: Team) -> bool:
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.pinned_by.filter(user=request.user).exists()
+
+
+class TeamAnnouncementSerializer(serializers.ModelSerializer):
+    published_by = UserPublicSerializer(read_only=True)
+
+    class Meta:
+        model = TeamAnnouncement
+        fields = (
+            "id",
+            "title",
+            "content",
+            "is_active",
+            "pinned_until",
+            "published_by",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+
+class TeamAnnouncementCreateSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=255)
+    content = serializers.CharField()
+    pinned_until = serializers.DateTimeField(required=False, allow_null=True)
+
+
+class TeamAnnouncementUpdateSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=255, required=False)
+    content = serializers.CharField(required=False)
+    pinned_until = serializers.DateTimeField(required=False, allow_null=True)
+
+
+class RecentTeamVisitSerializer(serializers.ModelSerializer):
+    team = TeamListSerializer(read_only=True)
+
+    class Meta:
+        model = RecentTeamVisit
+        fields = ("id", "last_accessed_at", "team")
+        read_only_fields = fields
+
+
+class FavoriteTeamSerializer(serializers.ModelSerializer):
+    team = TeamListSerializer(read_only=True)
+
+    class Meta:
+        model = FavoriteTeam
+        fields = ("id", "team", "created_at", "updated_at")
+        read_only_fields = fields
