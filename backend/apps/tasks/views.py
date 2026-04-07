@@ -24,19 +24,34 @@ from apps.tasks.selectors import (
     get_board_tasks,
     get_my_tasks,
     get_overdue_tasks,
+    get_saved_task_views,
     get_task_for_user,
+    get_task_templates,
     get_user_membership_tasks,
 )
 from apps.tasks.serializers import (
+    SavedTaskViewCreateSerializer,
+    SavedTaskViewSerializer,
     TaskAssignSerializer,
     TaskBoardSerializer,
     TaskCreateSerializer,
     TaskDetailSerializer,
     TaskListSerializer,
+    TaskTemplateCreateSerializer,
+    TaskTemplateInstantiateSerializer,
+    TaskTemplateSerializer,
     TaskStatusUpdateSerializer,
     TaskUpdateSerializer,
 )
-from apps.tasks.services import archive_task, assign_task, change_task_status, delete_task, update_task
+from apps.tasks.services import (
+    archive_task,
+    assign_task,
+    change_task_status,
+    create_saved_task_view,
+    create_task_from_template,
+    delete_task,
+    update_task,
+)
 from apps.teams.models import Team
 
 
@@ -261,4 +276,117 @@ class OverdueTasksView(PaginatedAPIViewMixin, APIView):
             queryset=queryset,
             serializer_class=TaskListSerializer,
             message="Overdue tasks retrieved successfully.",
+        )
+
+
+class TaskTemplateListCreateView(PaginatedAPIViewMixin, APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):  # type: ignore[override]
+        queryset = get_task_templates(user=request.user, team_id=request.query_params.get("team"))
+        return self.paginate_success_response(
+            request=request,
+            queryset=queryset,
+            serializer_class=TaskTemplateSerializer,
+            message="Task templates retrieved successfully.",
+        )
+
+    @extend_schema(request=TaskTemplateCreateSerializer, responses=TaskTemplateSerializer)
+    def post(self, request, *args, **kwargs):  # type: ignore[override]
+        serializer = TaskTemplateCreateSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        template = serializer.save()
+        return success_response(
+            request=request,
+            message="Task template created successfully.",
+            data=TaskTemplateSerializer(template, context={"request": request}).data,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class TaskTemplateInstantiateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(request=TaskTemplateInstantiateSerializer, responses=TaskDetailSerializer)
+    def post(self, request, pk, *args, **kwargs):  # type: ignore[override]
+        template = get_task_templates(user=request.user).filter(pk=pk).first()
+        if not template:
+            return success_response(
+                request=request,
+                message="Task template not found.",
+                data=None,
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = TaskTemplateInstantiateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        assigned_to = None
+        assigned_to_id = serializer.validated_data.get("assigned_to")
+        if assigned_to_id is not None:
+            assigned_to = template.team.memberships.filter(user_id=assigned_to_id, status=Membership.Status.ACTIVE).select_related("user").first()
+            assigned_to = assigned_to.user if assigned_to else None
+            if serializer.validated_data.get("assigned_to") and assigned_to is None:
+                raise ValidationError({"assigned_to": "Selected user is not an active member of this team."})
+
+        task = create_task_from_template(
+            template=template,
+            actor=request.user,
+            planned_for_date=serializer.validated_data.get("planned_for_date"),
+            due_date=serializer.validated_data.get("due_date"),
+            assigned_to=assigned_to,
+        )
+        return success_response(
+            request=request,
+            message="Task created from template successfully.",
+            data=TaskDetailSerializer(task, context={"request": request}).data,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class SavedTaskViewListCreateView(PaginatedAPIViewMixin, APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):  # type: ignore[override]
+        queryset = get_saved_task_views(
+            user=request.user,
+            team_id=request.query_params.get("team"),
+            layout=request.query_params.get("layout"),
+        )
+        return self.paginate_success_response(
+            request=request,
+            queryset=queryset,
+            serializer_class=SavedTaskViewSerializer,
+            message="Saved task views retrieved successfully.",
+        )
+
+    @extend_schema(request=SavedTaskViewCreateSerializer, responses=SavedTaskViewSerializer)
+    def post(self, request, *args, **kwargs):  # type: ignore[override]
+        serializer = SavedTaskViewCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        team = None
+        team_id = serializer.validated_data.get("team_id")
+        if team_id:
+            team = Team.objects.filter(
+                pk=team_id,
+                memberships__user=request.user,
+                memberships__status=Membership.Status.ACTIVE,
+                is_archived=False,
+            ).first()
+            if team is None:
+                raise ValidationError({"team_id": "Selected team does not exist or is not accessible."})
+
+        saved_view = create_saved_task_view(
+            user=request.user,
+            team=team,
+            name=serializer.validated_data["name"],
+            layout=serializer.validated_data["layout"],
+            filters=serializer.validated_data.get("filters") or {},
+            is_default=serializer.validated_data.get("is_default", False),
+        )
+        return success_response(
+            request=request,
+            message="Saved task view created successfully.",
+            data=SavedTaskViewSerializer(saved_view, context={"request": request}).data,
+            status_code=status.HTTP_201_CREATED,
         )

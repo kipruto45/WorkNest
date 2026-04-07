@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, time, timedelta
+
 from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
@@ -16,7 +18,7 @@ from apps.realtime.services import (
     send_task_status_changed_event,
     send_task_update_event,
 )
-from apps.tasks.models import Task
+from apps.tasks.models import SavedTaskView, Task, TaskTemplate
 from apps.teams.models import Team
 from apps.users.models import User
 
@@ -31,6 +33,20 @@ def _get_task_position(*, team: Team, status: str) -> int:
         or 0
     )
     return max_position + 1
+
+
+def _resolve_template_dates(*, template: TaskTemplate, planned_for_date=None, due_date=None):
+    resolved_planned_for_date = planned_for_date
+    resolved_due_date = due_date
+
+    if resolved_planned_for_date is None and template.planned_offset_days is not None:
+        resolved_planned_for_date = timezone.localdate() + timedelta(days=template.planned_offset_days)
+
+    if resolved_due_date is None and template.due_offset_days is not None:
+        due_day = timezone.localdate() + timedelta(days=template.due_offset_days)
+        resolved_due_date = timezone.make_aware(datetime.combine(due_day, time(hour=17, minute=0)))
+
+    return resolved_planned_for_date, resolved_due_date
 
 
 def validate_task_assignment(*, team: Team, user: User | None) -> User | None:
@@ -63,9 +79,15 @@ def create_task(
     description: str = "",
     status: str = Task.Status.TODO,
     priority: str = Task.Priority.MEDIUM,
+    estimated_minutes: int | None = None,
+    planned_for_date=None,
+    blocked_reason: str = "",
     due_date=None,
-    created_by: User,
+    recurrence_pattern: str = Task.Recurrence.NONE,
+    recurrence_interval: int = 1,
+    created_by: User | None,
     assigned_to: User | None = None,
+    source_template: TaskTemplate | None = None,
     position: int | None = None,
 ) -> Task:
     if team.is_archived:
@@ -77,9 +99,15 @@ def create_task(
         description=description,
         status=status,
         priority=priority,
+        estimated_minutes=estimated_minutes,
+        planned_for_date=planned_for_date,
+        blocked_reason=blocked_reason,
         due_date=due_date,
+        recurrence_pattern=recurrence_pattern,
+        recurrence_interval=recurrence_interval,
         assigned_to=assigned_user,
         created_by=created_by,
+        source_template=source_template,
         position=position if position is not None else _get_task_position(team=team, status=status),
     )
     if status == Task.Status.DONE:
@@ -96,29 +124,20 @@ def create_task(
             title=task.title,
             status=task.status,
             priority=task.priority,
+            estimated_minutes=task.estimated_minutes,
+            planned_for_date=task.planned_for_date,
             assigned_to_id=task.assigned_to_id,
             due_date=task.due_date,
+            recurrence_pattern=task.recurrence_pattern,
         ),
     )
     transaction.on_commit(lambda: send_task_created_event(task=task))
 
     if assigned_user and created_by and assigned_user.id != created_by.id:
         from apps.notifications.services import notify_task_assignment
-        from apps.integrations.email.services import send_task_assigned_email
-        from django.conf import settings
 
         transaction.on_commit(lambda: notify_task_assignment(task=task, actor=created_by))
         transaction.on_commit(lambda: send_task_assignment_event(task=task, actor=created_by))
-        
-        email_enabled = getattr(settings, 'NOTIFICATION_EMAIL_ENABLED', True)
-        notify_types = getattr(settings, 'NOTIFICATION_EMAIL_TYPES', 'task_assigned,mentioned_in_comment,deadline_approaching,comment_posted')
-        if email_enabled and 'task_assigned' in notify_types:
-            try:
-                transaction.on_commit(
-                    lambda task=task, created_by=created_by: send_task_assigned_email(task=task, assigner=created_by, assignee=assigned_user)
-                )
-            except Exception:
-                pass
     return task
 
 
@@ -130,7 +149,12 @@ def update_task(
     title: str | None = None,
     description: str | None = None,
     priority: str | None = None,
+    estimated_minutes=UNSET,
+    planned_for_date=UNSET,
+    blocked_reason=UNSET,
     due_date=UNSET,
+    recurrence_pattern: str | None = None,
+    recurrence_interval: int | None = None,
     position: int | None = None,
 ) -> Task:
     changed_fields: dict[str, dict] = {}
@@ -143,9 +167,25 @@ def update_task(
     if priority is not None:
         changed_fields["priority"] = {"old": task.priority, "new": priority}
         task.priority = priority
+    if estimated_minutes is not UNSET:
+        changed_fields["estimated_minutes"] = {"old": task.estimated_minutes, "new": estimated_minutes}
+        task.estimated_minutes = estimated_minutes
+    if planned_for_date is not UNSET:
+        changed_fields["planned_for_date"] = {"old": task.planned_for_date, "new": planned_for_date}
+        task.planned_for_date = planned_for_date
+    if blocked_reason is not UNSET:
+        normalized_blocked_reason = (blocked_reason or "").strip()
+        changed_fields["blocked_reason"] = {"old": task.blocked_reason, "new": normalized_blocked_reason}
+        task.blocked_reason = normalized_blocked_reason
     if due_date is not UNSET:
         changed_fields["due_date"] = {"old": task.due_date, "new": due_date}
         task.due_date = due_date
+    if recurrence_pattern is not None:
+        changed_fields["recurrence_pattern"] = {"old": task.recurrence_pattern, "new": recurrence_pattern}
+        task.recurrence_pattern = recurrence_pattern
+    if recurrence_interval is not None:
+        changed_fields["recurrence_interval"] = {"old": task.recurrence_interval, "new": recurrence_interval}
+        task.recurrence_interval = recurrence_interval
     if position is not None:
         changed_fields["position"] = {"old": task.position, "new": position}
         task.position = position
@@ -206,22 +246,9 @@ def assign_task(*, task: Task, user: User | None, actor: User | None = None) -> 
         )
     if task.assigned_to_id and task.assigned_to_id != previous_assignee_id:
         from apps.notifications.services import notify_task_assignment
-        from apps.integrations.email.services import send_task_assigned_email
-        from django.conf import settings
 
         transaction.on_commit(lambda: notify_task_assignment(task=task, actor=actor))
         transaction.on_commit(lambda: send_task_assignment_event(task=task, actor=actor))
-        
-        if actor and task.assigned_to and actor.id != task.assigned_to.id:
-            email_enabled = getattr(settings, 'NOTIFICATION_EMAIL_ENABLED', True)
-            notify_types = getattr(settings, 'NOTIFICATION_EMAIL_TYPES', 'task_assigned,mentioned_in_comment,deadline_approaching,comment_posted')
-            if email_enabled and 'task_assigned' in notify_types:
-                try:
-                    transaction.on_commit(
-                        lambda: send_task_assigned_email(task=task, assigner=actor, assignee=task.assigned_to)
-                    )
-                except Exception:
-                    pass
     else:
         transaction.on_commit(lambda: send_task_update_event(task=task))
     return task
@@ -246,6 +273,8 @@ def change_task_status(*, task: Task, new_status: str, changed_by: User | None =
             task=task,
             metadata=build_audit_metadata(old_status=previous_status, new_status=new_status, task_title=task.title),
         )
+        if new_status == Task.Status.DONE:
+            _spawn_next_recurring_task(task=task, changed_by=changed_by)
         transaction.on_commit(
             lambda: send_task_status_changed_event(task=task, previous_status=previous_status, changed_by=changed_by)
         )
@@ -271,6 +300,116 @@ def change_task_status(*, task: Task, new_status: str, changed_by: User | None =
                 )
             )
     return task
+
+
+@transaction.atomic
+def create_task_template(
+    *,
+    team: Team,
+    name: str,
+    title: str,
+    description: str = "",
+    priority: str = Task.Priority.MEDIUM,
+    estimated_minutes: int | None = None,
+    planned_offset_days: int | None = None,
+    due_offset_days: int | None = None,
+    blocked_reason: str = "",
+    recurrence_pattern: str = Task.Recurrence.NONE,
+    recurrence_interval: int = 1,
+    created_by: User,
+    assigned_to: User | None = None,
+) -> TaskTemplate:
+    assigned_user = validate_task_assignment(team=team, user=assigned_to)
+    return TaskTemplate.objects.create(
+        team=team,
+        name=name.strip(),
+        title=title.strip(),
+        description=description,
+        priority=priority,
+        estimated_minutes=estimated_minutes,
+        planned_offset_days=planned_offset_days,
+        due_offset_days=due_offset_days,
+        blocked_reason=blocked_reason.strip(),
+        recurrence_pattern=recurrence_pattern,
+        recurrence_interval=recurrence_interval,
+        assigned_to=assigned_user,
+        created_by=created_by,
+    )
+
+
+@transaction.atomic
+def create_task_from_template(
+    *,
+    template: TaskTemplate,
+    actor: User,
+    planned_for_date=None,
+    due_date=None,
+    assigned_to: User | None = None,
+) -> Task:
+    assigned_user = validate_task_assignment(team=template.team, user=assigned_to or template.assigned_to)
+    resolved_planned_for_date, resolved_due_date = _resolve_template_dates(
+        template=template,
+        planned_for_date=planned_for_date,
+        due_date=due_date,
+    )
+    return create_task(
+        team=template.team,
+        title=template.title,
+        description=template.description,
+        priority=template.priority,
+        estimated_minutes=template.estimated_minutes,
+        planned_for_date=resolved_planned_for_date,
+        blocked_reason=template.blocked_reason,
+        due_date=resolved_due_date,
+        recurrence_pattern=template.recurrence_pattern,
+        recurrence_interval=template.recurrence_interval,
+        created_by=actor,
+        assigned_to=assigned_user,
+        source_template=template,
+    )
+
+
+@transaction.atomic
+def create_saved_task_view(*, user, name: str, layout: str, filters: dict | None = None, team: Team | None = None, is_default: bool = False):
+    if is_default:
+        SavedTaskView.objects.filter(user=user, team=team, layout=layout).update(is_default=False)
+    return SavedTaskView.objects.create(
+        user=user,
+        team=team,
+        name=name.strip(),
+        layout=layout,
+        filters=filters or {},
+        is_default=is_default,
+    )
+
+
+def _spawn_next_recurring_task(*, task: Task, changed_by: User | None = None) -> Task | None:
+    if task.recurrence_pattern == Task.Recurrence.NONE or not task.is_recurring_active:
+        return None
+
+    next_planned_for_date, next_due_date = task.build_next_recurrence_dates()
+    if next_planned_for_date is None and next_due_date is None:
+        return None
+
+    next_task = create_task(
+        team=task.team,
+        title=task.title,
+        description=task.description,
+        status=Task.Status.TODO,
+        priority=task.priority,
+        estimated_minutes=task.estimated_minutes,
+        planned_for_date=next_planned_for_date,
+        blocked_reason=task.blocked_reason,
+        due_date=next_due_date,
+        recurrence_pattern=task.recurrence_pattern,
+        recurrence_interval=task.recurrence_interval,
+        created_by=changed_by or task.created_by or task.assigned_to,
+        assigned_to=task.assigned_to,
+        source_template=task.source_template,
+    )
+    task.is_recurring_active = False
+    task.save(update_fields=["is_recurring_active", "updated_at"])
+    return next_task
 
 
 def get_overdue_tasks(*, team: Team):

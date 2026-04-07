@@ -26,7 +26,18 @@ export default function TeamBoard() {
   const { teams } = useSelector((state) => state.teams)
   const currentUser = useSelector((state) => state.auth.user)
   const [showModal, setShowModal] = useState(false)
-  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', assigned_to: '' })
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    priority: 'medium',
+    assigned_to: '',
+    estimated_minutes: '',
+    planned_for_date: '',
+    due_date: '',
+    blocked_reason: '',
+    recurrence_pattern: 'none',
+    recurrence_interval: 1,
+  })
   const [activeId, setActiveId] = useState(null)
   const [teamMembers, setTeamMembers] = useState([])
 
@@ -115,11 +126,27 @@ export default function TeamBoard() {
           team_id: teamId,
           status: 'todo',
           assigned_to: newTask.assigned_to || null,
+          estimated_minutes: newTask.estimated_minutes ? Number(newTask.estimated_minutes) : null,
+          planned_for_date: newTask.planned_for_date || null,
+          due_date: newTask.due_date || null,
+          blocked_reason: newTask.blocked_reason?.trim() || '',
+          recurrence_interval: Number(newTask.recurrence_interval || 1),
         })
       ).unwrap()
       toast.success('Task created.')
       setShowModal(false)
-      setNewTask({ title: '', description: '', priority: 'medium', assigned_to: '' })
+      setNewTask({
+        title: '',
+        description: '',
+        priority: 'medium',
+        assigned_to: '',
+        estimated_minutes: '',
+        planned_for_date: '',
+        due_date: '',
+        blocked_reason: '',
+        recurrence_pattern: 'none',
+        recurrence_interval: 1,
+      })
       dispatch(fetchKanban(teamId))
     } catch (error) {
       toast.error('Failed to create task.')
@@ -250,6 +277,74 @@ export default function TeamBoard() {
                   ))}
                 </select>
                 <p className="mt-2 text-xs text-soft">Managers and admins can assign new tasks to active team members.</p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-emerald-950">Estimate (min)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newTask.estimated_minutes}
+                    onChange={(event) => setNewTask({ ...newTask, estimated_minutes: event.target.value })}
+                    className="input-field"
+                    placeholder="90"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-emerald-950">Planned for</label>
+                  <input
+                    type="date"
+                    value={newTask.planned_for_date}
+                    onChange={(event) => setNewTask({ ...newTask, planned_for_date: event.target.value })}
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-emerald-950">Due date</label>
+                  <input
+                    type="datetime-local"
+                    value={newTask.due_date}
+                    onChange={(event) => setNewTask({ ...newTask, due_date: event.target.value })}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-emerald-950">Repeats</label>
+                  <select
+                    value={newTask.recurrence_pattern}
+                    onChange={(event) => setNewTask({ ...newTask, recurrence_pattern: event.target.value })}
+                    className="input-field"
+                  >
+                    <option value="none">Does not repeat</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-emerald-950">Repeat interval</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newTask.recurrence_interval}
+                    onChange={(event) => setNewTask({ ...newTask, recurrence_interval: event.target.value })}
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-emerald-950">Blocked reason</label>
+                <input
+                  value={newTask.blocked_reason}
+                  onChange={(event) => setNewTask({ ...newTask, blocked_reason: event.target.value })}
+                  className="input-field"
+                  placeholder="Waiting on review, dependency, or approval"
+                />
               </div>
 
               <div className="flex flex-wrap justify-end gap-3">

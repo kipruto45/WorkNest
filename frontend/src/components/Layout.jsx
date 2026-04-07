@@ -5,6 +5,7 @@ import { logout } from '../features/authSlice'
 import { fetchUnreadCount } from '../features/notificationsSlice'
 import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications'
 import { getInitials } from '../utils/formatters'
+import { tasksAPI, teamsAPI, unwrapResults } from '../services/api'
 import AppLogo from './AppLogo'
 
 const primaryNav = [
@@ -47,6 +48,10 @@ const routeMeta = [
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [paletteQuery, setPaletteQuery] = useState('')
+  const [paletteLoading, setPaletteLoading] = useState(false)
+  const [paletteResults, setPaletteResults] = useState({ tasks: [], teams: [] })
   const { user } = useSelector((state) => state.auth)
   const { unreadCount } = useSelector((state) => state.notifications)
   const dispatch = useDispatch()
@@ -85,6 +90,71 @@ export default function Layout() {
     event.preventDefault()
     const query = searchQuery.trim()
     navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search')
+  }
+
+  const quickActions = useMemo(
+    () =>
+      [
+        { id: 'dashboard', label: 'Go to dashboard', hint: 'Open your personal workspace', to: '/dashboard' },
+        { id: 'tasks', label: 'Open my tasks', hint: 'Jump into your execution center', to: '/tasks' },
+        { id: 'notifications', label: 'Check notifications', hint: 'Review mentions and reminders', to: '/notifications' },
+        { id: 'calendar', label: 'Open calendar', hint: 'Review planned work and deadlines', to: '/calendar' },
+        { id: 'teams', label: 'Browse teams', hint: 'Move between workspaces quickly', to: '/teams' },
+      ].concat(user?.is_staff ? [{ id: 'admin', label: 'Open admin dashboard', hint: 'Platform-wide visibility', to: '/admin' }] : []),
+    [user?.is_staff]
+  )
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen(true)
+      } else if (event.key === 'Escape') {
+        setPaletteOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  useEffect(() => {
+    if (!paletteOpen) return undefined
+
+    let isCancelled = false
+    const timeoutId = window.setTimeout(async () => {
+      setPaletteLoading(true)
+      try {
+        const query = paletteQuery.trim()
+        const params = query ? { search: query, page_size: 5 } : { page_size: 5 }
+        const [tasksResponse, teamsResponse] = await Promise.all([tasksAPI.getTasks(params), teamsAPI.getTeams(params)])
+        if (!isCancelled) {
+          setPaletteResults({
+            tasks: unwrapResults(tasksResponse),
+            teams: unwrapResults(teamsResponse),
+          })
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          setPaletteResults({ tasks: [], teams: [] })
+        }
+      } finally {
+        if (!isCancelled) {
+          setPaletteLoading(false)
+        }
+      }
+    }, 180)
+
+    return () => {
+      isCancelled = true
+      window.clearTimeout(timeoutId)
+    }
+  }, [paletteOpen, paletteQuery])
+
+  const handlePaletteNavigate = (to) => {
+    setPaletteOpen(false)
+    setPaletteQuery('')
+    navigate(to)
   }
 
   return (
@@ -191,6 +261,13 @@ export default function Layout() {
                     className="w-full border-none bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                     placeholder="Search tasks, teams, or updates"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setPaletteOpen(true)}
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500"
+                  >
+                    ⌘K
+                  </button>
                 </form>
 
                 <NavLink
@@ -225,8 +302,118 @@ export default function Layout() {
           </main>
         </div>
       </div>
+
+      {paletteOpen ? (
+        <CommandPalette
+          query={paletteQuery}
+          loading={paletteLoading}
+          quickActions={quickActions}
+          tasks={paletteResults.tasks}
+          teams={paletteResults.teams}
+          onClose={() => setPaletteOpen(false)}
+          onChangeQuery={setPaletteQuery}
+          onNavigate={handlePaletteNavigate}
+        />
+      ) : null}
     </div>
   )
+}
+
+function CommandPalette({ query, loading, quickActions, tasks, teams, onClose, onChangeQuery, onNavigate }) {
+  const hasResults = quickActions.length || tasks.length || teams.length
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-slate-950/30 px-4 py-16 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="w-full max-w-3xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_32px_120px_rgba(15,23,42,0.22)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4">
+          <SearchIcon className="h-5 w-5 text-slate-400" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(event) => onChangeQuery(event.target.value)}
+            className="w-full border-none bg-transparent text-base text-slate-950 outline-none placeholder:text-slate-400"
+            placeholder="Search tasks, teams, or jump to an action"
+          />
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500"
+          >
+            Esc
+          </button>
+        </div>
+
+        <div className="grid gap-6 px-5 py-5 lg:grid-cols-[0.9fr,1.1fr]">
+          <section className="space-y-3">
+            <PaletteSectionTitle title="Quick actions" />
+            <div className="space-y-2">
+              {quickActions.map((action) => (
+                <button
+                  key={action.id}
+                  type="button"
+                  onClick={() => onNavigate(action.to)}
+                  className="w-full rounded-2xl border border-slate-200 bg-[#fcfcfb] px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                >
+                  <p className="font-semibold text-slate-950">{action.label}</p>
+                  <p className="mt-1 text-sm text-slate-500">{action.hint}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-5">
+            <div>
+              <PaletteSectionTitle title="Tasks" />
+              <div className="mt-3 space-y-2">
+                {tasks.map((task) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    onClick={() => onNavigate(`/tasks/${task.id}`)}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                  >
+                    <p className="font-semibold text-slate-950">{task.title}</p>
+                    <p className="mt-1 text-sm text-slate-500">{task.team_name || 'Task'} • {task.status?.replaceAll('_', ' ')}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <PaletteSectionTitle title="Teams" />
+              <div className="mt-3 space-y-2">
+                {teams.map((team) => (
+                  <button
+                    key={team.id}
+                    type="button"
+                    onClick={() => onNavigate(`/teams/${team.id}/overview`)}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                  >
+                    <p className="font-semibold text-slate-950">{team.name}</p>
+                    <p className="mt-1 text-sm text-slate-500">{team.description || 'Open team workspace'}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {!loading && !hasResults ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-[#fcfcfb] px-4 py-6 text-sm text-slate-500">
+                Nothing matched yet. Try a task title, team name, or use a quick action.
+              </div>
+            ) : null}
+            {loading ? <p className="text-sm text-slate-500">Searching workspace…</p> : null}
+          </section>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PaletteSectionTitle({ title }) {
+  return <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">{title}</p>
 }
 
 function NavItem({ item, sidebarOpen }) {

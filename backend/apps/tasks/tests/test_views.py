@@ -10,7 +10,7 @@ from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.memberships.models import Membership
-from apps.tasks.models import Task
+from apps.tasks.models import SavedTaskView, Task
 from apps.teams.models import Team
 
 User = get_user_model()
@@ -299,3 +299,89 @@ class TaskEndpointTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["data"]["count"], 0)
+
+    def test_member_can_create_task_template(self) -> None:
+        self.authenticate(self.member)
+
+        response = self.client.post(
+            reverse("api_v1:tasks:templates"),
+            {
+                "team_id": str(self.team.id),
+                "name": "weekly-review",
+                "title": "Weekly review",
+                "estimated_minutes": 45,
+                "planned_offset_days": 1,
+                "recurrence_pattern": Task.Recurrence.WEEKLY,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["data"]["name"], "weekly-review")
+
+    def test_template_create_task_endpoint_builds_task(self) -> None:
+        self.authenticate(self.owner)
+        template_response = self.client.post(
+            reverse("api_v1:tasks:templates"),
+            {
+                "team_id": str(self.team.id),
+                "name": "daily-sync",
+                "title": "Daily sync",
+                "assigned_to": str(self.member.id),
+                "planned_offset_days": 0,
+                "recurrence_pattern": Task.Recurrence.DAILY,
+            },
+            format="json",
+        )
+        template_id = template_response.data["data"]["id"]
+
+        response = self.client.post(
+            reverse("api_v1:tasks:template-create-task", args=[template_id]),
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["data"]["title"], "Daily sync")
+        self.assertEqual(response.data["data"]["assigned_to"], str(self.member.id))
+
+    def test_member_can_save_personal_task_view(self) -> None:
+        self.authenticate(self.member)
+
+        response = self.client.post(
+            reverse("api_v1:tasks:saved-views"),
+            {
+                "name": "Blocked tasks",
+                "layout": SavedTaskView.Layout.LIST,
+                "filters": {"blocked": True, "ordering": "-updated_at"},
+                "is_default": True,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["data"]["name"], "Blocked tasks")
+        self.assertTrue(response.data["data"]["is_default"])
+
+    def test_my_tasks_view_supports_my_day_filter(self) -> None:
+        self.authenticate(self.member)
+        today_task = Task.objects.create(
+            team=self.team,
+            title="Today task",
+            created_by=self.owner,
+            assigned_to=self.member,
+            planned_for_date=timezone.localdate(),
+        )
+        Task.objects.create(
+            team=self.team,
+            title="Later task",
+            created_by=self.owner,
+            assigned_to=self.member,
+            planned_for_date=timezone.localdate() + timedelta(days=2),
+        )
+
+        response = self.client.get(reverse("api_v1:tasks:my-tasks"), {"my_day": "true"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data"]["count"], 1)
+        self.assertEqual(response.data["data"]["results"][0]["id"], str(today_task.id))

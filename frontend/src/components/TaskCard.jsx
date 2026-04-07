@@ -3,6 +3,13 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { formatDate, toSentenceCase } from '../utils/formatters'
 
+function formatEstimate(minutes) {
+  if (!minutes) return null
+  if (minutes < 60) return `${minutes} min`
+  const hours = minutes / 60
+  return Number.isInteger(hours) ? `${hours} hr` : `${hours.toFixed(1)} hr`
+}
+
 export default function TaskCard({ task, isDragging = false }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id })
 
@@ -34,7 +41,18 @@ export default function TaskCard({ task, isDragging = false }) {
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <span className="stat-chip">{toSentenceCase(task.priority)}</span>
+        {task.recurrence_pattern && task.recurrence_pattern !== 'none' ? (
+          <span className="stat-chip bg-emerald-100 text-emerald-800">{toSentenceCase(task.recurrence_pattern)}</span>
+        ) : null}
+        {task.blocked_reason ? (
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Blocked</span>
+        ) : null}
         {task.is_overdue ? <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Overdue</span> : null}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-3 text-xs font-medium text-soft">
+        {formatEstimate(task.estimated_minutes) ? <span>{formatEstimate(task.estimated_minutes)}</span> : null}
+        {task.planned_for_date ? <span>Planned {formatDate(task.planned_for_date)}</span> : null}
       </div>
 
       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-soft">

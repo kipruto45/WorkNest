@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from apps.memberships.models import Membership
 from apps.tasks.constants import TASK_ORDERING_FIELDS
-from apps.tasks.models import Task
+from apps.tasks.models import SavedTaskView, Task, TaskTemplate
 from apps.teams.models import Team
 
 
@@ -15,6 +15,7 @@ def _base_task_queryset() -> QuerySet[Task]:
         "created_by",
         "assigned_to",
         "last_status_changed_by",
+        "source_template",
     )
 
 
@@ -101,6 +102,26 @@ def get_board_tasks(team: Team, user) -> dict[str, QuerySet[Task]]:
     }
 
 
+def get_task_templates(*, user, team_id: str | None = None):
+    queryset = TaskTemplate.objects.select_related("team", "created_by", "assigned_to").filter(
+        team__memberships__user=user,
+        team__memberships__status=Membership.Status.ACTIVE,
+        team__is_archived=False,
+    )
+    if team_id:
+        queryset = queryset.filter(team_id=team_id)
+    return queryset.distinct()
+
+
+def get_saved_task_views(*, user, team_id: str | None = None, layout: str | None = None):
+    queryset = SavedTaskView.objects.select_related("team").filter(user=user)
+    if team_id:
+        queryset = queryset.filter(Q(team_id=team_id) | Q(team__isnull=True))
+    if layout:
+        queryset = queryset.filter(layout=layout)
+    return queryset.order_by("-is_default", "name", "-updated_at")
+
+
 def filter_tasks(queryset: QuerySet[Task], filters) -> QuerySet[Task]:
     if team_id := filters.get("team"):
         queryset = queryset.filter(team_id=team_id)
@@ -129,6 +150,17 @@ def filter_tasks(queryset: QuerySet[Task], filters) -> QuerySet[Task]:
 
     if search := filters.get("search"):
         queryset = queryset.filter(Q(title__icontains=search) | Q(description__icontains=search))
+
+    if planned_for_date := filters.get("planned_for_date"):
+        queryset = queryset.filter(planned_for_date=planned_for_date)
+    if _as_bool(filters.get("blocked")):
+        queryset = queryset.exclude(blocked_reason="")
+    if _as_bool(filters.get("my_day")):
+        queryset = queryset.filter(planned_for_date=timezone.localdate())
+    if _as_bool(filters.get("due_today")):
+        queryset = queryset.filter(due_date__date=timezone.localdate())
+    if recurrence_pattern := filters.get("recurrence_pattern"):
+        queryset = queryset.filter(recurrence_pattern=recurrence_pattern)
 
     ordering = filters.get("ordering") or "-created_at"
     if ordering not in TASK_ORDERING_FIELDS:

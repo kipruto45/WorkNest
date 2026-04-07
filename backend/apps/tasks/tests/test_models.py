@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -74,3 +74,19 @@ class TaskModelTests(TestCase):
         self.assertTrue(task.is_archived)
         self.assertIsNotNone(task.archived_at)
         self.assertFalse(task.is_overdue)
+
+    def test_monthly_recurring_task_shifts_dates_safely(self) -> None:
+        task = Task.objects.create(
+            team=self.team,
+            title="Monthly review",
+            created_by=self.user,
+            recurrence_pattern=Task.Recurrence.MONTHLY,
+            recurrence_interval=1,
+            planned_for_date=date(2026, 1, 31),
+            due_date=timezone.make_aware(timezone.datetime(2026, 1, 31, 17, 0)),
+        )
+
+        next_planned_for_date, next_due_date = task.build_next_recurrence_dates()
+
+        self.assertEqual(next_planned_for_date, date(2026, 2, 28))
+        self.assertEqual(next_due_date.date(), date(2026, 2, 28))

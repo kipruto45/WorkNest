@@ -15,6 +15,20 @@ class TaskPriority(models.TextChoices):
     CRITICAL = "critical", "Critical"
 
 
+class TaskRecurrence(models.TextChoices):
+    NONE = "none", "Does Not Repeat"
+    DAILY = "daily", "Daily"
+    WEEKLY = "weekly", "Weekly"
+    MONTHLY = "monthly", "Monthly"
+
+
+class SavedTaskViewLayout(models.TextChoices):
+    LIST = "list", "List"
+    KANBAN = "kanban", "Kanban"
+    CALENDAR = "calendar", "Calendar"
+    WORKLOAD = "workload", "Workload"
+
+
 class TaskPermission(models.TextChoices):
     CAN_CREATE = "can_create", "Can Create"
     CAN_EDIT = "can_edit", "Can Edit"
@@ -29,8 +43,12 @@ TASK_ORDERING_FIELDS = {
     "-created_at",
     "updated_at",
     "-updated_at",
+    "planned_for_date",
+    "-planned_for_date",
     "due_date",
     "-due_date",
+    "estimated_minutes",
+    "-estimated_minutes",
     "priority",
     "-priority",
     "status",

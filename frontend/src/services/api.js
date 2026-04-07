@@ -109,6 +109,11 @@ export const tasksAPI = {
   getKanban: (teamId) => api.get('/tasks/board/', { params: { team: teamId } }),
   getMyTasks: (params) => api.get('/tasks/my-tasks/', { params }),
   getOverdue: () => api.get('/tasks/overdue/'),
+  getTemplates: (params) => api.get('/tasks/templates/', { params }),
+  createTemplate: (data) => api.post('/tasks/templates/', data),
+  createFromTemplate: (id, data) => api.post(`/tasks/templates/${id}/create-task/`, data),
+  getSavedViews: (params) => api.get('/tasks/views/saved/', { params }),
+  createSavedView: (data) => api.post('/tasks/views/saved/', data),
 }
 
 export const commentsAPI = {
