@@ -4,9 +4,14 @@ from urllib.parse import parse_qs
 
 from channels.auth import AuthMiddlewareStack
 from channels.db import database_sync_to_async
-from django.contrib.auth.models import AnonymousUser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
+
+def build_anonymous_user():
+    from django.contrib.auth.models import AnonymousUser
+
+    return AnonymousUser()
 
 
 @database_sync_to_async
@@ -30,7 +35,7 @@ class JWTAuthMiddleware:
                 try:
                     mutable_scope["user"] = await get_user_for_token(token)
                 except (InvalidToken, TokenError, Exception):
-                    mutable_scope["user"] = AnonymousUser()
+                    mutable_scope["user"] = build_anonymous_user()
 
         return await self.inner(mutable_scope, receive, send)
 

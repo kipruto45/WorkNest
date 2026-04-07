@@ -4,13 +4,6 @@ from __future__ import annotations
 
 import os
 
-from channels.routing import ProtocolTypeRouter, URLRouter
-from django.core.asgi import get_asgi_application
-
-from apps.realtime.middleware import JWTAuthMiddlewareStack
-from config.websocket import websocket_urlpatterns
-
-
 def _default_settings_module() -> str:
     if os.environ.get("ENVIRONMENT", "").strip().lower() == "production":
         return "config.settings.production"
@@ -19,7 +12,13 @@ def _default_settings_module() -> str:
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", _default_settings_module())
 
+from channels.routing import ProtocolTypeRouter, URLRouter
+from django.core.asgi import get_asgi_application
+
 django_asgi_app = get_asgi_application()
+
+from apps.realtime.middleware import JWTAuthMiddlewareStack
+from config.websocket import websocket_urlpatterns
 
 application = ProtocolTypeRouter(
     {
