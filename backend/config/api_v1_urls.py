@@ -1,5 +1,9 @@
+import json
+from pathlib import Path
+
 from django.http import HttpResponse
 from django.urls import include, path
+from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.views import SpectacularAPIView
 
 from apps.comments.views import CommentListCreateView
@@ -61,6 +65,69 @@ def render_redoc_ui(_request):
         content_type="text/html; charset=utf-8",
     )
 
+
+def _fallback_schema(request):
+    backend_url = request.build_absolute_uri("/").rstrip("/")
+    return {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "WorkNest API",
+            "version": "1.0.0",
+            "description": "Fallback OpenAPI schema for the deployed backend.",
+        },
+        "servers": [{"url": backend_url}],
+        "paths": {
+            "/api/v1/": {
+                "get": {
+                    "summary": "API root",
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/api/v1/health/live/": {
+                "get": {
+                    "summary": "Liveness probe",
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/api/v1/health/ready/": {
+                "get": {
+                    "summary": "Readiness probe",
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/api/v1/system/info/": {
+                "get": {
+                    "summary": "System info",
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/api/v1/auth/me/": {
+                "get": {
+                    "summary": "Current user",
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        },
+    }
+
+
+@csrf_exempt
+def serve_schema(request):
+    schema_path = Path(__file__).resolve().parents[1] / "schema" / "openapi.json"
+    if schema_path.exists():
+        try:
+            return HttpResponse(schema_path.read_text(), content_type="application/vnd.oai.openapi+json")
+        except Exception:
+            pass
+
+    try:
+        return SpectacularAPIView.as_view()(request)
+    except Exception:
+        return HttpResponse(
+            json.dumps(_fallback_schema(request)),
+            content_type="application/vnd.oai.openapi+json",
+        )
+
 urlpatterns = [
     path("", APIRootView.as_view(), name="root"),
     path("", include(("apps.common.urls", "common"), namespace="common")),
@@ -75,7 +142,7 @@ urlpatterns = [
     path("tasks/", include(("apps.tasks.urls", "tasks"), namespace="tasks")),
     path("comments/", include(("apps.comments.urls", "comments"), namespace="comments")),
     path("notifications/", include(("apps.notifications.urls", "notifications"), namespace="notifications")),
-    path("schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("schema/", serve_schema, name="schema"),
     path("docs/", render_swagger_ui, name="docs"),
     path("docs/swagger/", render_swagger_ui, name="swagger-ui"),
     path("docs/redoc/", render_redoc_ui, name="redoc"),
