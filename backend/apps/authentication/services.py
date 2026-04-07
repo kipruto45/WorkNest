@@ -8,6 +8,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_auth_action
+from apps.common.ip import normalize_client_ip
 from rest_framework import exceptions
 
 from apps.authentication.models import LoginActivity
@@ -175,8 +176,8 @@ def confirm_password_reset(*, user, new_password: str) -> None:
 def get_client_ip(request) -> str | None:
     forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
+        return normalize_client_ip(forwarded_for)
+    return normalize_client_ip(request.META.get("REMOTE_ADDR"))
 
 
 def get_google_oauth_config(*, request) -> dict:

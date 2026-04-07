@@ -92,6 +92,43 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertFalse(response.data["success"])
         self.assertEqual(LoginActivity.objects.filter(success=False).count(), 1)
 
+    def test_register_succeeds_with_invalid_forwarded_for_header(self) -> None:
+        response = self.client.post(
+            reverse("api_v1:authentication:register"),
+            {
+                "name": "Jane Doe",
+                "first_name": "Jane",
+                "last_name": "Doe",
+                "email": "jane-proxy@example.com",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+            },
+            format="json",
+            HTTP_X_FORWARDED_FOR="unknown, 203.0.113.42",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user = User.objects.get(email="jane-proxy@example.com")
+        self.assertEqual(LoginActivity.objects.filter(user=user).count(), 0)
+
+    def test_login_succeeds_with_invalid_forwarded_for_header(self) -> None:
+        user = User.objects.create_user(
+            email="jane-proxy@example.com",
+            password="StrongPass123!",
+            name="Jane Doe",
+        )
+
+        response = self.client.post(
+            reverse("api_v1:authentication:login"),
+            {"email": user.email, "password": "StrongPass123!"},
+            format="json",
+            HTTP_X_FORWARDED_FOR="unknown, 203.0.113.42",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        login_activity = LoginActivity.objects.get(user=user, success=True)
+        self.assertEqual(login_activity.ip_address, "203.0.113.42")
+
     def test_refresh_uses_cookie_when_body_missing(self) -> None:
         user = User.objects.create_user(
             email="jane@example.com",

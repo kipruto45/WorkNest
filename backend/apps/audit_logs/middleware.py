@@ -2,14 +2,16 @@ from __future__ import annotations
 
 from contextvars import ContextVar
 
+from apps.common.ip import normalize_client_ip
+
 _audit_request_context: ContextVar[dict | None] = ContextVar("audit_request_context", default=None)
 
 
 def _get_client_ip(request) -> str | None:
     forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
+        return normalize_client_ip(forwarded_for)
+    return normalize_client_ip(request.META.get("REMOTE_ADDR"))
 
 
 def set_current_audit_request_context(*, request) -> None:
