@@ -1,8 +1,65 @@
+from django.http import HttpResponse
 from django.urls import include, path
-from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from drf_spectacular.views import SpectacularAPIView
 
 from apps.comments.views import CommentListCreateView
 from apps.common.views import APIRootView
+
+
+def render_swagger_ui(_request):
+    return HttpResponse(
+        """
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WorkNest API Docs</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css" />
+    <style>
+      body { margin: 0; background: #f8fafc; }
+      .topbar { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+      window.ui = SwaggerUIBundle({
+        url: "/api/v1/schema/",
+        dom_id: "#swagger-ui",
+        deepLinking: true,
+        presets: [SwaggerUIBundle.presets.apis]
+      });
+    </script>
+  </body>
+</html>
+        """.strip(),
+        content_type="text/html; charset=utf-8",
+    )
+
+
+def render_redoc_ui(_request):
+    return HttpResponse(
+        """
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WorkNest API Reference</title>
+    <script src="https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"></script>
+    <style>
+      body { margin: 0; background: #fff; }
+    </style>
+  </head>
+  <body>
+    <redoc spec-url="/api/v1/schema/"></redoc>
+  </body>
+</html>
+        """.strip(),
+        content_type="text/html; charset=utf-8",
+    )
 
 urlpatterns = [
     path("", APIRootView.as_view(), name="root"),
@@ -19,7 +76,7 @@ urlpatterns = [
     path("comments/", include(("apps.comments.urls", "comments"), namespace="comments")),
     path("notifications/", include(("apps.notifications.urls", "notifications"), namespace="notifications")),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("docs/", SpectacularSwaggerView.as_view(url_name="api_v1:schema"), name="docs"),
-    path("docs/swagger/", SpectacularSwaggerView.as_view(url_name="api_v1:schema"), name="swagger-ui"),
-    path("docs/redoc/", SpectacularRedocView.as_view(url_name="api_v1:schema"), name="redoc"),
+    path("docs/", render_swagger_ui, name="docs"),
+    path("docs/swagger/", render_swagger_ui, name="swagger-ui"),
+    path("docs/redoc/", render_redoc_ui, name="redoc"),
 ]
