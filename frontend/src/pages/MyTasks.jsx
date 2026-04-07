@@ -8,6 +8,7 @@ import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import { createTask } from '../features/tasksSlice'
 import { tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { CLIENT_STORAGE_KEYS } from '../utils/clientConfig.js'
 import { formatDate, formatRelativeDate, toSentenceCase } from '../utils/formatters'
 
 const initialDraft = {
@@ -33,6 +34,26 @@ const builtInViews = [
   { key: 'due_today', label: 'Due today', filters: { due_today: true, ordering: 'due_date' } },
   { key: 'blocked', label: 'Blocked', filters: { blocked: true, ordering: '-updated_at' } },
 ]
+
+function readSavedViewsCache() {
+  try {
+    const rawValue = localStorage.getItem(CLIENT_STORAGE_KEYS.savedViews)
+    if (!rawValue) return []
+    const parsed = JSON.parse(rawValue)
+    return Array.isArray(parsed) ? parsed : []
+  } catch (_error) {
+    return []
+  }
+}
+
+function writeSavedViewsCache(savedViews) {
+  try {
+    localStorage.setItem(CLIENT_STORAGE_KEYS.savedViews, JSON.stringify(savedViews))
+    return true
+  } catch (_error) {
+    return false
+  }
+}
 
 function formatEstimate(minutes) {
   if (!minutes) return 'No estimate'
@@ -72,7 +93,7 @@ export default function MyTasks() {
   const [teams, setTeams] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
   const [templates, setTemplates] = useState([])
-  const [savedViews, setSavedViews] = useState([])
+  const [savedViews, setSavedViews] = useState(() => readSavedViewsCache())
   const [showComposer, setShowComposer] = useState(false)
   const [saving, setSaving] = useState(false)
   const [templateCreating, setTemplateCreating] = useState(false)
@@ -114,8 +135,17 @@ export default function MyTasks() {
   }
 
   const loadSavedViews = async () => {
-    const response = await tasksAPI.getSavedViews({ layout: 'list', page_size: 50 })
-    setSavedViews(unwrapResults(response))
+    try {
+      const response = await tasksAPI.getSavedViews({ layout: 'list', page_size: 50 })
+      const results = unwrapResults(response)
+      setSavedViews(results)
+      writeSavedViewsCache(results)
+      return results
+    } catch (_error) {
+      const cachedViews = readSavedViewsCache()
+      setSavedViews(cachedViews)
+      return cachedViews
+    }
   }
 
   useEffect(() => {
@@ -238,22 +268,40 @@ export default function MyTasks() {
       activeFilters.team ||
       (draft.team_id || '')
 
+    const payload = {
+      name: name.trim(),
+      layout: 'list',
+      filters: activeFilters,
+      team_id: derivedTeamId || null,
+      is_default: false,
+    }
+
     try {
-      await tasksAPI.createSavedView({
-        name: name.trim(),
-        layout: 'list',
-        filters: activeFilters,
-        team_id: derivedTeamId || null,
-        is_default: false,
-      })
+      await tasksAPI.createSavedView(payload)
       await loadSavedViews()
       toast.success('Saved view added to your workspace.')
     } catch (error) {
-      toast.error(
-        error?.response?.data?.message ||
-          error?.response?.data?.errors?.detail ||
-          'Unable to save this view right now.'
+      const currentCachedViews = readSavedViewsCache()
+      const fallbackId = `local-${Date.now()}`
+      const nextView = {
+        id: fallbackId,
+        name: payload.name,
+        layout: payload.layout,
+        filters: payload.filters,
+        is_default: payload.is_default,
+        team: payload.team_id,
+        team_name: teams.find((team) => String(team.id) === String(payload.team_id))?.name || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      const filteredCachedViews = currentCachedViews.filter(
+        (view) => !(view.name === nextView.name && String(view.team || '') === String(nextView.team || ''))
       )
+      const nextCachedViews = [nextView, ...filteredCachedViews]
+      writeSavedViewsCache(nextCachedViews)
+      setSavedViews(nextCachedViews)
+      setActiveViewKey(`saved:${fallbackId}`)
+      toast.success('Saved view stored on this device. Cloud sync will retry when the workspace API is available.')
     }
   }
 

@@ -14,6 +14,7 @@ export const CLIENT_STORAGE_KEYS = Object.freeze({
   sessionRefresh: joinKey('worknest', 'session', 'r'),
   sessionUser: joinKey('worknest', 'session', 'u'),
   workspacePrefs: joinKey('worknest', 'ui', 'prefs'),
+  savedViews: joinKey('worknest', 'tasks', 'saved', 'views'),
 })
 
 export const PROFILE_FIELD_KEYS = Object.freeze({

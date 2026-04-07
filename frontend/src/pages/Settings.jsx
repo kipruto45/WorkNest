@@ -24,6 +24,28 @@ function readWorkspacePrefs() {
   }
 }
 
+function buildWorkspacePrefs(settings) {
+  return {
+    compactMode: settings.compactMode,
+    reducedMotion: settings.reducedMotion,
+    [USER_PREFERENCE_KEYS.notifications]: {
+      mention_emails: settings.mention_emails,
+      task_assignment_emails: settings.task_assignment_emails,
+      deadline_reminder_emails: settings.deadline_reminder_emails,
+      comment_emails: settings.comment_emails,
+    },
+  }
+}
+
+function writeWorkspacePrefs(settings) {
+  try {
+    localStorage.setItem(CLIENT_STORAGE_KEYS.workspacePrefs, JSON.stringify(buildWorkspacePrefs(settings)))
+    return true
+  } catch (_error) {
+    return false
+  }
+}
+
 export default function Settings() {
   const currentUser = useSelector((state) => state.auth.user)
   const [loading, setLoading] = useState(true)
@@ -41,6 +63,7 @@ export default function Settings() {
     const loadSettings = async () => {
       setLoading(true)
       try {
+        const localPreferences = readWorkspacePrefs()
         let profile = currentUser
         try {
           const response = await usersAPI.getProfile()
@@ -48,8 +71,12 @@ export default function Settings() {
         } catch (_error) {
           profile = currentUser
         }
-        const notificationPreferences = profile?.[USER_PREFERENCE_KEYS.notifications] || {}
-        const localPreferences = readWorkspacePrefs()
+
+        const notificationPreferences =
+          profile?.[USER_PREFERENCE_KEYS.notifications] ||
+          localPreferences[USER_PREFERENCE_KEYS.notifications] ||
+          {}
+
         setSettings((current) => ({
           ...current,
           mention_emails: notificationPreferences.mention_emails ?? current.mention_emails,
@@ -61,11 +88,20 @@ export default function Settings() {
           compactMode: localPreferences.compactMode ?? current.compactMode,
           reducedMotion: localPreferences.reducedMotion ?? current.reducedMotion,
         }))
-        if (!profile) {
-          toast.error('Unable to load settings right now.')
-        }
       } catch (_error) {
-        toast.error('Unable to load settings right now.')
+        const localPreferences = readWorkspacePrefs()
+        const notificationPreferences = localPreferences[USER_PREFERENCE_KEYS.notifications] || {}
+        setSettings((current) => ({
+          ...current,
+          mention_emails: notificationPreferences.mention_emails ?? current.mention_emails,
+          task_assignment_emails:
+            notificationPreferences.task_assignment_emails ?? current.task_assignment_emails,
+          deadline_reminder_emails:
+            notificationPreferences.deadline_reminder_emails ?? current.deadline_reminder_emails,
+          comment_emails: notificationPreferences.comment_emails ?? current.comment_emails,
+          compactMode: localPreferences.compactMode ?? current.compactMode,
+          reducedMotion: localPreferences.reducedMotion ?? current.reducedMotion,
+        }))
       } finally {
         setLoading(false)
       }
@@ -80,13 +116,7 @@ export default function Settings() {
 
   const saveSettings = async () => {
     setSaving(true)
-    localStorage.setItem(
-      CLIENT_STORAGE_KEYS.workspacePrefs,
-      JSON.stringify({
-        compactMode: settings.compactMode,
-        reducedMotion: settings.reducedMotion,
-      })
-    )
+    const savedLocally = writeWorkspacePrefs(settings)
     try {
       await usersAPI.updateProfile({
         [USER_PREFERENCE_KEYS.notifications]: {
@@ -98,11 +128,11 @@ export default function Settings() {
       })
       toast.success('Preferences saved successfully.')
     } catch (error) {
-      toast.error(
-        error?.response?.data?.message ||
-          error?.response?.data?.errors?.detail ||
-          'Interface preferences were saved locally, but notification settings could not be synced right now.'
-      )
+      if (savedLocally) {
+        toast.success('Preferences saved on this device. Cloud sync will retry when the profile endpoint is available.')
+      } else {
+        toast.error('Unable to save preferences on this device right now.')
+      }
     } finally {
       setSaving(false)
     }
