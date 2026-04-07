@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title|default:"Your role has been updated" }}</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; }
+    table { border-collapse: collapse; width: 100%; }
+    .preheader { display: none !important; max-height: 0; opacity: 0; overflow: hidden; }
+    .wrapper { padding: 40px 16px; }
+    .card { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); }
+    .accent-bar { height: 4px; background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%); }
+    .content { padding: 36px; }
+    .logo-wrapper { margin-bottom: 24px; }
+    .logo { display: inline-flex; align-items: center; gap: 12px; }
+    .logo-icon { width: 40px; height: 40px; border-radius: 10px; background: #dbeafe; display: flex; align-items: center; justify-content: center; }
+    .logo-icon-text { font-size: 18px; font-weight: 800; color: #3b82f6; }
+    .logo-text-group { display: flex; flex-direction: column; }
+    .app-name { font-size: 15px; font-weight: 700; color: #1e293b; margin: 0; }
+    .app-tagline { font-size: 12px; color: #64748b; margin: 2px 0 0; }
+    .badge { display: inline-block; padding: 6px 12px; border-radius: 20px; background: #dbeafe; color: #1d4ed8; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 20px; }
+    h1 { margin: 0 0 12px; font-size: 24px; font-weight: 700; color: #1e293b; letter-spacing: -0.3px; }
+    .text { margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #475569; }
+    .cta-button { display: inline-block; padding: 14px 32px; border-radius: 10px; background: #3b82f6; color: #ffffff !important; text-decoration: none; font-size: 15px; font-weight: 600; transition: background 0.2s ease; }
+    .cta-button:hover { background: #2563eb; }
+    .button-hint { margin: 16px 0 0; font-size: 13px; color: #64748b; }
+    .info-box { margin-top: 24px; padding: 20px; border-radius: 12px; background: #eff6ff; border: 1px solid #bfdbfe; }
+    .info-row { display: flex; padding: 10px 0; border-bottom: 1px solid #dbeafe; }
+    .info-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .info-label { width: 100px; font-size: 13px; color: #1d4ed8; flex-shrink: 0; }
+    .info-value { font-size: 14px; font-weight: 600; color: #1e293b; }
+    .role-badge { display: inline-block; padding: 4px 12px; border-radius: 6px; background: #3b82f6; color: #ffffff; font-size: 13px; font-weight: 600; }
+    .permissions-note { margin-top: 20px; padding: 14px 18px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0; font-size: 13px; color: #475569; }
+    .footer { padding: 24px 36px 32px; border-top: 1px solid #f1f5f9; background: #fafbfc; }
+    .footer-text { margin: 0 0 6px; font-size: 12px; color: #94a3b8; }
+    .footer-link { color: #3b82f6; text-decoration: none; }
+    @media (max-width: 600px) {
+      .wrapper { padding: 20px 12px; }
+      .content { padding: 28px 24px; }
+      .footer { padding: 20px 24px 24px; }
+      h1 { font-size: 22px; }
+      .cta-button { display: block; text-align: center; width: 100%; box-sizing: border-box; }
+    }
+  </style>
+</head>
+<body>
+  <div class="preheader">{{ preheader_text|default:intro }}</div>
+  <table role="presentation" width="100%">
+    <tr>
+      <td align="center">
+        <table class="wrapper" role="presentation">
+          <tr>
+            <td>
+              <table class="card" role="presentation">
+                <tr><td class="accent-bar"></td></tr>
+                <tr>
+                  <td class="content">
+                    <span class="badge">👤 ROLE CHANGED</span>
+                    <h1>{{ title }}</h1>
+                    <p class="text">{{ intro }}</p>
+                    {% if button_url %}<a href="{{ button_url }}" class="cta-button">{{ button_text|default:"View Team" }}</a>{% endif %}
+                    {% if button_hint %}<p class="button-hint">{{ button_hint }}</p>{% endif %}
+                    {% if detail_items %}
+                      <div class="info-box">
+                        {% for item in detail_items %}
+                          <div class="info-row">
+                            <span class="info-label">{{ item.label }}</span>
+                            <span class="info-value">{{ item.value }}</span>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                    <div class="permissions-note">
+                      Your new role gives you <strong>{{ new_role|default:"different" }}</strong> permissions in the team. Check your team settings to see what you can now access.
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="footer">
+                    <p class="footer-text">Need help? Contact us at <a href="mailto:{{ support_email }}" class="footer-link">{{ support_email }}</a></p>
+                    <p class="footer-text">{{ app_name }} — Keep your tasks and team organized</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

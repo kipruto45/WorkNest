@@ -1,0 +1,4 @@
+admin@worknest.local
+manager@worknest.local
+member@worknest.local
+default password: set this locally before seeding users

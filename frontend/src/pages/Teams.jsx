@@ -1,0 +1,157 @@
+import { useEffect, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { Link, useNavigate } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
+import { toast } from 'react-toastify'
+import PageHero from '../components/PageHero'
+import EmptyState from '../components/EmptyState'
+import { fetchTeams, createTeam } from '../features/teamsSlice'
+import { toSentenceCase } from '../utils/formatters'
+
+export default function Teams() {
+  const [showModal, setShowModal] = useState(false)
+  const { teams, loading } = useSelector((state) => state.teams)
+  const dispatch = useDispatch()
+  const navigate = useNavigate()
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm()
+
+  useEffect(() => {
+    dispatch(fetchTeams())
+  }, [dispatch])
+
+  const onSubmit = async (data) => {
+    try {
+      const team = await dispatch(createTeam(data)).unwrap()
+      toast.success('Team created. Invite your teammates by email next.')
+      setShowModal(false)
+      reset()
+      navigate(`/teams/${team.id}/invitations?compose=1&created=1`)
+    } catch (error) {
+      toast.error(error || 'Failed to create team')
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <PageHero
+        eyebrow="Teams"
+        title="Workspace collection"
+        description="Every active team, ready for drill-down into overview, board, analytics, members, and invitations."
+        stats={[
+          { label: 'Active teams', value: teams.length, caption: 'Across your account' },
+          { label: 'Visible roles', value: new Set(teams.map((team) => team.my_role)).size || 0, caption: 'Role spread' },
+          { label: 'Largest team', value: Math.max(0, ...teams.map((team) => team.member_count || 0)), caption: 'Members in one workspace' },
+        ]}
+        spotlight={{
+          eyebrow: 'Workspace map',
+          title: 'Each team should feel like a product surface.',
+          description: 'Overview, board, analytics, activity, invitations, and member controls create a stronger demo story than a flat list.',
+          points: [
+            { label: 'Boards ready', value: teams.length },
+            { label: 'Next action', value: teams.length ? 'Open an overview' : 'Create first team' },
+          ],
+        }}
+        actions={
+          <button type="button" onClick={() => setShowModal(true)} className="btn-primary">
+            Create team
+          </button>
+        }
+      />
+
+      {loading ? (
+        <div className="card text-center text-soft">Loading teams...</div>
+      ) : teams.length === 0 ? (
+        <EmptyState
+          title="No teams yet"
+          description="Create your first team to start collaborating on boards, tasks, member roles, and shared delivery metrics."
+          action={
+            <button type="button" onClick={() => setShowModal(true)} className="btn-primary">
+              Start with a team
+            </button>
+          }
+        />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {teams.map((team) => (
+            <div key={team.id} className="feature-tile fade-in">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-xl font-bold text-white">
+                  {team.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="stat-chip">{toSentenceCase(team.my_role || 'member')}</div>
+              </div>
+              <h3 className="mt-5 text-2xl font-bold text-emerald-950">{team.name}</h3>
+              <p className="mt-2 min-h-[48px] text-sm leading-6 text-soft">
+                {team.description || 'No description added yet. Use the overview page to shape this workspace.'}
+              </p>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <div className="metric-strip">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Members</p>
+                    <p className="mt-2 text-2xl font-bold text-emerald-950">{team.member_count}</p>
+                  </div>
+                </div>
+                <div className="metric-strip">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Owner</p>
+                    <p className="mt-2 text-base font-bold text-emerald-950">{team.created_by?.name || 'Unknown'}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link to={`/teams/${team.id}/overview`} className="btn-primary">
+                  Overview
+                </Link>
+                <Link to={`/teams/${team.id}`} className="btn-secondary">
+                  Board
+                </Link>
+                <Link to={`/teams/${team.id}/invitations?compose=1`} className="btn-secondary">
+                  Invite
+                </Link>
+                <Link to={`/teams/${team.id}/analytics`} className="btn-ghost">
+                  Analytics
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/30 px-4 backdrop-blur-sm">
+          <div className="page-shell w-full max-w-xl p-6 md:p-8">
+            <h3 className="font-display text-3xl font-bold text-emerald-950">Create a new team</h3>
+            <p className="mt-2 text-sm leading-6 text-soft">Start a workspace for shared task planning, invites, and delivery tracking.</p>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-emerald-950">Team name</label>
+                <input {...register('name', { required: 'Name is required' })} className="input-field" placeholder="Growth Squad" />
+                {errors.name ? <p className="mt-2 text-sm text-red-500">{errors.name.message}</p> : null}
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-emerald-950">Description</label>
+                <textarea {...register('description')} className="input-field min-h-[140px]" placeholder="What does this team own?" />
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-3">
+                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSubmitting} className="btn-primary">
+                  {isSubmitting ? 'Creating...' : 'Create team'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}

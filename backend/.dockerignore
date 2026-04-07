@@ -1,0 +1,13 @@
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.venv/
+build/
+dist/
+htmlcov/
+media/
+staticfiles/

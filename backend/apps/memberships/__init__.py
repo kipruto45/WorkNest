@@ -1,0 +1,1 @@
+"""Memberships domain app."""
