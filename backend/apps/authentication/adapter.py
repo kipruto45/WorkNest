@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import secrets
 import urllib.parse
 from typing import Any
@@ -140,9 +141,26 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
         token_payload = issue_tokens_for_user(user=user)
         
         frontend_url = f"{settings.FRONTEND_URL.rstrip('/')}/auth/google/callback"
-        params = f"?access={token_payload['access']}&refresh={token_payload['refresh']}"
+        user_payload = json.dumps(
+            {
+                "id": str(user.id),
+                "email": user.email,
+                "name": user.name,
+                "avatar": user.avatar or "",
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+            },
+            separators=(",", ":"),
+        )
+        params = urlencode(
+            {
+                "access": token_payload["access"],
+                "refresh": token_payload["refresh"],
+                "user": user_payload,
+            }
+        )
         
-        return HttpResponseRedirect(f"{frontend_url}{params}")
+        return HttpResponseRedirect(f"{frontend_url}?{params}")
         
     except Exception:
         redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?error=google_auth_failed"
