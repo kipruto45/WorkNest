@@ -4,7 +4,8 @@
   publish = "dist"
 
 [build.environment]
-  SECRETS_SCAN_OMIT_PATHS = "node_modules/**,dist/**,.netlify/**"
+  SECRETS_SCAN_OMIT_KEYS = "VITE_API_URL,VITE_GOOGLE_CLIENT_ID,VITE_GOOGLE_REDIRECT_URI"
+  SECRETS_SCAN_OMIT_PATHS = "node_modules/**,dist/**,.netlify/**,frontend/node_modules/**,frontend/dist/**,frontend/.netlify/**"
 
 [functions]
   directory = "netlify/functions"
