@@ -149,22 +149,44 @@ def _find_existing_delivery(*, dedupe_key: str) -> EmailDelivery | None:
 
 
 def _log_email_action(*, actor=None, action: str, payload: QueuedEmailPayload, delivery: EmailDelivery, metadata: dict[str, Any] | None = None) -> None:
-    create_audit_log(
-        actor=actor,
-        action=action,
-        target_type="email_delivery",
-        target_id=str(delivery.id),
-        target_repr=payload.subject,
-        metadata=build_audit_metadata(
-            email_type=payload.email_type,
-            recipient_email=payload.recipient_email,
-            template_name=payload.template_name,
-            source=payload.source,
-            related_object_type=payload.related_object_type,
-            related_object_id=payload.related_object_id,
-            **(metadata or {}),
-        ),
-    )
+    try:
+        create_audit_log(
+            actor=actor,
+            action=action,
+            target_type="email_delivery",
+            target_id=str(delivery.id),
+            target_repr=payload.subject,
+            metadata=build_audit_metadata(
+                email_type=payload.email_type,
+                recipient_email=payload.recipient_email,
+                template_name=payload.template_name,
+                source=payload.source,
+                related_object_type=payload.related_object_type,
+                related_object_id=payload.related_object_id,
+                **(metadata or {}),
+            ),
+        )
+    except Exception:
+        logger.exception(
+            "email_audit_log_failed",
+            extra={"delivery_id": str(delivery.id), "email_type": payload.email_type, "action": action},
+        )
+
+
+def _safe_record_delivery_event(*, action: str, delivery: EmailDelivery, metadata: dict[str, Any]) -> None:
+    try:
+        create_audit_log(
+            action=action,
+            target_type="email_delivery",
+            target_id=str(delivery.id),
+            target_repr=delivery.subject,
+            metadata=metadata,
+        )
+    except Exception:
+        logger.exception(
+            "email_delivery_event_log_failed",
+            extra={"delivery_id": str(delivery.id), "email_type": delivery.email_type, "action": action},
+        )
 
 
 def _is_async_email_delivery_enabled() -> bool:
@@ -178,37 +200,31 @@ def _deliver_email_inline(*, payload: QueuedEmailPayload, delivery: EmailDeliver
         provider_response = deliver_prepared_email(payload=payload)
     except EmailSendFailedError as exc:
         mark_email_delivery_failed(delivery=delivery, message=str(exc))
-        create_audit_log(
+        _safe_record_delivery_event(
             action=AuditAction.EMAIL_FAILED,
-            target_type="email_delivery",
-            target_id=str(delivery.id),
-            target_repr=delivery.subject,
             metadata=build_audit_metadata(email_type=delivery.email_type, recipient_email=delivery.recipient_email),
+            delivery=delivery,
         )
         return delivery
     except Exception:  # pragma: no cover
         mark_email_delivery_failed(delivery=delivery, message="The email could not be rendered or delivered.")
-        create_audit_log(
+        _safe_record_delivery_event(
             action=AuditAction.EMAIL_FAILED,
-            target_type="email_delivery",
-            target_id=str(delivery.id),
-            target_repr=delivery.subject,
             metadata=build_audit_metadata(email_type=delivery.email_type, recipient_email=delivery.recipient_email),
+            delivery=delivery,
         )
         logger.exception("email_inline_delivery_failed", extra={"delivery_id": str(delivery.id), "email_type": payload.email_type})
         return delivery
 
     mark_email_delivery_sent(delivery=delivery, provider_response=provider_response)
-    create_audit_log(
+    _safe_record_delivery_event(
         action=AuditAction.EMAIL_SENT,
-        target_type="email_delivery",
-        target_id=str(delivery.id),
-        target_repr=delivery.subject,
         metadata=build_audit_metadata(
             email_type=delivery.email_type,
             recipient_email=delivery.recipient_email,
             provider=provider_response.get("provider"),
         ),
+        delivery=delivery,
     )
     return delivery
 

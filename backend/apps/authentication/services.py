@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from django.conf import settings
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import update_last_login
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
@@ -27,6 +27,17 @@ from apps.users.selectors import get_user_by_email
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+
+
+def _normalize_auth_email(email: str) -> str:
+    return (email or "").strip()
+
+
+def _safe_queue_welcome_email(*, user) -> None:
+    try:
+        queue_welcome_email(user=user, actor=user)
+    except Exception:
+        logger.exception("Unable to queue welcome email", extra={"user_id": str(getattr(user, "pk", ""))})
 
 
 def sync_google_account_profile(
@@ -80,8 +91,9 @@ def create_user_account(
     last_name: str = "",
     auth_provider: str = UserModel.AuthProvider.EMAIL,
 ):
+    normalized_email = _normalize_auth_email(email)
     user = User.objects.create_user(
-        email=email,
+        email=normalized_email,
         password=password,
         name=name,
         first_name=first_name,
@@ -96,7 +108,7 @@ def create_user_account(
         metadata=build_audit_metadata(email=user.email, auth_provider=auth_provider),
     )
     if getattr(settings, "WELCOME_EMAIL_ENABLED", False):
-        queue_welcome_email(user=user, actor=user)
+        _safe_queue_welcome_email(user=user)
     return user
 
 
@@ -115,23 +127,26 @@ def record_login_activity(*, email: str, request, success: bool, user=None, fail
 
 
 def authenticate_user(*, email: str, password: str, request):
-    user = authenticate(request=request, username=email, password=password)
+    normalized_email = _normalize_auth_email(email)
+    user = get_user_by_email(email=normalized_email)
+    if user is None or not user.check_password(password):
+        user = None
     if user is None:
         record_login_activity(
-            email=email,
+            email=normalized_email,
             request=request,
             success=False,
             failure_reason="Invalid email or password.",
         )
         _safe_log_auth_action(
             action=AuditAction.USER_LOGIN_FAILED,
-            target_repr=email.strip().lower(),
-            metadata=build_audit_metadata(email=email.strip().lower(), failure_reason="Invalid email or password."),
+            target_repr=normalized_email.lower(),
+            metadata=build_audit_metadata(email=normalized_email.lower(), failure_reason="Invalid email or password."),
         )
         raise exceptions.AuthenticationFailed("Invalid email or password.")
     if not user.is_active:
         record_login_activity(
-            email=email,
+            email=normalized_email,
             request=request,
             success=False,
             user=user,
@@ -145,7 +160,7 @@ def authenticate_user(*, email: str, password: str, request):
         )
         raise exceptions.AuthenticationFailed("This account is inactive.")
 
-    record_login_activity(email=email, request=request, success=True, user=user)
+    record_login_activity(email=normalized_email, request=request, success=True, user=user)
     try:
         update_last_login(None, user)
     except Exception:

@@ -16,17 +16,25 @@ export default function Login() {
   const [searchParams] = useSearchParams()
   const nextPath = searchParams.get('next') || '/dashboard'
   const loginError = searchParams.get('error')
+  const registered = searchParams.get('registered') === '1'
+  const registeredEmail = searchParams.get('email') || ''
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm({
     defaultValues: {
-      email: '',
+      email: registeredEmail,
       password: '',
       remember_me: true,
     },
   })
+
+  useEffect(() => {
+    if (registered) {
+      toast.success('Registration complete. Sign in with your new account.')
+    }
+  }, [registered])
 
   useEffect(() => {
     if (!loginError) {
@@ -48,7 +56,7 @@ export default function Login() {
   const onSubmit = async (data) => {
     setLoading(true)
     try {
-      await dispatch(login(data)).unwrap()
+      await dispatch(login({ ...data, email: data.email.trim() })).unwrap()
       toast.success('Welcome back to your workspace.')
       navigate(nextPath)
     } catch (error) {

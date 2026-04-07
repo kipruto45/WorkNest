@@ -54,6 +54,14 @@ services:
         sync: false
       - key: SENDGRID_API_KEY
         sync: false
+      - key: ADMIN_BOOTSTRAP_ENABLED
+        value: "0"
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_NAME
+        value: WorkNest Admin
+      - key: ADMIN_PASSWORD
+        sync: false
       - key: GOOGLE_OAUTH_CLIENT_ID
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_SECRET

@@ -40,9 +40,15 @@ export default function Register() {
   const onSubmit = async (data) => {
     setLoading(true)
     try {
-      await dispatch(registerUser(data)).unwrap()
-      toast.success('Your account is ready.')
-      navigate(nextPath)
+      const payload = { ...data, email: data.email.trim(), name: data.name.trim() }
+      const result = await dispatch(registerUser(payload)).unwrap()
+      const loginParams = new URLSearchParams({
+        registered: '1',
+        email: result?.email || payload.email,
+        next: nextPath,
+      })
+      toast.success('Account created successfully. Sign in to continue.')
+      navigate(`/login?${loginParams.toString()}`, { replace: true })
     } catch (error) {
       toast.error(error || 'Registration failed')
     } finally {

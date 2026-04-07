@@ -93,6 +93,42 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertFalse(response.data["success"])
         self.assertEqual(LoginActivity.objects.filter(success=False).count(), 1)
 
+    def test_login_accepts_case_insensitive_email(self) -> None:
+        user = User.objects.create_user(
+            email="jane@example.com",
+            password="StrongPass123!",
+            name="Jane Doe",
+        )
+
+        response = self.client.post(
+            reverse("api_v1:authentication:login"),
+            {"email": "Jane@Example.com", "password": "StrongPass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(LoginActivity.objects.filter(user=user, success=True).count(), 1)
+
+    @patch("apps.authentication.services.queue_welcome_email", side_effect=RuntimeError("smtp unavailable"))
+    def test_register_succeeds_when_welcome_email_queueing_fails(self, _mock_queue_welcome_email) -> None:
+        response = self.client.post(
+            reverse("api_v1:authentication:register"),
+            {
+                "name": "Jane Doe",
+                "first_name": "Jane",
+                "last_name": "Doe",
+                "email": "jane-welcome@example.com",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["success"])
+        self.assertTrue(User.objects.filter(email="jane-welcome@example.com").exists())
+
     def test_register_succeeds_with_invalid_forwarded_for_header(self) -> None:
         response = self.client.post(
             reverse("api_v1:authentication:register"),

@@ -62,8 +62,8 @@ export const register = createAsyncThunk('auth/register', async (userData, { rej
   try {
     const response = await authAPI.register(userData)
     const session = extractAuthSession(unwrapData(response))
-    persistAuthSession(session)
-    return { user: session.user, token: session.accessToken }
+    clearAuthSession()
+    return { user: session.user, email: session.user?.email || userData?.email || '' }
   } catch (error) {
     return rejectWithValue(extractErrorMessage(error, 'Registration failed'))
   }
@@ -132,9 +132,9 @@ const authSlice = createSlice({
         state.error = action.payload
       })
       .addCase(register.fulfilled, (state, action) => {
-        state.user = action.payload.user
-        state.token = action.payload.token
-        state.isAuthenticated = true
+        state.user = null
+        state.token = null
+        state.isAuthenticated = false
         state.error = null
       })
       .addCase(register.rejected, (state, action) => {
