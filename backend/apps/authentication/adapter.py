@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from urllib.parse import urlencode
 
 from django.http import HttpResponseRedirect, HttpRequest
@@ -14,6 +15,13 @@ from apps.users.serializers import CurrentUserSerializer
 from apps.users.models import User as UserModel
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
+
+
+class GoogleOAuthCallbackError(Exception):
+    def __init__(self, error_code: str, message: str):
+        self.error_code = error_code
+        super().__init__(message)
 
 
 def get_google_authorization_url(redirect_uri: str, state: str = "") -> str:
@@ -47,7 +55,16 @@ def exchange_code_for_token(code: str, redirect_uri: str) -> dict:
     }
     
     response = requests.post(token_url, data=data, timeout=30)
-    response.raise_for_status()
+    if response.status_code >= 400:
+        try:
+            error_payload = response.json()
+        except ValueError:
+            error_payload = {"detail": response.text}
+        logger.warning("Google token exchange failed", extra={"google_error_payload": error_payload})
+        raise GoogleOAuthCallbackError(
+            "google_token_exchange_failed",
+            str(error_payload.get("error_description") or error_payload.get("error") or "Google token exchange failed."),
+        )
     return response.json()
 
 
@@ -59,7 +76,16 @@ def get_google_user_info(access_token: str) -> dict:
     headers = {'Authorization': f'Bearer {access_token}'}
     
     response = requests.get(userinfo_url, headers=headers, timeout=30)
-    response.raise_for_status()
+    if response.status_code >= 400:
+        try:
+            error_payload = response.json()
+        except ValueError:
+            error_payload = {"detail": response.text}
+        logger.warning("Google userinfo request failed", extra={"google_error_payload": error_payload})
+        raise GoogleOAuthCallbackError(
+            "google_userinfo_failed",
+            str(error_payload.get("error", {}).get("message") or error_payload.get("error") or "Google profile lookup failed."),
+        )
     return response.json()
 
 
@@ -167,6 +193,11 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
         
         return HttpResponseRedirect(f"{frontend_url}?{params}")
         
+    except GoogleOAuthCallbackError as exc:
+        logger.warning("Google OAuth callback failed: %s", exc)
+        redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?error={exc.error_code}"
+        return HttpResponseRedirect(redirect_url)
     except Exception:
+        logger.exception("Unhandled Google OAuth callback failure")
         redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?error=google_auth_failed"
         return HttpResponseRedirect(redirect_url)

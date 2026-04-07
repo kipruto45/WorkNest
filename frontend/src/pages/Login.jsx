@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import { useForm } from 'react-hook-form'
@@ -15,6 +15,7 @@ export default function Login() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const nextPath = searchParams.get('next') || '/dashboard'
+  const loginError = searchParams.get('error')
   const {
     register,
     handleSubmit,
@@ -26,6 +27,23 @@ export default function Login() {
       remember_me: true,
     },
   })
+
+  useEffect(() => {
+    if (!loginError) {
+      return
+    }
+
+    const errorMessages = {
+      google_auth_failed: 'Google sign-in could not be completed.',
+      google_token_exchange_failed: 'Google sign-in could not be completed. Check the backend Google client secret and redirect URI.',
+      google_userinfo_failed: 'Google sign-in could not fetch your Google profile.',
+      no_authorization_code: 'Google sign-in did not return an authorization code.',
+      no_access_token: 'Google sign-in did not return an access token.',
+      no_email: 'Google did not return an email address for this account.',
+    }
+
+    toast.error(errorMessages[loginError] || 'Sign in could not be completed.')
+  }, [loginError])
 
   const onSubmit = async (data) => {
     setLoading(true)
