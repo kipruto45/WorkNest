@@ -239,7 +239,7 @@ export default function Layout() {
         </aside>
 
         <div className="relative z-10 flex min-w-0 flex-1 flex-col">
-          <header className="border-b border-slate-200 bg-[#fbfbfa] px-5 py-4 md:px-8">
+          <header className="sticky top-0 z-20 border-b border-slate-200 bg-[#fbfbfa]/95 px-5 py-4 backdrop-blur md:px-8">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">{currentRouteMeta.title}</p>
@@ -297,7 +297,7 @@ export default function Layout() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto px-5 py-5 md:px-8 md:py-8">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-5 md:px-8 md:py-8">
             <Outlet />
           </main>
         </div>

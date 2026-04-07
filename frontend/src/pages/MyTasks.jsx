@@ -233,17 +233,27 @@ export default function MyTasks() {
     const name = window.prompt('Name this saved view', defaultName)
     if (!name?.trim()) return
 
+    const derivedTeamId =
+      activeSavedView?.team ||
+      activeFilters.team ||
+      (draft.team_id || '')
+
     try {
       await tasksAPI.createSavedView({
         name: name.trim(),
         layout: 'list',
         filters: activeFilters,
+        team_id: derivedTeamId || null,
         is_default: false,
       })
       await loadSavedViews()
       toast.success('Saved view added to your workspace.')
     } catch (error) {
-      toast.error('Unable to save this view right now.')
+      toast.error(
+        error?.response?.data?.message ||
+          error?.response?.data?.errors?.detail ||
+          'Unable to save this view right now.'
+      )
     }
   }
 

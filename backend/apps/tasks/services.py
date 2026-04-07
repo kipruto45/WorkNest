@@ -552,14 +552,17 @@ def create_task_from_template(
 def create_saved_task_view(*, user, name: str, layout: str, filters: dict | None = None, team: Team | None = None, is_default: bool = False):
     if is_default:
         SavedTaskView.objects.filter(user=user, team=team, layout=layout).update(is_default=False)
-    return SavedTaskView.objects.create(
+    saved_view, _created = SavedTaskView.objects.update_or_create(
         user=user,
         team=team,
         name=name.strip(),
-        layout=layout,
-        filters=filters or {},
-        is_default=is_default,
+        defaults={
+            "layout": layout,
+            "filters": filters or {},
+            "is_default": is_default,
+        },
     )
+    return saved_view
 
 
 def _spawn_next_recurring_task(*, task: Task, changed_by: User | None = None) -> Task | None:

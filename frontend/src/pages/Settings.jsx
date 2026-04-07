@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSelector } from 'react-redux'
 import { toast } from 'react-toastify'
 import PageHero from '../components/PageHero'
 import LoadingState from '../components/LoadingState'
@@ -12,7 +13,19 @@ const notificationOptions = [
   { key: 'comment_emails', label: 'Comment updates', description: 'Know when someone adds context to work you are part of.' },
 ]
 
+function readWorkspacePrefs() {
+  try {
+    const rawValue = localStorage.getItem(CLIENT_STORAGE_KEYS.workspacePrefs)
+    if (!rawValue) return {}
+    const parsed = JSON.parse(rawValue)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch (_error) {
+    return {}
+  }
+}
+
 export default function Settings() {
+  const currentUser = useSelector((state) => state.auth.user)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState({
@@ -28,10 +41,15 @@ export default function Settings() {
     const loadSettings = async () => {
       setLoading(true)
       try {
-        const response = await usersAPI.getProfile()
-        const profile = unwrapData(response)
+        let profile = currentUser
+        try {
+          const response = await usersAPI.getProfile()
+          profile = unwrapData(response) || currentUser
+        } catch (_error) {
+          profile = currentUser
+        }
         const notificationPreferences = profile?.[USER_PREFERENCE_KEYS.notifications] || {}
-        const localPreferences = JSON.parse(localStorage.getItem(CLIENT_STORAGE_KEYS.workspacePrefs) || '{}')
+        const localPreferences = readWorkspacePrefs()
         setSettings((current) => ({
           ...current,
           mention_emails: notificationPreferences.mention_emails ?? current.mention_emails,
@@ -43,7 +61,10 @@ export default function Settings() {
           compactMode: localPreferences.compactMode ?? current.compactMode,
           reducedMotion: localPreferences.reducedMotion ?? current.reducedMotion,
         }))
-      } catch (error) {
+        if (!profile) {
+          toast.error('Unable to load settings right now.')
+        }
+      } catch (_error) {
         toast.error('Unable to load settings right now.')
       } finally {
         setLoading(false)
@@ -51,7 +72,7 @@ export default function Settings() {
     }
 
     loadSettings()
-  }, [])
+  }, [currentUser])
 
   const toggle = (key) => {
     setSettings((current) => ({ ...current, [key]: !current[key] }))
@@ -59,6 +80,13 @@ export default function Settings() {
 
   const saveSettings = async () => {
     setSaving(true)
+    localStorage.setItem(
+      CLIENT_STORAGE_KEYS.workspacePrefs,
+      JSON.stringify({
+        compactMode: settings.compactMode,
+        reducedMotion: settings.reducedMotion,
+      })
+    )
     try {
       await usersAPI.updateProfile({
         [USER_PREFERENCE_KEYS.notifications]: {
@@ -68,16 +96,13 @@ export default function Settings() {
           comment_emails: settings.comment_emails,
         },
       })
-      localStorage.setItem(
-        CLIENT_STORAGE_KEYS.workspacePrefs,
-        JSON.stringify({
-          compactMode: settings.compactMode,
-          reducedMotion: settings.reducedMotion,
-        })
-      )
       toast.success('Preferences saved successfully.')
     } catch (error) {
-      toast.error('Unable to save settings right now.')
+      toast.error(
+        error?.response?.data?.message ||
+          error?.response?.data?.errors?.detail ||
+          'Interface preferences were saved locally, but notification settings could not be synced right now.'
+      )
     } finally {
       setSaving(false)
     }

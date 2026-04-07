@@ -184,3 +184,28 @@ class TaskServiceModernWorkflowTests(TestCase):
 
         self.assertEqual(defaults.count(), 1)
         self.assertEqual(defaults.first().id, newer_default.id)
+
+    def test_create_saved_task_view_updates_existing_view_with_same_name(self) -> None:
+        original = create_saved_task_view(
+            user=self.owner,
+            team=self.team,
+            name="My day",
+            layout=SavedTaskView.Layout.LIST,
+            filters={"my_day": True},
+            is_default=False,
+        )
+
+        updated = create_saved_task_view(
+            user=self.owner,
+            team=self.team,
+            name="My day",
+            layout=SavedTaskView.Layout.KANBAN,
+            filters={"blocked": True},
+            is_default=True,
+        )
+
+        self.assertEqual(updated.id, original.id)
+        self.assertEqual(SavedTaskView.objects.filter(user=self.owner, team=self.team, name="My day").count(), 1)
+        self.assertEqual(updated.layout, SavedTaskView.Layout.KANBAN)
+        self.assertEqual(updated.filters, {"blocked": True})
+        self.assertTrue(updated.is_default)
