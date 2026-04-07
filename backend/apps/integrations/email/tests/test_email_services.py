@@ -235,6 +235,12 @@ class EmailWorkflowTests(TestCase):
                 self.assertTrue(payload.context["button_url"].startswith("http://localhost:5173/"))
                 self.assertNotIn("None", payload.context["button_url"])
                 self.assertNotIn("//tasks", payload.context["button_url"])
+                if payload.email_type == "welcome":
+                    self.assertEqual(payload.context["button_url"], "http://localhost:5173/dashboard")
+                if payload.email_type == "team_invite":
+                    self.assertEqual(payload.context["decline_url"], payload.context["button_url"])
+                if payload.email_type == "invitation_revoked":
+                    self.assertIn("/invitations/", payload.context["button_url"])
 
     @override_settings(WELCOME_EMAIL_ENABLED=True)
     def test_welcome_email_can_be_queued(self) -> None:
@@ -245,6 +251,22 @@ class EmailWorkflowTests(TestCase):
 
         self.assertEqual(delivery.status, EmailDelivery.Status.SENT)
         self.assertEqual(delivery.email_type, "welcome")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Welcome to", mail.outbox[0].subject)
+
+    @override_settings(
+        EMAIL_DELIVERY_MODE="async",
+        CELERY_TASK_ALWAYS_EAGER=False,
+        WELCOME_EMAIL_ENABLED=True,
+    )
+    @patch("apps.integrations.email.tasks.deliver_email_task.delay", side_effect=RuntimeError("broker unavailable"))
+    def test_email_queue_falls_back_to_inline_delivery_when_broker_is_unavailable(self, _delay_mock) -> None:
+        user = User.objects.create_user(email="fallback@example.com", password="StrongPass123!", name="Fallback User")
+
+        delivery = queue_welcome_email(user=user, actor=user)
+        delivery.refresh_from_db()
+
+        self.assertEqual(delivery.status, EmailDelivery.Status.SENT)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("Welcome to", mail.outbox[0].subject)
 

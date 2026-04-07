@@ -32,6 +32,7 @@ from apps.integrations.email.builders import (
 from apps.integrations.email.sendgrid import SendGridEmailProvider
 from apps.integrations.email.smtp import SMTPEmailProvider
 from apps.integrations.email.templates import render_email_template
+from apps.integrations.exceptions import EmailSendFailedError
 from apps.integrations.models import EmailDelivery
 from apps.integrations.validators import validate_provider_name
 
@@ -166,6 +167,52 @@ def _log_email_action(*, actor=None, action: str, payload: QueuedEmailPayload, d
     )
 
 
+def _is_async_email_delivery_enabled() -> bool:
+    return str(getattr(settings, "EMAIL_DELIVERY_MODE", "sync")).strip().lower() == "async"
+
+
+def _deliver_email_inline(*, payload: QueuedEmailPayload, delivery: EmailDelivery) -> EmailDelivery:
+    mark_email_delivery_processing(delivery=delivery)
+
+    try:
+        provider_response = deliver_prepared_email(payload=payload)
+    except EmailSendFailedError as exc:
+        mark_email_delivery_failed(delivery=delivery, message=str(exc))
+        create_audit_log(
+            action=AuditAction.EMAIL_FAILED,
+            target_type="email_delivery",
+            target_id=str(delivery.id),
+            target_repr=delivery.subject,
+            metadata=build_audit_metadata(email_type=delivery.email_type, recipient_email=delivery.recipient_email),
+        )
+        return delivery
+    except Exception:  # pragma: no cover
+        mark_email_delivery_failed(delivery=delivery, message="The email could not be rendered or delivered.")
+        create_audit_log(
+            action=AuditAction.EMAIL_FAILED,
+            target_type="email_delivery",
+            target_id=str(delivery.id),
+            target_repr=delivery.subject,
+            metadata=build_audit_metadata(email_type=delivery.email_type, recipient_email=delivery.recipient_email),
+        )
+        logger.exception("email_inline_delivery_failed", extra={"delivery_id": str(delivery.id), "email_type": payload.email_type})
+        return delivery
+
+    mark_email_delivery_sent(delivery=delivery, provider_response=provider_response)
+    create_audit_log(
+        action=AuditAction.EMAIL_SENT,
+        target_type="email_delivery",
+        target_id=str(delivery.id),
+        target_repr=delivery.subject,
+        metadata=build_audit_metadata(
+            email_type=delivery.email_type,
+            recipient_email=delivery.recipient_email,
+            provider=provider_response.get("provider"),
+        ),
+    )
+    return delivery
+
+
 def queue_email(*, payload: QueuedEmailPayload, actor=None, user=None) -> EmailDelivery:
     existing = _find_existing_delivery(dedupe_key=payload.dedupe_key)
     if existing is not None:
@@ -185,16 +232,16 @@ def queue_email(*, payload: QueuedEmailPayload, actor=None, user=None) -> EmailD
     def on_commit() -> None:
         from apps.integrations.email.tasks import deliver_email_task
 
+        if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) or not _is_async_email_delivery_enabled():
+            _deliver_email_inline(payload=payload, delivery=delivery)
+            return
+
         try:
             async_result = deliver_email_task.delay(str(delivery.id), payload.to_dict())
             EmailDelivery.objects.filter(id=delivery.id).update(celery_task_id=str(async_result.id or ""))
         except Exception as exc:  # pragma: no cover
             logger.exception("email_queue_failed", extra={"delivery_id": str(delivery.id), "email_type": payload.email_type})
-            EmailDelivery.objects.filter(id=delivery.id).update(
-                status=EmailDelivery.Status.FAILED,
-                last_error="The email job could not be queued.",
-                last_attempt_at=timezone.now(),
-            )
+            _deliver_email_inline(payload=payload, delivery=delivery)
 
     if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) or not connection.in_atomic_block:
         on_commit()

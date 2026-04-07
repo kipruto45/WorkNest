@@ -48,6 +48,8 @@ services:
         value: WorkNest
       - key: EMAIL_PROVIDER
         value: smtp
+      - key: EMAIL_DELIVERY_MODE
+        value: async
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -113,6 +115,8 @@ services:
         value: WorkNest
       - key: EMAIL_PROVIDER
         value: smtp
+      - key: EMAIL_DELIVERY_MODE
+        value: async
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT

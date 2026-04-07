@@ -31,7 +31,8 @@ If you deploy only the backend web service, these background features will not r
 - scheduled deadline reminders
 - websocket-backed Redis/Channels scaling
 
-The API still deploys cleanly, but production background processing is better with the full Render blueprint in [render.yaml](/home/kipruto/Desktop/TASK/deploy/render/render.yaml).
+Transactional emails still send in backend-only mode because the web service now defaults to synchronous email delivery.
+The full multi-service blueprint in [render.yaml](/home/kipruto/Desktop/TASK/deploy/render/render.yaml) is still better when you want async workers and scheduled jobs.
 
 ## Required Render Environment Variables
 
@@ -69,6 +70,7 @@ Recommended extra settings for Supabase:
 ### If Using SMTP
 
 - `EMAIL_PROVIDER=smtp`
+- `EMAIL_DELIVERY_MODE=sync`
 - `EMAIL_FROM_NAME=WorkNest`
 - `SMTP_HOST`
 - `SMTP_PORT`
@@ -78,6 +80,7 @@ Recommended extra settings for Supabase:
 ### If Using SendGrid
 
 - `EMAIL_PROVIDER=sendgrid`
+- `EMAIL_DELIVERY_MODE=sync`
 - `EMAIL_FROM_NAME=WorkNest`
 - `SENDGRID_API_KEY`
 

@@ -87,6 +87,7 @@ Set on `worknest-backend` and `worknest-celery-worker`.
 ### If using SMTP
 
 - `EMAIL_PROVIDER=smtp`
+- `EMAIL_DELIVERY_MODE=async`
 - `DEFAULT_FROM_EMAIL`
 - `EMAIL_FROM_NAME`
 - `SMTP_HOST`
@@ -97,11 +98,16 @@ Set on `worknest-backend` and `worknest-celery-worker`.
 ### If using SendGrid
 
 - `EMAIL_PROVIDER=sendgrid`
+- `EMAIL_DELIVERY_MODE=async`
 - `DEFAULT_FROM_EMAIL`
 - `EMAIL_FROM_NAME`
 - `SENDGRID_API_KEY`
 
 Do not set both providers unless you know why.
+
+If you deploy only the backend web service and do not run the Celery worker,
+set `EMAIL_DELIVERY_MODE=sync` so welcome emails, password resets, invites,
+and notification emails are sent directly from the web process.
 
 ## Google OAuth
 

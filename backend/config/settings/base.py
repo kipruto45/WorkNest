@@ -24,6 +24,7 @@ env = environ.Env(
     DEFAULT_FROM_EMAIL=(str, "no-reply@example.com"),
     EMAIL_FROM_NAME=(str, "WorkNest"),
     EMAIL_PROVIDER=(str, "smtp"),
+    EMAIL_DELIVERY_MODE=(str, "sync"),
     EMAIL_BACKEND=(str, "django.core.mail.backends.console.EmailBackend"),
     EMAIL_HOST=(str, "localhost"),
     EMAIL_PORT=(int, 1025),
@@ -51,7 +52,7 @@ env = environ.Env(
     NOTIFICATION_DEADLINE_REMINDER_GRACE_MINUTES=(int, 30),
     EMAIL_TASK_MAX_RETRIES=(int, 3),
     EMAIL_RETRY_BACKOFF_SECONDS=(int, 2),
-    WELCOME_EMAIL_ENABLED=(bool, False),
+    WELCOME_EMAIL_ENABLED=(bool, True),
     AUTH_REFRESH_COOKIE_NAME=(str, "refresh_token"),
     AUTH_REFRESH_COOKIE_PATH=(str, "/api/v1/auth/"),
     AUTH_COOKIE_SECURE=(bool, False),
@@ -297,10 +298,17 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TASK_EAGER_PROPAGATES = True
 
-EMAIL_BACKEND = env("EMAIL_BACKEND")
+EMAIL_PROVIDER = env("EMAIL_PROVIDER")
+EMAIL_DELIVERY_MODE = env("EMAIL_DELIVERY_MODE", default="sync").strip().lower() or "sync"
+_CONFIGURED_EMAIL_BACKEND = env("EMAIL_BACKEND", default="").strip()
+if _CONFIGURED_EMAIL_BACKEND:
+    EMAIL_BACKEND = _CONFIGURED_EMAIL_BACKEND
+elif EMAIL_PROVIDER == "smtp":
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 EMAIL_FROM_NAME = env("EMAIL_FROM_NAME")
 DEFAULT_FROM_EMAIL = formataddr((EMAIL_FROM_NAME, env("DEFAULT_FROM_EMAIL")))
-EMAIL_PROVIDER = env("EMAIL_PROVIDER")
 EMAIL_HOST = env("SMTP_HOST") or env("EMAIL_HOST")
 EMAIL_PORT = env("SMTP_PORT") or env("EMAIL_PORT")
 EMAIL_HOST_USER = env("SMTP_USERNAME") or env("EMAIL_HOST_USER")
