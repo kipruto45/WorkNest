@@ -49,6 +49,23 @@ Set these on `worknest-backend`:
 - `DEFAULT_FROM_EMAIL`
 - `SUPPORT_EMAIL`
 
+### Database
+
+For `DATABASE_URL`, use one of these:
+
+- a Render Postgres connection string
+- or a Supabase Postgres **pooler** connection string
+
+If you use Supabase on Render, prefer the **pooler** URL over the direct
+`db.<project>.supabase.co` host. The direct host can fail from hosted runtimes
+with network reachability errors, while the pooler endpoint is the recommended
+connection target for deployed apps.
+
+Recommended extra settings for Supabase:
+
+- `DATABASE_SSL_REQUIRE=True`
+- `DB_SSL_MODE=require`
+
 ### If Using SMTP
 
 - `EMAIL_PROVIDER=smtp`

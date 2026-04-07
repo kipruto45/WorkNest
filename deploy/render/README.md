@@ -53,6 +53,15 @@ Set on `all services`:
 - `APP_NAME`
 - `SUPPORT_EMAIL`
 
+Database note:
+
+- if you use Supabase Postgres from Render, set `DATABASE_URL` to the Supabase
+  **pooler** connection string rather than the direct `db.<project>.supabase.co`
+  host when possible
+- for Supabase SSL, also set:
+  - `DATABASE_SSL_REQUIRE=True`
+  - `DB_SSL_MODE=require`
+
 Set on `worknest-backend`:
 
 - `ALLOWED_HOSTS`
@@ -160,6 +169,7 @@ After the first deploy:
 
 ## Common Failure Points
 
+- using the direct Supabase database host instead of the pooler connection URL
 - Wrong `GOOGLE_REDIRECT_URI`
 - Missing `ALLOWED_HOSTS`
 - Missing `CSRF_TRUSTED_ORIGINS`
