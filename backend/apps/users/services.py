@@ -4,9 +4,54 @@ import uuid
 
 from django.conf import settings
 from django.core.files.storage import default_storage
+from django.db import OperationalError, ProgrammingError
 
 from apps.users.models import User
 from apps.users.selectors import get_current_user_profile
+
+
+def bootstrap_admin_user(*, email: str | None = None, name: str | None = None, password: str | None = None) -> tuple[User, bool]:
+    resolved_email = str(email or getattr(settings, "ADMIN_EMAIL", "admin@worknest.local")).strip().lower() or "admin@worknest.local"
+    resolved_name = str(name or getattr(settings, "ADMIN_NAME", "WorkNest Admin")).strip() or "WorkNest Admin"
+    resolved_password = str(password or getattr(settings, "ADMIN_PASSWORD", "WorkNest123!")).strip() or "WorkNest123!"
+
+    user, created = User.objects.get_or_create(
+        email=resolved_email,
+        defaults={
+            "name": resolved_name,
+            "is_staff": True,
+            "is_superuser": True,
+            "is_active": True,
+            "email_verified": True,
+        },
+    )
+
+    updated_fields: list[str] = []
+    expected_values = {
+        "name": resolved_name,
+        "is_staff": True,
+        "is_superuser": True,
+        "is_active": True,
+        "email_verified": True,
+    }
+    for field, value in expected_values.items():
+        if getattr(user, field) != value:
+            setattr(user, field, value)
+            updated_fields.append(field)
+
+    user.set_password(resolved_password)
+    updated_fields.append("password")
+    user.save(update_fields=[*dict.fromkeys(updated_fields), "updated_at"])
+    return user, created
+
+
+def bootstrap_admin_user_from_settings() -> tuple[User, bool] | None:
+    if str(getattr(settings, "ADMIN_BOOTSTRAP_ENABLED", "0")).strip() not in {"1", "true", "True"}:
+        return None
+    try:
+        return bootstrap_admin_user()
+    except (OperationalError, ProgrammingError):
+        return None
 
 
 def update_user_profile(*, user: User, data: dict, request=None) -> User:

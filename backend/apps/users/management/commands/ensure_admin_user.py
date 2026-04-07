@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.core.management.base import BaseCommand
 from django.utils.crypto import get_random_string
 
-from apps.users.models import User
+from apps.users.services import bootstrap_admin_user
 
 
 DEFAULT_ADMIN_EMAIL = "admin@worknest.local"
@@ -33,33 +33,7 @@ class Command(BaseCommand):
         name = str(options["name"]).strip() or DEFAULT_ADMIN_NAME
         password = get_random_string(20) if options["random_password"] else str(options["password"]).strip() or DEFAULT_ADMIN_PASSWORD
 
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={
-                "name": name,
-                "is_staff": True,
-                "is_superuser": True,
-                "is_active": True,
-                "email_verified": True,
-            },
-        )
-
-        updated_fields: list[str] = []
-        expected_values = {
-            "name": name,
-            "is_staff": True,
-            "is_superuser": True,
-            "is_active": True,
-            "email_verified": True,
-        }
-        for field, value in expected_values.items():
-            if getattr(user, field) != value:
-                setattr(user, field, value)
-                updated_fields.append(field)
-
-        user.set_password(password)
-        updated_fields.append("password")
-        user.save(update_fields=list(dict.fromkeys(updated_fields + ["updated_at"])))
+        user, created = bootstrap_admin_user(email=email, name=name, password=password)
 
         state = "Created" if created else "Updated"
         self.stdout.write(self.style.SUCCESS(f"{state} admin user successfully."))
