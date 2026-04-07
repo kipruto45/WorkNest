@@ -1,9 +1,10 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.http import JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse
 from django.urls import include, path
 from django.views.generic import RedirectView
+from urllib.parse import urlencode
 
 
 def _render_probe_response(*, request, message: str, services: dict, status_code: int = 200) -> JsonResponse:
@@ -44,11 +45,84 @@ def render_ready_probe(request):
     )
 
 
+def _build_google_callback_url(request) -> str:
+    configured_redirect_uri = str(getattr(settings, "GOOGLE_REDIRECT_URI", "")).strip()
+    if configured_redirect_uri:
+        return configured_redirect_uri
+    backend_url = str(getattr(settings, "BACKEND_URL", "")).strip().rstrip("/")
+    if not backend_url:
+        backend_url = request.build_absolute_uri("/").rstrip("/")
+    return f"{backend_url}/api/v1/auth/google/callback/"
+
+
+def _build_google_login_url(request) -> str | None:
+    client_id = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", "")).strip()
+    client_secret = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_SECRET", "")).strip()
+    if not client_id or not client_secret:
+        return None
+    params = {
+        "client_id": client_id,
+        "redirect_uri": _build_google_callback_url(request),
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "online",
+    }
+    return f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+
+
+def render_google_config(request):
+    login_url = _build_google_login_url(request)
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Google OAuth configuration retrieved successfully.",
+            "request_id": getattr(request, "request_id", None),
+            "data": {
+                "provider": "google",
+                "enabled": bool(login_url),
+                "login_url": login_url,
+                "callback_url": _build_google_callback_url(request),
+            },
+        }
+    )
+
+
+def render_google_login(request):
+    login_url = _build_google_login_url(request)
+    if not login_url:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Google OAuth is not configured on the backend.",
+                "request_id": getattr(request, "request_id", None),
+                "errors": {"detail": "Google OAuth is not configured on the backend."},
+            },
+            status=400,
+        )
+
+    if request.GET.get("redirect", "true").lower() == "true":
+        return HttpResponseRedirect(login_url)
+
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Google login URL generated successfully.",
+            "request_id": getattr(request, "request_id", None),
+            "data": {
+                "provider": "google",
+                "login_url": login_url,
+            },
+        }
+    )
+
+
 urlpatterns = [
     path("", RedirectView.as_view(url="/api/v1/docs/swagger/", permanent=False), name="root"),
     path("admin/", admin.site.urls),
     path("api/v1/health/live/", render_live_probe, name="render-health-live"),
     path("api/v1/health/ready/", render_ready_probe, name="render-health-ready"),
+    path("api/v1/auth/google/config/", render_google_config, name="render-google-config"),
+    path("api/v1/auth/google/login/", render_google_login, name="render-google-login"),
     path("api/v1/", include(("config.api_v1_urls", "api_v1"), namespace="api_v1")),
 ]
 
