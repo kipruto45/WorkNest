@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from django.http import HttpResponse
 from django.urls import include, path
@@ -108,6 +109,16 @@ def _fallback_schema(request):
     }
 
 def serve_schema(request):
+    schema_path = Path(__file__).resolve().parents[1] / "schema" / "openapi.json"
+    if schema_path.exists():
+        try:
+            return HttpResponse(
+                schema_path.read_text(),
+                content_type="application/vnd.oai.openapi+json",
+            )
+        except Exception:
+            pass
+
     return HttpResponse(
         json.dumps(_fallback_schema(request)),
         content_type="application/vnd.oai.openapi+json",

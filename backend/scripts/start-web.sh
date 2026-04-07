@@ -14,6 +14,10 @@ if [ "${RUN_COLLECTSTATIC:-1}" = "1" ]; then
   python manage.py collectstatic --noinput
 fi
 
+if [ "${EXPORT_OPENAPI_ON_BOOT:-1}" = "1" ]; then
+  /app/scripts/export-openapi.sh /app/schema/openapi.json
+fi
+
 case "$APP_SERVER" in
   gunicorn)
     exec gunicorn config.asgi:application \
