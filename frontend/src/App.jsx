@@ -59,6 +59,20 @@ function AdminRoute({ children }) {
   return user?.is_staff ? children : <Navigate to="/403" replace />
 }
 
+function DashboardRoute() {
+  const { user, hydrating } = useSelector((state) => state.auth)
+
+  if (hydrating) {
+    return <RouteFallback />
+  }
+
+  if (user?.is_staff) {
+    return <Navigate to="/admin" replace />
+  }
+
+  return <Dashboard />
+}
+
 function App() {
   const dispatch = useDispatch()
   const { token, user } = useSelector((state) => state.auth)
@@ -104,7 +118,7 @@ function App() {
               </PrivateRoute>
             }
           >
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={<DashboardRoute />} />
             <Route path="tasks" element={<MyTasks />} />
             <Route path="tasks/:taskId" element={<TaskDetail />} />
             <Route path="calendar" element={<Calendar />} />

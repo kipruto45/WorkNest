@@ -8,6 +8,14 @@ import PasswordField from '../components/PasswordField'
 import { login } from '../features/authSlice'
 import { authAPI, unwrapData } from '../services/api'
 
+const resolvePostLoginPath = ({ nextPath, user }) => {
+  const trimmedNextPath = typeof nextPath === 'string' ? nextPath.trim() : ''
+  if (trimmedNextPath && !['/', '/dashboard'].includes(trimmedNextPath)) {
+    return trimmedNextPath
+  }
+  return user?.is_staff ? '/admin' : '/dashboard'
+}
+
 export default function Login() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -56,9 +64,9 @@ export default function Login() {
   const onSubmit = async (data) => {
     setLoading(true)
     try {
-      await dispatch(login({ ...data, email: data.email.trim() })).unwrap()
+      const session = await dispatch(login({ ...data, email: data.email.trim() })).unwrap()
       toast.success('Welcome back to your workspace.')
-      navigate(nextPath)
+      navigate(resolvePostLoginPath({ nextPath, user: session?.user }), { replace: true })
     } catch (error) {
       toast.error(error || 'Sign in failed')
     } finally {
