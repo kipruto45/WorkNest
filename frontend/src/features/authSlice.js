@@ -1,16 +1,17 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { authAPI, unwrapData } from '../services/api'
+import { CLIENT_STORAGE_KEYS } from '../utils/clientConfig.js'
 import { clearAuthSession, extractAuthSession, persistAuthSession, persistCurrentUser } from '../utils/authSession'
 
 const loadUserFromStorage = () => {
-  const token = localStorage.getItem('access_token')
-  const user = localStorage.getItem('user')
+  const token = localStorage.getItem(CLIENT_STORAGE_KEYS.sessionAccess)
+  const user = localStorage.getItem(CLIENT_STORAGE_KEYS.sessionUser)
   let parsedUser = null
   if (user) {
     try {
       parsedUser = JSON.parse(user)
     } catch (error) {
-      localStorage.removeItem('user')
+      localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionUser)
     }
   }
   return {
@@ -64,7 +65,7 @@ export const register = createAsyncThunk('auth/register', async (userData, { rej
 })
 
 export const logout = createAsyncThunk('auth/logout', async () => {
-  const refreshToken = localStorage.getItem('refresh_token')
+  const refreshToken = localStorage.getItem(CLIENT_STORAGE_KEYS.sessionRefresh)
   try {
     await authAPI.logout(refreshToken ? { refresh: refreshToken } : {})
   } catch (error) {

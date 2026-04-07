@@ -3,6 +3,7 @@ import { toast } from 'react-toastify'
 import PageHero from '../components/PageHero'
 import LoadingState from '../components/LoadingState'
 import { usersAPI, unwrapData } from '../services/api'
+import { CLIENT_STORAGE_KEYS, USER_PREFERENCE_KEYS } from '../utils/clientConfig.js'
 
 const notificationOptions = [
   { key: 'mention_emails', label: 'Mentions and replies', description: 'Stay aware when someone calls you into a discussion.' },
@@ -29,8 +30,8 @@ export default function Settings() {
       try {
         const response = await usersAPI.getProfile()
         const profile = unwrapData(response)
-        const notificationPreferences = profile?.notification_preferences || {}
-        const localPreferences = JSON.parse(localStorage.getItem('workspace_preferences') || '{}')
+        const notificationPreferences = profile?.[USER_PREFERENCE_KEYS.notifications] || {}
+        const localPreferences = JSON.parse(localStorage.getItem(CLIENT_STORAGE_KEYS.workspacePrefs) || '{}')
         setSettings((current) => ({
           ...current,
           mention_emails: notificationPreferences.mention_emails ?? current.mention_emails,
@@ -60,7 +61,7 @@ export default function Settings() {
     setSaving(true)
     try {
       await usersAPI.updateProfile({
-        notification_preferences: {
+        [USER_PREFERENCE_KEYS.notifications]: {
           mention_emails: settings.mention_emails,
           task_assignment_emails: settings.task_assignment_emails,
           deadline_reminder_emails: settings.deadline_reminder_emails,
@@ -68,7 +69,7 @@ export default function Settings() {
         },
       })
       localStorage.setItem(
-        'workspace_preferences',
+        CLIENT_STORAGE_KEYS.workspacePrefs,
         JSON.stringify({
           compactMode: settings.compactMode,
           reducedMotion: settings.reducedMotion,

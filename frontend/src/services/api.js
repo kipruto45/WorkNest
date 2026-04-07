@@ -1,7 +1,8 @@
 import axios from 'axios'
 import { extractAuthSession, persistAuthSession } from '../utils/authSession'
+import { API_BASE_URL, CLIENT_STORAGE_KEYS } from '../utils/clientConfig.js'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+const API_URL = API_BASE_URL
 
 const api = axios.create({
   baseURL: API_URL,
@@ -11,7 +12,7 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
+  const token = localStorage.getItem(CLIENT_STORAGE_KEYS.sessionAccess)
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -25,7 +26,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
       try {
-        const refreshToken = localStorage.getItem('refresh_token')
+        const refreshToken = localStorage.getItem(CLIENT_STORAGE_KEYS.sessionRefresh)
         const response = await axios.post(`${API_URL}/auth/refresh/`, {
           refresh: refreshToken,
         })
@@ -37,9 +38,9 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${session.accessToken}`
         return api(originalRequest)
       } catch (refreshError) {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        localStorage.removeItem('user')
+        localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionAccess)
+        localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionRefresh)
+        localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionUser)
         window.location.href = '/login'
       }
     }

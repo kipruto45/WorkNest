@@ -9,6 +9,7 @@ import {
   NOTIFICATION_UPDATED_EVENT,
 } from '../utils/realtime'
 import { playNotificationSound } from '../utils/notificationSound'
+import { API_BASE_URL } from '../utils/clientConfig.js'
 
 export function useRealtimeNotifications() {
   const dispatch = useDispatch()
@@ -20,7 +21,7 @@ export function useRealtimeNotifications() {
     }
 
     const socketUrl = buildRealtimeUrl({
-      apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
+      apiUrl: API_BASE_URL,
       accessToken: token,
       path: '/ws/notifications/',
     })

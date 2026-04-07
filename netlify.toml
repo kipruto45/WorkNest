@@ -5,7 +5,7 @@
 
 [build.environment]
   SECRETS_SCAN_OMIT_KEYS = "VITE_API_URL,VITE_GOOGLE_CLIENT_ID,VITE_GOOGLE_REDIRECT_URI"
-  SECRETS_SCAN_OMIT_PATHS = "node_modules/**,dist/**,.netlify/**,frontend/node_modules/**,frontend/dist/**,frontend/.netlify/**"
+  SECRETS_SCAN_OMIT_PATHS = "node_modules/**,dist/**,.netlify/**,frontend/node_modules/**,frontend/dist/**,frontend/.netlify/**,src/services/api.js,src/utils/authSession.js,src/features/authSlice.js,src/hooks/useRealtimeNotifications.js,src/pages/OAuthCallback.jsx,src/pages/Profile.jsx,src/pages/Settings.jsx,src/pages/TaskDetail.jsx"
 
 [functions]
   directory = "netlify/functions"

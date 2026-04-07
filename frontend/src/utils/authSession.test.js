@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
+import { CLIENT_STORAGE_KEYS } from './clientConfig.js'
 import { clearAuthSession, extractAuthSession, persistCurrentUser } from './authSession.js'
 
 test('extractAuthSession returns a valid session for auth payloads', () => {
@@ -38,14 +39,14 @@ test('persistCurrentUser stores the serialized user in localStorage', () => {
   const result = persistCurrentUser({ id: '1', email: 'user@example.com' })
 
   assert.equal(result, true)
-  assert.equal(store.get('user'), JSON.stringify({ id: '1', email: 'user@example.com' }))
+  assert.equal(store.get(CLIENT_STORAGE_KEYS.sessionUser), JSON.stringify({ id: '1', email: 'user@example.com' }))
 })
 
 test('clearAuthSession removes all auth keys from localStorage', () => {
   const store = new Map([
-    ['access_token', 'access'],
-    ['refresh_token', 'refresh'],
-    ['user', '{"id":"1"}'],
+    [CLIENT_STORAGE_KEYS.sessionAccess, 'access'],
+    [CLIENT_STORAGE_KEYS.sessionRefresh, 'refresh'],
+    [CLIENT_STORAGE_KEYS.sessionUser, '{"id":"1"}'],
   ])
   global.localStorage = {
     getItem: (key) => store.get(key) ?? null,
@@ -55,7 +56,7 @@ test('clearAuthSession removes all auth keys from localStorage', () => {
 
   clearAuthSession()
 
-  assert.equal(store.has('access_token'), false)
-  assert.equal(store.has('refresh_token'), false)
-  assert.equal(store.has('user'), false)
+  assert.equal(store.has(CLIENT_STORAGE_KEYS.sessionAccess), false)
+  assert.equal(store.has(CLIENT_STORAGE_KEYS.sessionRefresh), false)
+  assert.equal(store.has(CLIENT_STORAGE_KEYS.sessionUser), false)
 })

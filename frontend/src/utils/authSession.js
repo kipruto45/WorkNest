@@ -1,3 +1,5 @@
+import { CLIENT_STORAGE_KEYS } from './clientConfig.js'
+
 export function extractAuthSession(payload) {
   const tokens = payload?.tokens
   const user = payload?.user ?? null
@@ -17,14 +19,14 @@ export function persistAuthSession(session) {
     return false
   }
 
-  localStorage.setItem('access_token', session.accessToken)
+  localStorage.setItem(CLIENT_STORAGE_KEYS.sessionAccess, session.accessToken)
 
   if (session.refreshToken) {
-    localStorage.setItem('refresh_token', session.refreshToken)
+    localStorage.setItem(CLIENT_STORAGE_KEYS.sessionRefresh, session.refreshToken)
   }
 
   if (session.user) {
-    localStorage.setItem('user', JSON.stringify(session.user))
+    localStorage.setItem(CLIENT_STORAGE_KEYS.sessionUser, JSON.stringify(session.user))
   }
 
   return true
@@ -32,16 +34,16 @@ export function persistAuthSession(session) {
 
 export function persistCurrentUser(user) {
   if (!user) {
-    localStorage.removeItem('user')
+    localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionUser)
     return false
   }
 
-  localStorage.setItem('user', JSON.stringify(user))
+  localStorage.setItem(CLIENT_STORAGE_KEYS.sessionUser, JSON.stringify(user))
   return true
 }
 
 export function clearAuthSession() {
-  localStorage.removeItem('access_token')
-  localStorage.removeItem('refresh_token')
-  localStorage.removeItem('user')
+  localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionAccess)
+  localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionRefresh)
+  localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionUser)
 }

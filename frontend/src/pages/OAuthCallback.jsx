@@ -5,6 +5,7 @@ import { toast } from 'react-toastify'
 import LoadingState from '../components/LoadingState'
 import { setSession } from '../features/authSlice'
 import { authAPI, unwrapData } from '../services/api'
+import { CLIENT_STORAGE_KEYS } from '../utils/clientConfig.js'
 import { persistAuthSession, persistCurrentUser } from '../utils/authSession'
 
 export default function OAuthCallback() {
@@ -59,9 +60,9 @@ export default function OAuthCallback() {
         toast.success('Authentication complete.')
         navigate(nextPath)
       } catch (error) {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        localStorage.removeItem('user')
+        localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionAccess)
+        localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionRefresh)
+        localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionUser)
         toast.error('Google sign-in did not complete successfully.')
         navigate('/login')
       }

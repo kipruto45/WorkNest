@@ -7,6 +7,7 @@ import LoadingState from '../components/LoadingState'
 import { attachmentsAPI, commentsAPI, tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
 import { deleteTask, updateTask } from '../features/tasksSlice'
 import { formatDate, toSentenceCase } from '../utils/formatters'
+import { TASK_FIELD_KEYS } from '../utils/clientConfig.js'
 import {
   canAssignTask,
   canChangeTaskStatus,
@@ -76,7 +77,7 @@ export default function TaskDetail() {
         title: taskData.title,
         description: taskData.description || '',
         priority: taskData.priority,
-        due_date: taskData.due_date ? taskData.due_date.slice(0, 16) : '',
+        [TASK_FIELD_KEYS.dueAt]: taskData[TASK_FIELD_KEYS.dueAt] ? taskData[TASK_FIELD_KEYS.dueAt].slice(0, 16) : '',
         status: taskData.status,
       })
     } catch (error) {
@@ -100,7 +101,7 @@ export default function TaskDetail() {
             title: data.title,
             description: data.description,
             priority: data.priority,
-            due_date: data.due_date || null,
+            [TASK_FIELD_KEYS.dueAt]: data[TASK_FIELD_KEYS.dueAt] || null,
             status: data.status,
           },
         })
@@ -388,7 +389,7 @@ export default function TaskDetail() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-emerald-950">Due date</label>
-                  <input type="datetime-local" {...register('due_date')} className="input-field" />
+                  <input type="datetime-local" {...register(TASK_FIELD_KEYS.dueAt)} className="input-field" />
                 </div>
               </div>
               <div className="flex justify-end">

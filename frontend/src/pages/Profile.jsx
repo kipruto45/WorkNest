@@ -7,6 +7,7 @@ import StatCard from '../components/StatCard'
 import LoadingState from '../components/LoadingState'
 import { setUser } from '../features/authSlice'
 import { usersAPI, unwrapData } from '../services/api'
+import { PROFILE_FIELD_KEYS } from '../utils/clientConfig.js'
 import { persistCurrentUser } from '../utils/authSession'
 import { clampPercent, formatDate, getInitials } from '../utils/formatters'
 
@@ -83,7 +84,7 @@ export default function Profile() {
       payload.append('name', data.name || '')
       payload.append('first_name', data.first_name || '')
       payload.append('last_name', data.last_name || '')
-      payload.append('timezone', data.timezone || '')
+      payload.append(PROFILE_FIELD_KEYS.locale, data[PROFILE_FIELD_KEYS.locale] || '')
       payload.append('bio', data.bio || '')
 
       if (avatarFile) {
@@ -125,7 +126,7 @@ export default function Profile() {
         stats={[
           { label: 'Completion', value: `${clampPercent(profile.profile_completion)}%`, caption: 'Profile readiness' },
           { label: 'Verified', value: profile.email_verified ? 'Yes' : 'No', caption: 'Email status' },
-          { label: 'Timezone', value: profile.timezone || 'Unset', caption: 'Current locale' },
+          { label: 'Locale', value: profile[PROFILE_FIELD_KEYS.locale] || 'Not set', caption: 'Current locale' },
         ]}
         spotlight={{
           eyebrow: 'Identity',
@@ -216,8 +217,8 @@ export default function Profile() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-emerald-950">Timezone</label>
-            <input {...register('timezone')} className="input-field" placeholder="Africa/Nairobi" />
+            <label className="mb-2 block text-sm font-semibold text-emerald-950">Locale</label>
+            <input {...register(PROFILE_FIELD_KEYS.locale)} className="input-field" placeholder="Africa/Nairobi" />
           </div>
 
           <div>
