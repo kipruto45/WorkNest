@@ -152,6 +152,12 @@ Use this for the web service:
 
 The blueprint already sets that path.
 
+If you use the backend-only blueprint in
+[render-backend.yaml](/home/kipruto/Desktop/TASK/deploy/render/render-backend.yaml),
+the health check uses:
+
+- `/api/v1/health/live/`
+
 ## First Deploy Checklist
 
 After the first deploy:

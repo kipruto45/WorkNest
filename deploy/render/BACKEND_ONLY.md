@@ -16,7 +16,7 @@ This creates only one service:
 
 - Django API
 - Swagger docs at `/api/v1/docs/swagger/`
-- health checks at `/api/v1/health/ready/`
+- health checks at `/api/v1/health/live/`
 - database migrations on deploy
 - static file collection on deploy
 - Google auth callback support
@@ -128,7 +128,11 @@ After deploy, open:
 
 1. `https://your-backend.onrender.com/`
 2. `https://your-backend.onrender.com/api/v1/docs/swagger/`
-3. `https://your-backend.onrender.com/api/v1/health/ready/`
+3. `https://your-backend.onrender.com/api/v1/health/live/`
+
+For backend-only deployment, Render should use the liveness endpoint as the
+platform health check. The readiness endpoint also checks cache/Redis and is
+better suited to the full multi-service backend setup.
 
 Then test:
 

@@ -6,7 +6,7 @@ services:
     dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile
     autoDeploy: true
-    healthCheckPath: /api/v1/health/ready/
+    healthCheckPath: /api/v1/health/live/
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: config.settings.production
