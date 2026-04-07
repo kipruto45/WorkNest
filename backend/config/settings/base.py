@@ -120,10 +120,6 @@ THIRD_PARTY_APPS = [
     "django_filters",
     "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
-    "allauth",
-    "allauth.account",
-    "allauth.socialaccount",
-    "allauth.socialaccount.providers.google",
     "channels",
 ]
 
@@ -268,15 +264,7 @@ SIMPLE_JWT = {
 
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
-    "allauth.account.auth_backends.AuthenticationBackend",
 )
-
-ACCOUNT_AUTHENTICATION_METHOD = "email"
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_EMAIL_VERIFICATION = "none"
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_USER_MODEL_USERNAME_FIELD = None
-LOGIN_REDIRECT_URL = "/"
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
@@ -333,18 +321,6 @@ ATTACHMENTS_STORAGE_BACKEND = env("ATTACHMENTS_STORAGE_BACKEND")
 ATTACHMENTS_MAX_FILE_SIZE = env("ATTACHMENTS_MAX_FILE_SIZE")
 ATTACHMENTS_SUPABASE_BUCKET = env("ATTACHMENTS_SUPABASE_BUCKET")
 ATTACHMENTS_SIGNED_URL_TTL = env("ATTACHMENTS_SIGNED_URL_TTL")
-
-SOCIALACCOUNT_PROVIDERS = {
-    "google": {
-        "APP": {
-            "client_id": GOOGLE_OAUTH_CLIENT_ID,
-            "secret": GOOGLE_OAUTH_CLIENT_SECRET,
-            "key": "",
-        },
-        "SCOPE": ["email", "profile"],
-        "AUTH_PARAMS": {"access_type": "online"},
-    }
-}
 
 LOGGING = {
     "version": 1,
