@@ -11,7 +11,7 @@ def get_database_health() -> str:
             cursor.execute("SELECT 1")
             cursor.fetchone()
         return "ok"
-    except OperationalError:
+    except (OperationalError, Exception):
         return "unavailable"
 
 

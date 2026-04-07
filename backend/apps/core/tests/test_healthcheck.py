@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 from django.urls import reverse
 
@@ -25,6 +27,15 @@ class HealthCheckViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["data"]["services"]["database"], "ok")
         self.assertEqual(response.json()["data"]["services"]["redis"], "ok")
+
+    @patch("apps.common.views.get_cache_health", side_effect=RuntimeError("redis boot failure"))
+    def test_readiness_probe_degrades_when_cache_check_crashes(self, _mock_cache_health) -> None:
+        response = self.client.get(reverse("api_v1:common:health-ready"))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertTrue(response.json()["success"])
+        self.assertEqual(response.json()["data"]["status"], "degraded")
+        self.assertEqual(response.json()["data"]["services"]["redis"], "unavailable")
 
     def test_api_root_exposes_versioned_links(self) -> None:
         response = self.client.get(reverse("api_v1:root"))

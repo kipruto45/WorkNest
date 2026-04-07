@@ -52,6 +52,20 @@ class APIRootView(APIView):
 class HealthCheckView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    @staticmethod
+    def _build_dependency_snapshot() -> tuple[str, str]:
+        try:
+            database_status = get_database_health()
+        except Exception:
+            database_status = "unavailable"
+
+        try:
+            cache_status = get_cache_health()
+        except Exception:
+            cache_status = "unavailable"
+
+        return database_status, cache_status
+
     @extend_schema(
         responses=inline_serializer(
             name="HealthCheckResponse",
@@ -77,8 +91,7 @@ class HealthCheckView(APIView):
                 },
             )
 
-        database_status = get_database_health()
-        cache_status = get_cache_health()
+        database_status, cache_status = self._build_dependency_snapshot()
         response_status = (
             status.HTTP_200_OK
             if database_status == "ok" and cache_status == "ok"
