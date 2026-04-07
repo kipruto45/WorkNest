@@ -26,6 +26,7 @@ class AuditAction(models.TextChoices):
     PASSWORD_RESET_REQUESTED = "password_reset_requested", "Password Reset Requested"
     PASSWORD_RESET_CONFIRMED = "password_reset_confirmed", "Password Reset Confirmed"
     GOOGLE_LOGIN_REQUESTED = "google_login_requested", "Google Login Requested"
+    ACCOUNT_LINKED = "account_linked", "Account Linked"
 
     TEAM_CREATED = "team_created", "Team Created"
     TEAM_UPDATED = "team_updated", "Team Updated"

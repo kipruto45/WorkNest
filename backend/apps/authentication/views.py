@@ -39,6 +39,7 @@ from apps.authentication.services import (
     normalize_token_value,
     request_password_reset,
     set_refresh_cookie,
+    try_set_refresh_cookie,
 )
 from apps.authentication.throttles import LoginThrottle, PasswordResetThrottle, RegisterThrottle
 from apps.audit_logs.constants import AuditAction
@@ -49,7 +50,7 @@ from apps.users.serializers import CurrentUserSerializer
 User = get_user_model()
 
 
-def build_auth_response_payload(*, user, token_payload: dict) -> dict:
+def build_auth_response_payload(*, user, token_payload: dict, refresh_cookie_set: bool = True) -> dict:
     return {
         "user": CurrentUserSerializer(user).data,
         "tokens": {
@@ -57,7 +58,7 @@ def build_auth_response_payload(*, user, token_payload: dict) -> dict:
             "refresh": token_payload["refresh"],
             "refresh_expires_in": token_payload["refresh_expires_in"],
             "token_type": token_payload["token_type"],
-            "refresh_cookie_set": True,
+            "refresh_cookie_set": refresh_cookie_set,
         },
     }
 
@@ -81,10 +82,10 @@ class RegisterView(APIView):
         response = success_response(
             request=request,
             message="Registration completed successfully.",
-            data=build_auth_response_payload(user=user, token_payload=token_payload),
+            data=build_auth_response_payload(user=user, token_payload=token_payload, refresh_cookie_set=False),
             status_code=status.HTTP_201_CREATED,
         )
-        set_refresh_cookie(response, token_payload["refresh"])
+        response.data["data"]["tokens"]["refresh_cookie_set"] = try_set_refresh_cookie(response, token_payload["refresh"])
         return response
 
 
@@ -106,9 +107,9 @@ class LoginView(APIView):
         response = success_response(
             request=request,
             message="Login successful.",
-            data=build_auth_response_payload(user=user, token_payload=token_payload),
+            data=build_auth_response_payload(user=user, token_payload=token_payload, refresh_cookie_set=False),
         )
-        set_refresh_cookie(response, token_payload["refresh"])
+        response.data["data"]["tokens"]["refresh_cookie_set"] = try_set_refresh_cookie(response, token_payload["refresh"])
         return response
 
 
@@ -170,9 +171,9 @@ class RefreshTokenView(APIView):
         response = success_response(
             request=request,
             message="Token refreshed successfully.",
-            data=build_auth_response_payload(user=user, token_payload=token_payload),
+            data=build_auth_response_payload(user=user, token_payload=token_payload, refresh_cookie_set=False),
         )
-        set_refresh_cookie(response, token_payload["refresh"])
+        response.data["data"]["tokens"]["refresh_cookie_set"] = try_set_refresh_cookie(response, token_payload["refresh"])
         return response
 
 

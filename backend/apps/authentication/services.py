@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.models import update_last_login
@@ -24,6 +26,7 @@ from apps.users.models import User as UserModel
 from apps.users.selectors import get_user_by_email
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 def sync_google_account_profile(
@@ -86,7 +89,7 @@ def create_user_account(
         auth_provider=auth_provider,
         email_verified=auth_provider == UserModel.AuthProvider.GOOGLE,
     )
-    log_auth_action(
+    _safe_log_auth_action(
         actor=user,
         action=AuditAction.USER_REGISTERED,
         target=user,
@@ -98,14 +101,17 @@ def create_user_account(
 
 
 def record_login_activity(*, email: str, request, success: bool, user=None, failure_reason: str = "") -> None:
-    LoginActivity.objects.create(
-        user=user,
-        email=email,
-        ip_address=get_client_ip(request),
-        user_agent=request.META.get("HTTP_USER_AGENT", "")[:1000],
-        success=success,
-        failure_reason=failure_reason[:255],
-    )
+    try:
+        LoginActivity.objects.create(
+            user=user,
+            email=email,
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get("HTTP_USER_AGENT", "")[:1000],
+            success=success,
+            failure_reason=failure_reason[:255],
+        )
+    except Exception:
+        logger.exception("Unable to record login activity", extra={"email": email, "success": success})
 
 
 def authenticate_user(*, email: str, password: str, request):
@@ -117,7 +123,7 @@ def authenticate_user(*, email: str, password: str, request):
             success=False,
             failure_reason="Invalid email or password.",
         )
-        log_auth_action(
+        _safe_log_auth_action(
             action=AuditAction.USER_LOGIN_FAILED,
             target_repr=email.strip().lower(),
             metadata=build_audit_metadata(email=email.strip().lower(), failure_reason="Invalid email or password."),
@@ -131,7 +137,7 @@ def authenticate_user(*, email: str, password: str, request):
             user=user,
             failure_reason="Account is inactive.",
         )
-        log_auth_action(
+        _safe_log_auth_action(
             actor=user,
             action=AuditAction.USER_LOGIN_FAILED,
             target=user,
@@ -140,8 +146,11 @@ def authenticate_user(*, email: str, password: str, request):
         raise exceptions.AuthenticationFailed("This account is inactive.")
 
     record_login_activity(email=email, request=request, success=True, user=user)
-    update_last_login(None, user)
-    log_auth_action(
+    try:
+        update_last_login(None, user)
+    except Exception:
+        logger.exception("Unable to update last_login", extra={"user_id": str(getattr(user, "pk", ""))})
+    _safe_log_auth_action(
         actor=user,
         action=AuditAction.USER_LOGGED_IN,
         target=user,
@@ -176,6 +185,15 @@ def set_refresh_cookie(response, refresh_token: str) -> None:
     )
 
 
+def try_set_refresh_cookie(response, refresh_token: str) -> bool:
+    try:
+        set_refresh_cookie(response, refresh_token)
+        return True
+    except Exception:
+        logger.exception("Unable to set refresh cookie")
+        return False
+
+
 def clear_refresh_cookie(response) -> None:
     response.delete_cookie(
         settings.AUTH_REFRESH_COOKIE_NAME,
@@ -196,7 +214,7 @@ def request_password_reset(*, email: str, request) -> None:
     user = get_user_by_email(email=email)
     if user and user.is_active:
         send_password_reset_email(user=user, request=request)
-        log_auth_action(
+        _safe_log_auth_action(
             actor=user,
             action=AuditAction.PASSWORD_RESET_REQUESTED,
             target=user,
@@ -207,7 +225,7 @@ def request_password_reset(*, email: str, request) -> None:
 def confirm_password_reset(*, user, new_password: str) -> None:
     user.set_password(new_password)
     user.save(update_fields=["password", "updated_at"])
-    log_auth_action(
+    _safe_log_auth_action(
         actor=user,
         action=AuditAction.PASSWORD_RESET_CONFIRMED,
         target=user,
@@ -231,7 +249,7 @@ def handle_google_auth(*, request) -> dict:
         payload = handle_google_auth_request(request=request)
     except OAuthValidationFailedError as exc:
         raise exceptions.ValidationError(str(exc)) from exc
-    log_auth_action(
+    _safe_log_auth_action(
         action=AuditAction.GOOGLE_LOGIN_REQUESTED,
         target_repr="Google OAuth",
         metadata=build_audit_metadata(provider=GoogleOAuthProvider.name),
@@ -245,3 +263,19 @@ def normalize_token_value(token_value) -> str | None:
     if hasattr(token_value, "value"):
         return token_value.value
     return str(token_value)
+
+
+def _safe_log_auth_action(*, actor=None, action: str, target=None, metadata: dict | None = None, target_repr: str = "") -> None:
+    try:
+        log_auth_action(
+            actor=actor,
+            action=action,
+            target=target,
+            metadata=metadata,
+            target_repr=target_repr,
+        )
+    except Exception:
+        logger.exception(
+            "Unable to write auth audit log",
+            extra={"action": action, "actor_id": str(getattr(actor, "pk", "")), "target_repr": target_repr},
+        )
