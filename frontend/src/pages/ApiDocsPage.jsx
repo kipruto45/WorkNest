@@ -1,6 +1,8 @@
 import PublicPageLayout, { BulletList, InfoCard } from '../components/PublicPageLayout'
 
-const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
+import { API_BASE_URL } from '../utils/clientConfig.js'
+
+const apiBase = API_BASE_URL
 const backendBase = apiBase.replace(/\/api\/v1\/?$/, '')
 const swaggerUrl = `${backendBase}/api/v1/docs/swagger/`
 const redocUrl = `${backendBase}/api/v1/docs/redoc/`

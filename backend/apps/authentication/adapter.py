@@ -11,6 +11,7 @@ from django.conf import settings
 from apps.authentication.services import create_user_account, issue_tokens_for_user, sync_google_account_profile
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_auth_action
+from apps.integrations.email.builders import _get_frontend_url
 from apps.users.serializers import CurrentUserSerializer
 from apps.users.models import User as UserModel
 
@@ -22,6 +23,13 @@ class GoogleOAuthCallbackError(Exception):
     def __init__(self, error_code: str, message: str):
         self.error_code = error_code
         super().__init__(message)
+
+
+def _frontend_url_with_path(path: str) -> str:
+    frontend_url = _get_frontend_url().rstrip("/")
+    if frontend_url:
+        return f"{frontend_url}{path}"
+    return path
 
 
 def get_google_authorization_url(redirect_uri: str, state: str = "") -> str:
@@ -133,12 +141,12 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
     """Process the Google OAuth callback and redirect with tokens."""
     error = request.GET.get("error")
     if error:
-        redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?error=google_auth_failed"
+        redirect_url = _frontend_url_with_path("/login?error=google_auth_failed")
         return HttpResponseRedirect(redirect_url)
     
     code = request.GET.get("code")
     if not code:
-        redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?error=no_authorization_code"
+        redirect_url = _frontend_url_with_path("/login?error=no_authorization_code")
         return HttpResponseRedirect(redirect_url)
     
     try:
@@ -155,7 +163,7 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
         access_token = token_data.get('access_token')
         
         if not access_token:
-            redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?error=no_access_token"
+            redirect_url = _frontend_url_with_path("/login?error=no_access_token")
             return HttpResponseRedirect(redirect_url)
         
         user_info = get_google_user_info(access_token)
@@ -167,7 +175,7 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
         avatar = user_info.get('picture', '')
         
         if not email:
-            redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?error=no_email"
+            redirect_url = _frontend_url_with_path("/login?error=no_email")
             return HttpResponseRedirect(redirect_url)
         
         user = find_or_create_google_user(email, first_name, last_name, name, avatar)
@@ -181,7 +189,7 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
         
         token_payload = issue_tokens_for_user(user=user)
         
-        frontend_url = f"{settings.FRONTEND_URL.rstrip('/')}/auth/google/callback"
+        frontend_url = _frontend_url_with_path("/auth/google/callback")
         user_payload = json.dumps(CurrentUserSerializer(user).data, separators=(",", ":"))
         params = urlencode(
             {
@@ -195,9 +203,9 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
         
     except GoogleOAuthCallbackError as exc:
         logger.warning("Google OAuth callback failed: %s", exc)
-        redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?error={exc.error_code}"
+        redirect_url = _frontend_url_with_path(f"/login?error={exc.error_code}")
         return HttpResponseRedirect(redirect_url)
     except Exception:
         logger.exception("Unhandled Google OAuth callback failure")
-        redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?error=google_auth_failed"
+        redirect_url = _frontend_url_with_path("/login?error=google_auth_failed")
         return HttpResponseRedirect(redirect_url)

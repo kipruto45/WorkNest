@@ -1,10 +1,12 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import TestCase
 from django.utils import timezone
 
 from apps.comments.models import Comment
+from apps.integrations.models import EmailDelivery
 from apps.notifications.constants import NotificationType
 from apps.notifications.models import Notification
 from apps.notifications.services import (
@@ -115,6 +117,26 @@ class NotificationServiceTests(TestCase):
         mention_types = {notification.type for notification in notifications}
         self.assertIn(NotificationType.MENTIONED_IN_COMMENT, mention_types)
         self.assertIn(NotificationType.COMMENT_POSTED, mention_types)
+
+    def test_notify_comment_activity_sends_one_email_per_recipient(self) -> None:
+        task = Task.objects.create(
+            team=self.team,
+            title="Review API",
+            created_by=self.owner,
+            assigned_to=self.assignee,
+        )
+        comment = Comment.objects.create(
+            task=task,
+            author=self.owner,
+            content="Please review this @member",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            notify_comment_activity(comment=comment, mentions=[self.member])
+
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(EmailDelivery.objects.filter(email_type="mentioned_in_comment").count(), 1)
+        self.assertEqual(EmailDelivery.objects.filter(email_type="comment_posted").count(), 1)
 
     def test_comment_posted_notifications_are_email_eligible(self) -> None:
         self.assertTrue(should_send_email_for_type(notification_type=NotificationType.COMMENT_POSTED))

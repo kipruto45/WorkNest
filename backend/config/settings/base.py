@@ -41,6 +41,7 @@ env = environ.Env(
     GOOGLE_CLIENT_SECRET=(str, ""),
     GOOGLE_REDIRECT_URI=(str, ""),
     FRONTEND_URL=(str, "http://localhost:5173"),
+    PUBLIC_WEBAPP_URL=(str, ""),
     BACKEND_URL=(str, "http://localhost:8000"),
     INVITE_LINK_BASE_URL=(str, ""),
     PASSWORD_RESET_LINK_BASE_URL=(str, ""),
@@ -361,6 +362,7 @@ LOGGING = {
 }
 
 FRONTEND_URL = env("FRONTEND_URL")
+PUBLIC_WEBAPP_URL = env("PUBLIC_WEBAPP_URL", default="").strip()
 BACKEND_URL = env("BACKEND_URL")
 INVITE_LINK_BASE_URL = env("INVITE_LINK_BASE_URL", default=f"{FRONTEND_URL.rstrip('/')}/invitations")
 PASSWORD_RESET_LINK_BASE_URL = env("PASSWORD_RESET_LINK_BASE_URL", default=f"{FRONTEND_URL.rstrip('/')}/reset-password")

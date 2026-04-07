@@ -65,9 +65,14 @@ export default function Register() {
         window.location.href = payload.login_url
         return
       }
-      toast.error('Google sign-in is not configured yet.')
+      toast.error('Google sign-in is not available.')
     } catch (error) {
-      toast.error('Unable to start Google sign-in right now.')
+      const backendMessage =
+        error?.response?.data?.errors?.non_field_errors?.[0] ||
+        error?.response?.data?.errors?.detail ||
+        error?.response?.data?.message ||
+        error?.message
+      toast.error(backendMessage || 'Unable to start Google sign-in right now.')
     } finally {
       setGoogleLoading(false)
     }

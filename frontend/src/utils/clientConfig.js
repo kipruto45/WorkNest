@@ -7,7 +7,35 @@ const readViteEnv = (key) => {
   return import.meta.env[key]
 }
 
-export const API_BASE_URL = readViteEnv('VITE_API_URL') || '/api/v1'
+const DEFAULT_PRODUCTION_API_URL = 'https://worknest-backend-t6dw.onrender.com/api/v1'
+
+const isLocalHostname = (hostname) => ['localhost', '127.0.0.1', '0.0.0.0'].includes((hostname || '').toLowerCase())
+
+const isHostedRuntime = () => {
+  if (typeof window === 'undefined') return false
+  return !isLocalHostname(window.location.hostname)
+}
+
+const isLocalOrRelativeApiUrl = (value) => {
+  if (!value) return true
+  if (!/^https?:\/\//i.test(value)) return true
+  try {
+    const parsed = new URL(value)
+    return isLocalHostname(parsed.hostname)
+  } catch {
+    return true
+  }
+}
+
+const resolveApiBaseUrl = () => {
+  const configuredApiUrl = readViteEnv('VITE_API_URL')
+  if (isHostedRuntime() && isLocalOrRelativeApiUrl(configuredApiUrl)) {
+    return DEFAULT_PRODUCTION_API_URL
+  }
+  return configuredApiUrl || '/api/v1'
+}
+
+export const API_BASE_URL = resolveApiBaseUrl()
 
 export const CLIENT_STORAGE_KEYS = Object.freeze({
   sessionAccess: joinKey('worknest', 'session', 'a'),

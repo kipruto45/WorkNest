@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.db import OperationalError, ProgrammingError
 from rest_framework import serializers
 
 from apps.memberships.models import Membership
@@ -85,7 +86,10 @@ class TeamListSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
-        return obj.pinned_by.filter(user=request.user).exists()
+        try:
+            return obj.pinned_by.filter(user=request.user).exists()
+        except (OperationalError, ProgrammingError):
+            return False
 
 
 class TeamDetailSerializer(serializers.ModelSerializer):
@@ -141,7 +145,10 @@ class TeamDetailSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
-        return obj.pinned_by.filter(user=request.user).exists()
+        try:
+            return obj.pinned_by.filter(user=request.user).exists()
+        except (OperationalError, ProgrammingError):
+            return False
 
 
 class TeamAnnouncementSerializer(serializers.ModelSerializer):

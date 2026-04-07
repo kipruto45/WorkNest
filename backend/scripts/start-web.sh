@@ -10,6 +10,13 @@ if [ "${RUN_MIGRATIONS:-1}" = "1" ]; then
   python manage.py migrate --noinput
 fi
 
+if [ "${ADMIN_BOOTSTRAP_ENABLED:-0}" = "1" ]; then
+  python manage.py ensure_admin_user \
+    --email "${ADMIN_EMAIL:-admin@worknest.local}" \
+    --name "${ADMIN_NAME:-WorkNest Admin}" \
+    --password "${ADMIN_PASSWORD:-WorkNest123!}"
+fi
+
 if [ "${RUN_COLLECTSTATIC:-1}" = "1" ]; then
   python manage.py collectstatic --noinput
 fi

@@ -21,7 +21,11 @@ export default function ForgotPassword() {
       setSubmittedEmail(data.email)
       toast.success('Reset instructions have been sent if the account exists.')
     } catch (error) {
-      toast.error('Unable to request password reset right now.')
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.errors?.detail ||
+        'Unable to request password reset right now.'
+      toast.error(message)
     } finally {
       setLoading(false)
     }

@@ -28,7 +28,6 @@ def get_user_teams(*, user, include_archived: bool | None = False):
                 queryset=active_membership_queryset,
                 to_attr="active_memberships_for_request_user",
             ),
-            "pinned_by",
         )
         .annotate(
             member_count=Count(

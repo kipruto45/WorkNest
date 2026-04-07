@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import RequestFactory, TestCase, override_settings
+from unittest.mock import patch
 
 from apps.authentication.adapter import find_or_create_google_user
 from apps.authentication.google_service import get_or_create_google_user
@@ -21,6 +22,17 @@ class AuthenticationServiceTests(TestCase):
         self.assertEqual(user.auth_provider, User.AuthProvider.EMAIL)
         self.assertFalse(user.email_verified)
 
+    @override_settings(WELCOME_EMAIL_ENABLED=True)
+    def test_create_user_account_queues_welcome_email(self) -> None:
+        create_user_account(
+            email="welcome@example.com",
+            password="StrongPass123!",
+            name="Welcome User",
+        )
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Welcome to", mail.outbox[0].subject)
+
     @override_settings(FRONTEND_URL="http://localhost:5173")
     def test_request_password_reset_sends_email_for_active_user(self) -> None:
         user = User.objects.create_user(
@@ -35,11 +47,63 @@ class AuthenticationServiceTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(user.email, mail.outbox[0].to)
 
+    @override_settings(
+        FRONTEND_URL="http://localhost:5173",
+        PASSWORD_RESET_LINK_BASE_URL="https://worknested.netlify.app/reset-password",
+    )
+    def test_request_password_reset_prefers_public_reset_url(self) -> None:
+        user = User.objects.create_user(
+            email="jane-public@example.com",
+            password="StrongPass123!",
+            name="Jane Public",
+        )
+        request = RequestFactory().post("/api/v1/auth/password-reset/")
+
+        request_password_reset(email=user.email, request=request)
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("https://worknested.netlify.app/reset-password", mail.outbox[0].body)
+        self.assertNotIn("http://localhost:5173/reset-password", mail.outbox[0].body)
+
+    @override_settings(
+        ENVIRONMENT="production",
+        FRONTEND_URL="http://localhost:5173",
+        PASSWORD_RESET_LINK_BASE_URL="",
+        PUBLIC_WEBAPP_URL="",
+    )
+    def test_request_password_reset_uses_default_public_webapp_url_in_production(self) -> None:
+        user = User.objects.create_user(
+            email="jane-default-public@example.com",
+            password="StrongPass123!",
+            name="Jane Public Default",
+        )
+        request = RequestFactory().post("/api/v1/auth/password-reset/")
+
+        request_password_reset(email=user.email, request=request)
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("https://worknested.netlify.app/reset-password", mail.outbox[0].body)
+        self.assertNotIn("http://localhost:5173/reset-password", mail.outbox[0].body)
+
     def test_request_password_reset_does_not_error_for_unknown_email(self) -> None:
         request = RequestFactory().post("/api/v1/auth/password-reset/")
 
         request_password_reset(email="unknown@example.com", request=request)
 
+        self.assertEqual(len(mail.outbox), 0)
+
+    @patch("apps.authentication.services.send_password_reset_email", side_effect=RuntimeError("smtp offline"))
+    def test_request_password_reset_swallows_internal_email_failures(self, mocked_send_password_reset_email) -> None:
+        user = User.objects.create_user(
+            email="resilient@example.com",
+            password="StrongPass123!",
+            name="Resilient User",
+        )
+        request = RequestFactory().post("/api/v1/auth/password-reset/")
+
+        request_password_reset(email=user.email, request=request)
+
+        mocked_send_password_reset_email.assert_called_once()
         self.assertEqual(len(mail.outbox), 0)
 
     def test_sync_google_account_profile_fills_missing_details(self) -> None:

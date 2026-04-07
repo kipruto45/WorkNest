@@ -129,6 +129,24 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertTrue(response.data["success"])
         self.assertTrue(User.objects.filter(email="jane-welcome@example.com").exists())
 
+    @patch("apps.authentication.views.CurrentUserSerializer", side_effect=RuntimeError("serializer unavailable"))
+    def test_register_succeeds_when_current_user_serialization_fails(self, _mock_serializer) -> None:
+        response = self.client.post(
+            reverse("api_v1:authentication:register"),
+            {
+                "name": "Jane Serializer",
+                "email": "jane-serializer@example.com",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["data"]["user"]["email"], "jane-serializer@example.com")
+        self.assertIn("auth_provider", response.data["data"]["user"])
+
     def test_register_succeeds_with_invalid_forwarded_for_header(self) -> None:
         response = self.client.post(
             reverse("api_v1:authentication:register"),
@@ -165,6 +183,25 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         login_activity = LoginActivity.objects.get(user=user, success=True)
         self.assertEqual(login_activity.ip_address, "203.0.113.42")
+
+    @patch("apps.authentication.views.CurrentUserSerializer", side_effect=RuntimeError("serializer unavailable"))
+    def test_login_succeeds_when_current_user_serialization_fails(self, _mock_serializer) -> None:
+        user = User.objects.create_user(
+            email="jane-login-serializer@example.com",
+            password="StrongPass123!",
+            name="Jane Doe",
+        )
+
+        response = self.client.post(
+            reverse("api_v1:authentication:login"),
+            {"email": user.email, "password": "StrongPass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["data"]["user"]["email"], user.email)
+        self.assertIn("auth_provider", response.data["data"]["user"])
 
     def test_refresh_uses_cookie_when_body_missing(self) -> None:
         user = User.objects.create_user(

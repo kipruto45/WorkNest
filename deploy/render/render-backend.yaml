@@ -30,6 +30,8 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+      - key: PUBLIC_WEBAPP_URL
+        value: https://worknested.netlify.app
       - key: BACKEND_URL
         sync: false
       - key: INVITE_LINK_BASE_URL
@@ -55,9 +57,9 @@ services:
       - key: SENDGRID_API_KEY
         sync: false
       - key: ADMIN_BOOTSTRAP_ENABLED
-        value: "0"
+        value: "1"
       - key: ADMIN_EMAIL
-        sync: false
+        value: admin@worknest.local
       - key: ADMIN_NAME
         value: WorkNest Admin
       - key: ADMIN_PASSWORD

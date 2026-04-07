@@ -5,10 +5,17 @@ from django.http import HttpResponseRedirect, JsonResponse
 from django.urls import include, path
 from django.views.generic import RedirectView
 from urllib.parse import urlencode
+from apps.integrations.email.builders import _get_frontend_url
+
+
+def _json_payload_response(payload: dict, status_code: int = 200) -> JsonResponse:
+    response = JsonResponse(payload, status=status_code)
+    response.data = payload
+    return response
 
 
 def _render_probe_response(*, request, message: str, services: dict, status_code: int = 200) -> JsonResponse:
-    return JsonResponse(
+    return _json_payload_response(
         {
             "success": True,
             "message": message,
@@ -19,7 +26,7 @@ def _render_probe_response(*, request, message: str, services: dict, status_code
                 "services": services,
             },
         },
-        status=status_code,
+        status_code=status_code,
     )
 
 
@@ -72,7 +79,7 @@ def _build_google_login_url(request) -> str | None:
 
 def render_google_config(request):
     login_url = _build_google_login_url(request)
-    return JsonResponse(
+    return _json_payload_response(
         {
             "success": True,
             "message": "Google OAuth configuration retrieved successfully.",
@@ -90,20 +97,20 @@ def render_google_config(request):
 def render_google_login(request):
     login_url = _build_google_login_url(request)
     if not login_url:
-        return JsonResponse(
+        return _json_payload_response(
             {
                 "success": False,
                 "message": "Google OAuth is not configured on the backend.",
                 "request_id": getattr(request, "request_id", None),
                 "errors": {"detail": "Google OAuth is not configured on the backend."},
             },
-            status=400,
+            status_code=400,
         )
 
     if request.GET.get("redirect", "true").lower() == "true":
         return HttpResponseRedirect(login_url)
 
-    return JsonResponse(
+    return _json_payload_response(
         {
             "success": True,
             "message": "Google login URL generated successfully.",
@@ -117,7 +124,7 @@ def render_google_login(request):
 
 
 def render_google_callback(request):
-    frontend_url = str(getattr(settings, "FRONTEND_URL", "")).rstrip("/")
+    frontend_url = _get_frontend_url().rstrip("/")
     try:
         from apps.authentication.adapter import handle_google_oauth_callback
 

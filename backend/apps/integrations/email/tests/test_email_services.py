@@ -242,6 +242,120 @@ class EmailWorkflowTests(TestCase):
                 if payload.email_type == "invitation_revoked":
                     self.assertIn("/invitations/", payload.context["button_url"])
 
+    @override_settings(
+        FRONTEND_URL="http://localhost:5173",
+        PUBLIC_WEBAPP_URL="https://worknested.netlify.app",
+        PASSWORD_RESET_LINK_BASE_URL="https://worknested.netlify.app/reset-password",
+        LOGO_URL="https://worknested.netlify.app/logo_hd.png",
+    )
+    def test_transactional_email_buttons_prefer_public_webapp_urls(self) -> None:
+        invitation = TeamInvitation.objects.create(
+            team=self.team,
+            email="invitee@example.com",
+            role=Membership.Role.MANAGER,
+            invited_by=self.owner,
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        task = Task.objects.create(
+            team=self.team,
+            title="Public route check",
+            description="Ensure hosted links are used in email payloads.",
+            created_by=self.owner,
+            assigned_to=self.member,
+            priority=Task.Priority.HIGH,
+            due_date=timezone.now() + timedelta(days=2),
+        )
+        comment = Comment.objects.create(
+            task=task,
+            author=self.owner,
+            content="Hosted links should point to the deployed app.",
+        )
+        attachment = Attachment.objects.create(
+            task=task,
+            uploaded_by=self.owner,
+            original_name="public-routes.pdf",
+            file_name="public-routes.pdf",
+            file_path="attachments/public-routes.pdf",
+            file_url="https://worknest-backend-t6dw.onrender.com/files/attachments/public-routes.pdf",
+            file_size=2048,
+            mime_type="application/pdf",
+        )
+        membership = Membership.objects.get(team=self.team, user=self.member)
+
+        payloads = [
+            build_password_reset_email_payload(
+                user=self.member,
+                reset_url="https://worknested.netlify.app/reset-password?uid=test&token=abc",
+            ),
+            build_team_invite_email_payload(invitation=invitation),
+            build_invitation_reminder_email_payload(invitation=invitation),
+            build_invitation_revoked_email_payload(invitation=invitation, actor=self.owner),
+            build_task_assigned_email_payload(task=task, assigner=self.owner, assignee=self.member),
+            build_deadline_approaching_email_payload(task=task, recipient=self.member, reminder_window_hours=24),
+            build_comment_posted_email_payload(comment=comment, task=task, recipient=self.member),
+            build_mentioned_email_payload(comment=comment, task=task, mentioned_user=self.member),
+            build_welcome_email_payload(user=self.member),
+            build_invitation_accepted_email_payload(invitation=invitation, recipient_user=self.owner, actor=self.member),
+            build_role_changed_email_payload(
+                membership=membership,
+                actor=self.owner,
+                old_role=Membership.Role.MEMBER,
+                new_role=Membership.Role.MANAGER,
+            ),
+            build_task_status_changed_email_payload(
+                task=task,
+                previous_status=Task.Status.IN_PROGRESS,
+                changed_by=self.owner,
+                recipient=self.member,
+            ),
+            build_attachment_uploaded_email_payload(attachment=attachment, recipient=self.member),
+        ]
+
+        for payload in payloads:
+            with self.subTest(email_type=payload.email_type):
+                self.assertIn("https://worknested.netlify.app", payload.context["button_url"])
+                self.assertNotIn("http://localhost:5173", payload.context["button_url"])
+
+        self.assertEqual(
+            build_team_invite_email_payload(invitation=invitation).context["button_url"],
+            f"https://worknested.netlify.app/invitations/{invitation.token}",
+        )
+        self.assertEqual(
+            build_welcome_email_payload(user=self.member).context["button_url"],
+            "https://worknested.netlify.app/dashboard",
+        )
+
+    @override_settings(
+        ENVIRONMENT="production",
+        FRONTEND_URL="http://localhost:5173",
+        PUBLIC_WEBAPP_URL="",
+        PASSWORD_RESET_LINK_BASE_URL="",
+        INVITE_LINK_BASE_URL="",
+        LOGO_URL="",
+    )
+    def test_transactional_email_buttons_use_default_public_webapp_url_in_production(self) -> None:
+        invitation = TeamInvitation.objects.create(
+            team=self.team,
+            email="invitee@example.com",
+            role=Membership.Role.MANAGER,
+            invited_by=self.owner,
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+
+        invite_payload = build_team_invite_email_payload(invitation=invitation)
+        welcome_payload = build_welcome_email_payload(user=self.member)
+
+        self.assertEqual(
+            invite_payload.context["button_url"],
+            f"https://worknested.netlify.app/invitations/{invitation.token}",
+        )
+        self.assertEqual(
+            welcome_payload.context["button_url"],
+            "https://worknested.netlify.app/dashboard",
+        )
+        self.assertNotIn("http://localhost:5173", invite_payload.context["button_url"])
+        self.assertNotIn("http://localhost:5173", welcome_payload.context["button_url"])
+
     @override_settings(WELCOME_EMAIL_ENABLED=True)
     def test_welcome_email_can_be_queued(self) -> None:
         user = User.objects.create_user(email="new@example.com", password="StrongPass123!", name="New User")

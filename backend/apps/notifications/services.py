@@ -443,13 +443,9 @@ def _build_comment_participants(*, comment) -> list:
 
 
 def notify_comment_activity(*, comment, mentions: list | None = None) -> list[Notification]:
-    from apps.integrations.email.services import send_comment_posted_email, send_mentioned_email
-    
     mentions = [user for user in (mentions or []) if user and user.id != comment.author_id]
     mentioned_ids = {user.id for user in mentions}
-    
-    email_enabled = getattr(settings, 'NOTIFICATION_EMAIL_ENABLED', True)
-    
+
     mention_notifications: list[Notification] = []
     for user in mentions:
         mention_notifications.append(
@@ -469,16 +465,7 @@ def notify_comment_activity(*, comment, mentions: list | None = None) -> list[No
                 target_id=comment.id,
             )
         )
-        if email_enabled and hasattr(settings, 'NOTIFICATION_EMAIL_TYPES'):
-            notify_types = getattr(settings, 'NOTIFICATION_EMAIL_TYPES', 'task_assigned,mentioned_in_comment,deadline_approaching,comment_posted')
-            if 'mentioned_in_comment' in notify_types:
-                try:
-                    transaction.on_commit(
-                        lambda u=user: send_mentioned_email(comment=comment, task=comment.task, mentioned_user=u)
-                    )
-                except Exception:
-                    pass
-    
+
     participant_notifications: list[Notification] = []
     for user in _build_comment_participants(comment=comment):
         if user.id == comment.author_id or user.id in mentioned_ids:
@@ -500,16 +487,7 @@ def notify_comment_activity(*, comment, mentions: list | None = None) -> list[No
                 target_id=comment.id,
             )
         )
-        if email_enabled and hasattr(settings, 'NOTIFICATION_EMAIL_TYPES'):
-            notify_types = getattr(settings, 'NOTIFICATION_EMAIL_TYPES', 'task_assigned,mentioned_in_comment,deadline_approaching,comment_posted')
-            if 'comment_posted' in notify_types:
-                try:
-                    transaction.on_commit(
-                        lambda u=user: send_comment_posted_email(comment=comment, task=comment.task, recipient=u)
-                    )
-                except Exception:
-                    pass
-    
+
     return mention_notifications + participant_notifications
 
 

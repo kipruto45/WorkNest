@@ -16,6 +16,7 @@ from rest_framework import exceptions
 from apps.authentication.models import LoginActivity
 from apps.authentication.providers import GoogleOAuthProvider
 from apps.authentication.tokens import blacklist_token, create_token_pair_for_user, get_refresh_token_max_age
+from apps.integrations.email.builders import _get_frontend_url, _is_public_absolute_url
 from apps.integrations.email.services import queue_password_reset_email, queue_welcome_email
 from apps.integrations.exceptions import OAuthValidationFailedError
 from apps.integrations.oauth.services import (
@@ -220,7 +221,14 @@ def clear_refresh_cookie(response) -> None:
 def send_password_reset_email(*, user, request) -> None:
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
-    reset_base_url = getattr(settings, "PASSWORD_RESET_LINK_BASE_URL", f"{settings.FRONTEND_URL.rstrip('/')}/reset-password").rstrip("/")
+    configured_reset_base_url = str(
+        getattr(settings, "PASSWORD_RESET_LINK_BASE_URL", f"{settings.FRONTEND_URL.rstrip('/')}/reset-password")
+    ).rstrip("/")
+    if _is_public_absolute_url(configured_reset_base_url):
+        reset_base_url = configured_reset_base_url
+    else:
+        frontend_base_url = _get_frontend_url()
+        reset_base_url = f"{frontend_base_url}/reset-password" if frontend_base_url else configured_reset_base_url
     reset_url = f"{reset_base_url}?uid={uid}&token={token}"
     queue_password_reset_email(user=user, reset_url=reset_url, actor=user)
 
@@ -228,7 +236,13 @@ def send_password_reset_email(*, user, request) -> None:
 def request_password_reset(*, email: str, request) -> None:
     user = get_user_by_email(email=email)
     if user and user.is_active:
-        send_password_reset_email(user=user, request=request)
+        try:
+            send_password_reset_email(user=user, request=request)
+        except Exception:
+            logger.exception(
+                "Unable to queue password reset email",
+                extra={"user_id": str(getattr(user, "pk", "")), "email": user.email},
+            )
         _safe_log_auth_action(
             actor=user,
             action=AuditAction.PASSWORD_RESET_REQUESTED,

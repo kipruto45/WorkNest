@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.utils import timezone
@@ -23,6 +24,7 @@ EMAIL_TYPE_ROLE_CHANGED = "role_changed"
 EMAIL_TYPE_TASK_STATUS_CHANGED = "task_status_changed"
 EMAIL_TYPE_ATTACHMENT_UPLOADED = "attachment_uploaded"
 EMAIL_TYPE_NOTIFICATION = "notification"
+DEFAULT_PUBLIC_WEBAPP_URL = "https://worknested.netlify.app"
 
 
 def _get_app_name() -> str:
@@ -33,8 +35,54 @@ def _get_support_email() -> str:
     return getattr(settings, "SUPPORT_EMAIL", getattr(settings, "DEFAULT_FROM_EMAIL", "support@example.com"))
 
 
+def _is_local_hostname(hostname: str | None) -> bool:
+    normalized = (hostname or "").strip().lower()
+    return normalized in {"", "localhost", "127.0.0.1", "0.0.0.0"} or normalized.endswith(".local")
+
+
+def _is_public_absolute_url(url: str) -> bool:
+    parsed = urlparse((url or "").strip())
+    return bool(parsed.scheme and parsed.netloc and not _is_local_hostname(parsed.hostname))
+
+
+def _origin_from_url(url: str) -> str:
+    parsed = urlparse((url or "").strip())
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    path = parsed.path.rstrip("/")
+    return f"{parsed.scheme}://{parsed.netloc}{path}"
+
+
+def _strip_known_frontend_suffix(url: str) -> str:
+    cleaned = _origin_from_url(url)
+    for suffix in ("/invitations", "/reset-password", "/logo_hd.png"):
+        if cleaned.endswith(suffix):
+            return cleaned[: -len(suffix)]
+    return cleaned
+
+
 def _get_frontend_url() -> str:
-    return getattr(settings, "FRONTEND_URL", "").rstrip("/")
+    configured_frontend = str(getattr(settings, "FRONTEND_URL", "")).strip().rstrip("/")
+    if _is_public_absolute_url(configured_frontend):
+        return configured_frontend
+
+    public_webapp_url = str(getattr(settings, "PUBLIC_WEBAPP_URL", "")).strip().rstrip("/")
+    if _is_public_absolute_url(public_webapp_url):
+        return public_webapp_url
+
+    for candidate in (
+        getattr(settings, "INVITE_LINK_BASE_URL", ""),
+        getattr(settings, "PASSWORD_RESET_LINK_BASE_URL", ""),
+        getattr(settings, "LOGO_URL", ""),
+    ):
+        candidate_base = _strip_known_frontend_suffix(str(candidate))
+        if _is_public_absolute_url(candidate_base):
+            return candidate_base.rstrip("/")
+
+    if str(getattr(settings, "ENVIRONMENT", "")).strip().lower() == "production":
+        return DEFAULT_PUBLIC_WEBAPP_URL
+
+    return configured_frontend
 
 
 def _get_brand_mark() -> str:
@@ -46,7 +94,7 @@ def _get_brand_mark() -> str:
 
 def _get_logo_url() -> str:
     configured_logo_url = str(getattr(settings, "LOGO_URL", "")).strip()
-    if configured_logo_url:
+    if _is_public_absolute_url(configured_logo_url):
         return configured_logo_url
     frontend_url = _get_frontend_url()
     if frontend_url:
@@ -102,13 +150,13 @@ def _team_url(*, team) -> str:
 
 def _invitation_url(*, token: str) -> str:
     base_url = getattr(settings, "INVITE_LINK_BASE_URL", "").rstrip("/")
-    if base_url:
+    if _is_public_absolute_url(base_url):
         return f"{base_url}/{token}"
     return _frontend_path(f"/invitations/{token}")
 
 
 def _dashboard_url() -> str:
-    return _frontend_path("/")
+    return _frontend_path("/dashboard")
 
 
 def _base_context(**overrides) -> dict[str, Any]:
@@ -122,6 +170,7 @@ def _base_context(**overrides) -> dict[str, Any]:
         "preheader_text": "",
         "button_text": "Open",
         "button_url": "",
+        "decline_url": "",
         "button_hint": "",
         "detail_title": "Details",
         "detail_items": [],
@@ -210,13 +259,15 @@ def build_password_reset_email_payload(*, user, reset_url: str, expires_in_minut
 def build_team_invite_email_payload(*, invitation) -> QueuedEmailPayload:
     inviter_name = _display_name(invitation.invited_by)
     expiry_date = _format_date(invitation.expires_at)
+    invitation_url = _invitation_url(token=invitation.token)
     context = _base_context(
         eyebrow="Team invitation",
         title="You're invited to join a team",
         intro=f"{inviter_name} invited you to join {invitation.team.name} as a {invitation.get_role_display().lower()}.",
         preheader_text=f"{inviter_name} invited you to join {invitation.team.name}.",
         button_text="Accept Invitation",
-        button_url=_invitation_url(token=invitation.token),
+        button_url=invitation_url,
+        decline_url=invitation_url,
         button_hint="Open the invitation to sign in, create an account, or respond.",
         detail_title="Invitation details",
         detail_items=[
@@ -291,8 +342,8 @@ def build_invitation_revoked_email_payload(*, invitation, actor=None) -> QueuedE
         title="This invitation has been revoked",
         intro=f"{_display_name(actor or invitation.invited_by)} revoked the invitation to join {invitation.team.name}.",
         preheader_text=f"The invitation to join {invitation.team.name} is no longer active.",
-        button_text="Open Workspaces",
-        button_url=_frontend_path("/teams"),
+        button_text="View Invitation Status",
+        button_url=_invitation_url(token=invitation.token),
         detail_title="Invitation details",
         detail_items=[
             {"label": "Team", "value": invitation.team.name},

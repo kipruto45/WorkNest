@@ -45,14 +45,52 @@ from apps.authentication.throttles import LoginThrottle, PasswordResetThrottle, 
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_auth_action
 from apps.common.responses import success_response
+from apps.integrations.email.builders import _get_frontend_url
 from apps.users.serializers import CurrentUserSerializer
 
 User = get_user_model()
 
 
+def _serialize_authenticated_user(user) -> dict:
+    try:
+        return CurrentUserSerializer(user).data
+    except Exception:
+        logger.exception(
+            "Failed to serialize authenticated user payload",
+            extra={"user_id": str(getattr(user, "pk", "")), "email": getattr(user, "email", "")},
+        )
+        return {
+            "id": str(getattr(user, "id", "")),
+            "email": getattr(user, "email", ""),
+            "name": getattr(user, "name", "") or "",
+            "first_name": getattr(user, "first_name", "") or "",
+            "last_name": getattr(user, "last_name", "") or "",
+            "avatar": getattr(user, "avatar", "") or "",
+            "bio": getattr(user, "bio", "") or "",
+            "timezone": getattr(user, "timezone", "UTC") or "UTC",
+            "notification_preferences": {},
+            "auth_provider": getattr(user, "auth_provider", "email") or "email",
+            "email_verified": bool(getattr(user, "email_verified", False)),
+            "is_active": bool(getattr(user, "is_active", True)),
+            "is_staff": bool(getattr(user, "is_staff", False)),
+            "last_login": getattr(user, "last_login", None),
+            "date_joined": getattr(user, "date_joined", None),
+            "created_at": getattr(user, "created_at", None),
+            "updated_at": getattr(user, "updated_at", None),
+            "profile_completion": 0,
+        }
+
+
+def _frontend_url_with_path(path: str) -> str:
+    frontend_url = _get_frontend_url().rstrip("/")
+    if frontend_url:
+        return f"{frontend_url}{path}"
+    return path
+
+
 def build_auth_response_payload(*, user, token_payload: dict, refresh_cookie_set: bool = True) -> dict:
     return {
-        "user": CurrentUserSerializer(user).data,
+        "user": _serialize_authenticated_user(user),
         "tokens": {
             "access": token_payload["access"],
             "refresh": token_payload["refresh"],
@@ -318,14 +356,14 @@ class GoogleOAuthCallbackView(APIView):
         
         error = request.query_params.get("error")
         if error:
-            redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?error=google_auth_failed"
+            redirect_url = _frontend_url_with_path("/login?error=google_auth_failed")
             return HttpResponseRedirect(redirect_url)
         
         code = request.query_params.get("code")
         state = request.query_params.get("state")
         
         if not code:
-            redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?error=no_authorization_code"
+            redirect_url = _frontend_url_with_path("/login?error=no_authorization_code")
             return HttpResponseRedirect(redirect_url)
         
         from apps.authentication.adapter import handle_google_oauth_callback
@@ -370,7 +408,7 @@ class GoogleAuthView(APIView):
                 request=request,
                 message="Google authentication successful",
                 data={
-                    "user": CurrentUserSerializer(user).data,
+                    "user": _serialize_authenticated_user(user),
                     "tokens": tokens,
                     "is_new_user": is_new_user,
                 },
