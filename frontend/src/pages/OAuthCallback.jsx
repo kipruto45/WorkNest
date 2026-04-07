@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import { toast } from 'react-toastify'
 import LoadingState from '../components/LoadingState'
@@ -9,7 +9,6 @@ import { CLIENT_STORAGE_KEYS } from '../utils/clientConfig.js'
 import { persistAuthSession, persistCurrentUser } from '../utils/authSession'
 
 export default function OAuthCallback() {
-  const navigate = useNavigate()
   const dispatch = useDispatch()
   const [searchParams] = useSearchParams()
 
@@ -36,7 +35,7 @@ export default function OAuthCallback() {
 
       if (!persistAuthSession(session)) {
         toast.error('Google sign-in did not complete successfully.')
-        navigate('/login')
+        window.location.replace('/login')
         return
       }
 
@@ -58,13 +57,13 @@ export default function OAuthCallback() {
         }
 
         toast.success('Authentication complete.')
-        navigate(nextPath)
+        window.location.replace(nextPath)
       } catch (error) {
         localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionAccess)
         localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionRefresh)
         localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionUser)
         toast.error('Google sign-in did not complete successfully.')
-        navigate('/login')
+        window.location.replace('/login')
       }
     }
 
@@ -72,12 +71,12 @@ export default function OAuthCallback() {
 
     if (error) {
       toast.error('Google sign-in did not complete successfully.')
-      navigate('/login')
+      window.location.replace('/login')
       return
     }
 
     finishGoogleCallback()
-  }, [dispatch, navigate, searchParams])
+  }, [dispatch, searchParams])
 
   return (
     <div className="app-shell px-4 py-10">
