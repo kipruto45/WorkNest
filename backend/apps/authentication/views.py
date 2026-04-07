@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from urllib.parse import urlencode
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import HttpResponseRedirect
@@ -225,13 +226,59 @@ class MeView(APIView):
 class GoogleOAuthConfigView(APIView):
     permission_classes = [AuthEntryPointPermission]
 
+    @staticmethod
+    def _build_callback_url(request) -> str:
+        configured_redirect_uri = str(getattr(settings, "GOOGLE_REDIRECT_URI", "")).strip()
+        if configured_redirect_uri:
+            return configured_redirect_uri
+        backend_url = str(getattr(settings, "BACKEND_URL", "")).strip().rstrip("/")
+        if not backend_url:
+            backend_url = request.build_absolute_uri("/").rstrip("/")
+        return f"{backend_url}/api/v1/auth/google/callback/"
+
+    @classmethod
+    def _build_login_url(cls, request) -> str:
+        client_id = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", "")).strip()
+        callback_url = cls._build_callback_url(request)
+        params = {
+            "client_id": client_id,
+            "redirect_uri": callback_url,
+            "response_type": "code",
+            "scope": "openid email profile",
+            "access_type": "online",
+        }
+        return f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+
     @extend_schema(responses=GoogleOAuthConfigSerializer)
     def get(self, request, *args, **kwargs):  # type: ignore[override]
-        return success_response(
-            request=request,
-            message="Google OAuth configuration retrieved successfully.",
-            data=get_google_oauth_config(request=request),
-        )
+        client_id = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", "")).strip()
+        client_secret = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_SECRET", "")).strip()
+        is_enabled = bool(client_id and client_secret)
+
+        try:
+            return success_response(
+                request=request,
+                message="Google OAuth configuration retrieved successfully.",
+                data={
+                    "provider": "google",
+                    "enabled": is_enabled,
+                    "login_url": self._build_login_url(request) if is_enabled else None,
+                    "callback_url": self._build_callback_url(request) if is_enabled else None,
+                },
+            )
+        except Exception:
+            logger.exception("Failed to build Google OAuth config payload")
+            return success_response(
+                request=request,
+                message="Google OAuth configuration could not be built.",
+                data={
+                    "provider": "google",
+                    "enabled": False,
+                    "login_url": None,
+                    "callback_url": None,
+                },
+                status_code=status.HTTP_200_OK,
+            )
 
 
 class GoogleLoginView(APIView):
@@ -239,7 +286,20 @@ class GoogleLoginView(APIView):
 
     @extend_schema(responses=GoogleOAuthLoginSerializer)
     def get(self, request, *args, **kwargs):  # type: ignore[override]
-        payload = handle_google_auth(request=request)
+        client_id = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", "")).strip()
+        client_secret = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_SECRET", "")).strip()
+        if not client_id or not client_secret:
+            raise ValidationError({"detail": "Google OAuth is not configured on the backend."})
+
+        try:
+            payload = {
+                "provider": "google",
+                "login_url": GoogleOAuthConfigView._build_login_url(request),
+            }
+        except Exception as exc:
+            logger.exception("Failed to generate Google login URL")
+            raise ValidationError({"detail": f"Google OAuth configuration is invalid: {exc}"}) from exc
+
         if request.query_params.get("redirect", "true").lower() == "true":
             return HttpResponseRedirect(payload["login_url"])
         return success_response(
