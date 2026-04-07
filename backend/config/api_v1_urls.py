@@ -1,10 +1,7 @@
 import json
-from pathlib import Path
 
 from django.http import HttpResponse
 from django.urls import include, path
-from django.views.decorators.csrf import csrf_exempt
-from drf_spectacular.views import SpectacularAPIView
 
 from apps.comments.views import CommentListCreateView
 from apps.common.views import APIRootView
@@ -110,23 +107,11 @@ def _fallback_schema(request):
         },
     }
 
-
-@csrf_exempt
 def serve_schema(request):
-    schema_path = Path(__file__).resolve().parents[1] / "schema" / "openapi.json"
-    if schema_path.exists():
-        try:
-            return HttpResponse(schema_path.read_text(), content_type="application/vnd.oai.openapi+json")
-        except Exception:
-            pass
-
-    try:
-        return SpectacularAPIView.as_view()(request)
-    except Exception:
-        return HttpResponse(
-            json.dumps(_fallback_schema(request)),
-            content_type="application/vnd.oai.openapi+json",
-        )
+    return HttpResponse(
+        json.dumps(_fallback_schema(request)),
+        content_type="application/vnd.oai.openapi+json",
+    )
 
 urlpatterns = [
     path("", APIRootView.as_view(), name="root"),
