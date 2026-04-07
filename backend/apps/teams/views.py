@@ -87,10 +87,11 @@ class TeamListCreateView(PaginatedAPIViewMixin, APIView):
             description=serializer.validated_data.get("description", ""),
             allow_manager_invites=serializer.validated_data.get("allow_manager_invites", False),
         )
+        response_team = get_team_by_id_for_user(team_id=team.id, user=request.user, include_archived=None) or team
         return success_response(
             request=request,
             message="Team created successfully.",
-            data=TeamDetailSerializer(team, context={"request": request}).data,
+            data=TeamDetailSerializer(response_team, context={"request": request}).data,
             status_code=status.HTTP_201_CREATED,
         )
 

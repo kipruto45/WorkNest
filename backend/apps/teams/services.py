@@ -45,12 +45,15 @@ def create_team_with_owner(*, created_by, name: str, description: str = "", allo
         invited_by=created_by,
         joined_at=timezone.now(),
     )
-    log_team_action(
-        actor=created_by,
-        action=AuditAction.TEAM_CREATED,
-        team=team,
-        metadata=build_audit_metadata(name=team.name, slug=team.slug, description=team.description),
-    )
+    try:
+        log_team_action(
+            actor=created_by,
+            action=AuditAction.TEAM_CREATED,
+            team=team,
+            metadata=build_audit_metadata(name=team.name, slug=team.slug, description=team.description),
+        )
+    except Exception:  # pragma: no cover - defensive production fallback
+        logger.exception("team_create_audit_failed", extra={"team_id": str(team.id), "actor_id": str(created_by.id)})
     logger.info("team_created", extra={"team_id": str(team.id), "actor_id": str(created_by.id)})
     return team
 

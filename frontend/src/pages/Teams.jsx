@@ -41,7 +41,12 @@ export default function Teams() {
       reset()
       navigate(`/teams/${team.id}/invitations?compose=1&created=1`)
     } catch (error) {
-      toast.error(error || 'Failed to create team')
+      toast.error(
+        error?.response?.data?.message ||
+          error?.response?.data?.errors?.detail ||
+          error?.message ||
+          (typeof error === 'string' ? error : 'Failed to create team')
+      )
     }
   }
 

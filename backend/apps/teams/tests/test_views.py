@@ -27,6 +27,8 @@ class TeamViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         team = Team.objects.get(id=response.data["data"]["id"])
         self.assertTrue(team.memberships.filter(user=user, role="admin", status="active").exists())
+        self.assertEqual(response.data["data"]["member_count"], 1)
+        self.assertEqual(response.data["data"]["my_membership"]["role"], "admin")
 
     def test_non_member_cannot_view_team(self) -> None:
         owner = User.objects.create_user(email="owner@example.com", password="StrongPass123!", name="Owner")
