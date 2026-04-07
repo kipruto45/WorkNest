@@ -2,6 +2,8 @@
 
 This project is prepared for Render using the blueprint in [render.yaml](/home/kipruto/Desktop/TASK/deploy/render/render.yaml).
 
+If you want to deploy only the backend API first, use [render-backend.yaml](/home/kipruto/Desktop/TASK/deploy/render/render-backend.yaml) and follow [BACKEND_ONLY.md](/home/kipruto/Desktop/TASK/deploy/render/BACKEND_ONLY.md).
+
 ## Services
 
 Render should create these three backend services:
