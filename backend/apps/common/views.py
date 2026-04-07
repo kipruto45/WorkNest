@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from django.conf import settings
+from django.http import JsonResponse
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import permissions, serializers, status
 from rest_framework.views import APIView
 
 from apps.common.constants import API_NAME, HEALTH_STATUS_DEGRADED, HEALTH_STATUS_OK
 from apps.common.health import get_cache_health, get_database_health
-from apps.common.responses import success_response
+from apps.common.responses import build_response_payload, success_response
 from apps.common.utils import get_api_version, get_runtime_environment
 
 
@@ -53,6 +54,13 @@ class HealthCheckView(APIView):
     permission_classes = [permissions.AllowAny]
 
     @staticmethod
+    def _json_success_response(*, request, message: str, data: dict, status_code: int = 200) -> JsonResponse:
+        return JsonResponse(
+            build_response_payload(request=request, success=True, message=message, data=data),
+            status=status_code,
+        )
+
+    @staticmethod
     def _build_dependency_snapshot() -> tuple[str, str]:
         try:
             database_status = get_database_health()
@@ -79,7 +87,7 @@ class HealthCheckView(APIView):
     def get(self, request, *args, **kwargs):  # type: ignore[override]
         probe = kwargs.get("probe", "full")
         if probe == "live":
-            return success_response(
+            return self._json_success_response(
                 request=request,
                 message="Liveness probe completed.",
                 data={
@@ -87,6 +95,23 @@ class HealthCheckView(APIView):
                     "environment": get_runtime_environment(),
                     "services": {
                         "application": "ok",
+                    },
+                },
+            )
+
+        if probe == "ready" and not getattr(settings, "HEALTH_REQUIRE_CACHE", False):
+            return self._json_success_response(
+                request=request,
+                message="Readiness probe completed.",
+                data={
+                    "status": HEALTH_STATUS_OK,
+                    "environment": get_runtime_environment(),
+                    "services": {
+                        "application": "ok",
+                        "database": "optional",
+                        "redis": "optional",
+                        "channels": "configured",
+                        "celery": "configured",
                     },
                 },
             )
@@ -118,7 +143,7 @@ class HealthCheckView(APIView):
                 status_code=response_status,
             )
         except Exception:
-            return success_response(
+            return self._json_success_response(
                 request=request,
                 message="Readiness probe completed with degraded dependencies.",
                 data={
