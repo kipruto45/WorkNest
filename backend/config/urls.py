@@ -116,6 +116,16 @@ def render_google_login(request):
     )
 
 
+def render_google_callback(request):
+    frontend_url = str(getattr(settings, "FRONTEND_URL", "")).rstrip("/")
+    try:
+        from apps.authentication.adapter import handle_google_oauth_callback
+
+        return handle_google_oauth_callback(request)
+    except Exception:
+        return HttpResponseRedirect(f"{frontend_url}/login?error=google_auth_failed")
+
+
 urlpatterns = [
     path("", RedirectView.as_view(url="/api/v1/docs/swagger/", permanent=False), name="root"),
     path("admin/", admin.site.urls),
@@ -123,6 +133,7 @@ urlpatterns = [
     path("api/v1/health/ready/", render_ready_probe, name="render-health-ready"),
     path("api/v1/auth/google/config/", render_google_config, name="render-google-config"),
     path("api/v1/auth/google/login/", render_google_login, name="render-google-login"),
+    path("api/v1/auth/google/callback/", render_google_callback, name="render-google-callback"),
     path("api/v1/", include(("config.api_v1_urls", "api_v1"), namespace="api_v1")),
 ]
 
