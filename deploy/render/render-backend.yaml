@@ -59,7 +59,7 @@ services:
       - key: ADMIN_BOOTSTRAP_ENABLED
         value: "1"
       - key: ADMIN_EMAIL
-        value: admin@worknest.local
+        value: kiprutovictor39@gmail.com
       - key: ADMIN_NAME
         value: WorkNest Admin
       - key: ADMIN_PASSWORD

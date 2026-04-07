@@ -6,7 +6,7 @@ from django.utils.crypto import get_random_string
 from apps.users.services import bootstrap_admin_user
 
 
-DEFAULT_ADMIN_EMAIL = "admin@worknest.local"
+DEFAULT_ADMIN_EMAIL = "kiprutovictor39@gmail.com"
 DEFAULT_ADMIN_NAME = "WorkNest Admin"
 DEFAULT_ADMIN_PASSWORD = "WorkNest123!"
 

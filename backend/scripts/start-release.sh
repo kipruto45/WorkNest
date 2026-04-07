@@ -6,7 +6,7 @@ python manage.py collectstatic --noinput
 
 if [ "${ADMIN_BOOTSTRAP_ENABLED:-0}" = "1" ]; then
   python manage.py ensure_admin_user \
-    --email "${ADMIN_EMAIL:-admin@worknest.local}" \
+    --email "${ADMIN_EMAIL:-kiprutovictor39@gmail.com}" \
     --name "${ADMIN_NAME:-WorkNest Admin}" \
     --password "${ADMIN_PASSWORD:-WorkNest123!}"
 fi

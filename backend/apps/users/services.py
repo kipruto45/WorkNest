@@ -11,7 +11,10 @@ from apps.users.selectors import get_current_user_profile
 
 
 def bootstrap_admin_user(*, email: str | None = None, name: str | None = None, password: str | None = None) -> tuple[User, bool]:
-    resolved_email = str(email or getattr(settings, "ADMIN_EMAIL", "admin@worknest.local")).strip().lower() or "admin@worknest.local"
+    resolved_email = (
+        str(email or getattr(settings, "ADMIN_EMAIL", "kiprutovictor39@gmail.com")).strip().lower()
+        or "kiprutovictor39@gmail.com"
+    )
     resolved_name = str(name or getattr(settings, "ADMIN_NAME", "WorkNest Admin")).strip() or "WorkNest Admin"
     resolved_password = str(password or getattr(settings, "ADMIN_PASSWORD", "WorkNest123!")).strip() or "WorkNest123!"
 
