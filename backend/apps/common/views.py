@@ -91,28 +91,48 @@ class HealthCheckView(APIView):
                 },
             )
 
-        database_status, cache_status = self._build_dependency_snapshot()
-        response_status = (
-            status.HTTP_200_OK
-            if database_status == "ok" and cache_status == "ok"
-            else status.HTTP_503_SERVICE_UNAVAILABLE
-        )
+        try:
+            database_status, cache_status = self._build_dependency_snapshot()
+            cache_is_required = bool(getattr(settings, "HEALTH_REQUIRE_CACHE", False))
+            database_ok = database_status == "ok"
+            cache_ok = cache_status == "ok"
+            response_status = (
+                status.HTTP_200_OK
+                if database_ok and (cache_ok or not cache_is_required)
+                else status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
-        return success_response(
-            request=request,
-            message="Readiness probe completed." if probe == "ready" else "Healthcheck completed.",
-            data={
-                "status": HEALTH_STATUS_OK if response_status == status.HTTP_200_OK else HEALTH_STATUS_DEGRADED,
-                "environment": get_runtime_environment(),
-                "services": {
-                    "database": database_status,
-                    "redis": cache_status,
-                    "channels": "configured",
-                    "celery": "configured",
+            return success_response(
+                request=request,
+                message="Readiness probe completed." if probe == "ready" else "Healthcheck completed.",
+                data={
+                    "status": HEALTH_STATUS_OK if response_status == status.HTTP_200_OK else HEALTH_STATUS_DEGRADED,
+                    "environment": get_runtime_environment(),
+                    "services": {
+                        "database": database_status,
+                        "redis": cache_status,
+                        "channels": "configured",
+                        "celery": "configured",
+                    },
                 },
-            },
-            status_code=response_status,
-        )
+                status_code=response_status,
+            )
+        except Exception:
+            return success_response(
+                request=request,
+                message="Readiness probe completed with degraded dependencies.",
+                data={
+                    "status": HEALTH_STATUS_DEGRADED,
+                    "environment": get_runtime_environment(),
+                    "services": {
+                        "database": "unknown",
+                        "redis": "unknown",
+                        "channels": "configured",
+                        "celery": "configured",
+                    },
+                },
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
 
 class SystemInfoView(APIView):

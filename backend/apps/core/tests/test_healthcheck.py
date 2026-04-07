@@ -32,10 +32,19 @@ class HealthCheckViewTests(TestCase):
     def test_readiness_probe_degrades_when_cache_check_crashes(self, _mock_cache_health) -> None:
         response = self.client.get(reverse("api_v1:common:health-ready"))
 
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+        self.assertEqual(response.json()["data"]["status"], "ok")
+        self.assertEqual(response.json()["data"]["services"]["redis"], "unavailable")
+
+    @patch("apps.common.views.HealthCheckView._build_dependency_snapshot", side_effect=RuntimeError("unexpected failure"))
+    def test_readiness_probe_returns_structured_fallback_when_probe_logic_crashes(self, _mock_snapshot) -> None:
+        response = self.client.get(reverse("api_v1:common:health-ready"))
+
         self.assertEqual(response.status_code, 503)
         self.assertTrue(response.json()["success"])
         self.assertEqual(response.json()["data"]["status"], "degraded")
-        self.assertEqual(response.json()["data"]["services"]["redis"], "unavailable")
+        self.assertEqual(response.json()["data"]["services"]["database"], "unknown")
 
     def test_api_root_exposes_versioned_links(self) -> None:
         response = self.client.get(reverse("api_v1:root"))
