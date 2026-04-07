@@ -42,6 +42,11 @@ const extractErrorMessage = (error, fallbackMessage) => {
   return fallbackMessage
 }
 
+const buildHydrationError = (error, fallbackMessage) => ({
+  message: extractErrorMessage(error, fallbackMessage),
+  clearSession: error?.response?.status === 401,
+})
+
 export const login = createAsyncThunk('auth/login', async (credentials, { rejectWithValue }) => {
   try {
     const response = await authAPI.login(credentials)
@@ -82,8 +87,11 @@ export const hydrateCurrentUser = createAsyncThunk('auth/hydrateCurrentUser', as
     persistCurrentUser(user)
     return user
   } catch (error) {
-    clearAuthSession()
-    return rejectWithValue(extractErrorMessage(error, 'Session expired'))
+    const hydrationError = buildHydrationError(error, 'Session expired')
+    if (hydrationError.clearSession) {
+      clearAuthSession()
+    }
+    return rejectWithValue(hydrationError)
   }
 })
 
@@ -148,10 +156,12 @@ const authSlice = createSlice({
       })
       .addCase(hydrateCurrentUser.rejected, (state, action) => {
         state.hydrating = false
-        state.token = null
-        state.user = null
-        state.isAuthenticated = false
-        state.error = action.payload
+        if (action.payload?.clearSession) {
+          state.token = null
+          state.user = null
+          state.isAuthenticated = false
+        }
+        state.error = action.payload?.message || action.payload
       })
   },
 })

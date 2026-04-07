@@ -8,13 +8,31 @@ from apps.users.models import User
 
 
 class UserPublicSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField()
+    bio = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = ("id", "name", "avatar", "bio")
         read_only_fields = fields
 
+    def get_avatar(self, obj: User) -> str:
+        value = getattr(obj, "avatar", "") or ""
+        return value if isinstance(value, str) else str(value)
+
+    def get_bio(self, obj: User) -> str:
+        value = getattr(obj, "bio", "") or ""
+        return value if isinstance(value, str) else str(value)
+
 
 class CurrentUserSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    first_name = serializers.SerializerMethodField()
+    last_name = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
+    bio = serializers.SerializerMethodField()
+    timezone = serializers.SerializerMethodField()
+    notification_preferences = serializers.SerializerMethodField()
     profile_completion = serializers.SerializerMethodField()
 
     class Meta:
@@ -53,8 +71,43 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "profile_completion",
         )
 
+    def get_name(self, obj: User) -> str:
+        value = getattr(obj, "name", "") or ""
+        return value if isinstance(value, str) else str(value)
+
+    def get_first_name(self, obj: User) -> str:
+        value = getattr(obj, "first_name", "") or ""
+        return value if isinstance(value, str) else str(value)
+
+    def get_last_name(self, obj: User) -> str:
+        value = getattr(obj, "last_name", "") or ""
+        return value if isinstance(value, str) else str(value)
+
+    def get_avatar(self, obj: User) -> str:
+        value = getattr(obj, "avatar", "") or ""
+        return value if isinstance(value, str) else str(value)
+
+    def get_bio(self, obj: User) -> str:
+        value = getattr(obj, "bio", "") or ""
+        return value if isinstance(value, str) else str(value)
+
+    def get_timezone(self, obj: User) -> str:
+        value = getattr(obj, "timezone", "UTC") or "UTC"
+        return value if isinstance(value, str) else str(value)
+
+    def get_notification_preferences(self, obj: User) -> dict:
+        value = getattr(obj, "notification_preferences", {}) or {}
+        return value if isinstance(value, dict) else {}
+
     def get_profile_completion(self, obj: User) -> int:
-        fields = [obj.name, obj.first_name, obj.last_name, obj.avatar, obj.bio, obj.timezone]
+        fields = [
+            self.get_name(obj),
+            self.get_first_name(obj),
+            self.get_last_name(obj),
+            self.get_avatar(obj),
+            self.get_bio(obj),
+            self.get_timezone(obj),
+        ]
         filled = sum(1 for item in fields if item)
         return int((filled / len(fields)) * 100)
 

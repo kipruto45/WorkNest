@@ -37,7 +37,7 @@ class TeamUpdateSerializer(TeamWriteSerializer):
 
 class TeamListSerializer(serializers.ModelSerializer):
     created_by = UserPublicSerializer(read_only=True)
-    member_count = serializers.IntegerField(read_only=True)
+    member_count = serializers.SerializerMethodField()
     my_role = serializers.SerializerMethodField()
     is_pinned = serializers.SerializerMethodField()
 
@@ -75,6 +75,12 @@ class TeamListSerializer(serializers.ModelSerializer):
             ).first()
         return membership.role if membership else None
 
+    def get_member_count(self, obj: Team) -> int:
+        annotated_value = getattr(obj, "member_count", None)
+        if annotated_value is not None:
+            return int(annotated_value)
+        return obj.memberships.filter(status=Membership.Status.ACTIVE).count()
+
     def get_is_pinned(self, obj: Team) -> bool:
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
@@ -84,7 +90,7 @@ class TeamListSerializer(serializers.ModelSerializer):
 
 class TeamDetailSerializer(serializers.ModelSerializer):
     created_by = UserPublicSerializer(read_only=True)
-    member_count = serializers.IntegerField(read_only=True)
+    member_count = serializers.SerializerMethodField()
     my_membership = serializers.SerializerMethodField()
     is_pinned = serializers.SerializerMethodField()
 
@@ -124,6 +130,12 @@ class TeamDetailSerializer(serializers.ModelSerializer):
             "status": membership.status,
             "joined_at": membership.joined_at,
         }
+
+    def get_member_count(self, obj: Team) -> int:
+        annotated_value = getattr(obj, "member_count", None)
+        if annotated_value is not None:
+            return int(annotated_value)
+        return obj.memberships.filter(status=Membership.Status.ACTIVE).count()
 
     def get_is_pinned(self, obj: Team) -> bool:
         request = self.context.get("request")

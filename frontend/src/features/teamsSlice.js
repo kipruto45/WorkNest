@@ -1,14 +1,39 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { teamsAPI, unwrapData, unwrapResults } from '../services/api'
 
+const extractErrorMessage = (error, fallbackMessage) => {
+  const payload = error?.response?.data
+  if (typeof payload?.message === 'string' && payload.message.trim()) {
+    return payload.message
+  }
+
+  const errorEntries = payload?.errors
+  if (errorEntries && typeof errorEntries === 'object') {
+    for (const value of Object.values(errorEntries)) {
+      if (Array.isArray(value) && value[0]) {
+        return value[0]
+      }
+      if (typeof value === 'string' && value.trim()) {
+        return value
+      }
+    }
+  }
+
+  return fallbackMessage
+}
+
 export const fetchTeams = createAsyncThunk('teams/fetchAll', async () => {
   const response = await teamsAPI.getTeams()
   return unwrapResults(response)
 })
 
-export const createTeam = createAsyncThunk('teams/create', async (data) => {
-  const response = await teamsAPI.createTeam(data)
-  return unwrapData(response)
+export const createTeam = createAsyncThunk('teams/create', async (data, { rejectWithValue }) => {
+  try {
+    const response = await teamsAPI.createTeam(data)
+    return unwrapData(response)
+  } catch (error) {
+    return rejectWithValue(extractErrorMessage(error, 'Failed to create team'))
+  }
 })
 
 export const updateTeam = createAsyncThunk('teams/update', async ({ id, data }) => {
@@ -65,6 +90,9 @@ const teamsSlice = createSlice({
       })
       .addCase(createTeam.fulfilled, (state, action) => {
         state.teams.push(action.payload)
+      })
+      .addCase(createTeam.rejected, (state, action) => {
+        state.error = action.payload || action.error.message
       })
       .addCase(updateTeam.fulfilled, (state, action) => {
         const index = state.teams.findIndex((t) => t.id === action.payload.id)

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'react-toastify'
 import PageHero from '../components/PageHero'
 import StatCard from '../components/StatCard'
@@ -8,7 +8,7 @@ import LoadingState from '../components/LoadingState'
 import { setUser } from '../features/authSlice'
 import { usersAPI, unwrapData } from '../services/api'
 import { PROFILE_FIELD_KEYS } from '../utils/clientConfig.js'
-import { persistCurrentUser } from '../utils/authSession'
+import { hasCompleteCurrentUser, persistCurrentUser } from '../utils/authSession'
 import { clampPercent, formatDate, getInitials } from '../utils/formatters'
 
 export default function Profile() {
@@ -16,6 +16,7 @@ export default function Profile() {
   const [profile, setProfile] = useState(null)
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState('')
+  const currentUser = useSelector((state) => state.auth.user)
   const dispatch = useDispatch()
   const avatarInputRef = useRef(null)
   const {
@@ -37,6 +38,14 @@ export default function Profile() {
       }
       setAvatarPreview('')
       reset(data)
+    } catch (_error) {
+      if (hasCompleteCurrentUser(currentUser)) {
+        setProfile(currentUser)
+        reset(currentUser)
+        toast.info('Showing your cached profile while the live profile service recovers.')
+      } else {
+        toast.error('Unable to load profile right now.')
+      }
     } finally {
       setLoading(false)
     }
@@ -44,7 +53,7 @@ export default function Profile() {
 
   useEffect(() => {
     loadProfile()
-  }, [])
+  }, [currentUser])
 
   useEffect(() => {
     return () => {
