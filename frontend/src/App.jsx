@@ -60,13 +60,13 @@ function AdminRoute({ children }) {
 
 function App() {
   const dispatch = useDispatch()
-  const { token } = useSelector((state) => state.auth)
+  const { token, user } = useSelector((state) => state.auth)
 
   useEffect(() => {
-    if (token) {
+    if (token && !user) {
       dispatch(hydrateCurrentUser())
     }
-  }, [dispatch, token])
+  }, [dispatch, token, user])
 
   return (
     <>
