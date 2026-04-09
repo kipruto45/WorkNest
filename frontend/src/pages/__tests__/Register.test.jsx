@@ -52,13 +52,15 @@ test('Register surfaces backend errors and field validation', async () => {
     </TestMemoryRouter>
   )
 
+  await userEvent.click(screen.getByRole('button', { name: /Individual account/i }))
   await userEvent.type(screen.getByPlaceholderText('Alex Morgan'), 'Jane Doe')
   await userEvent.type(screen.getByPlaceholderText('name@company.com'), 'jane@example.com')
+  await userEvent.clear(screen.getByPlaceholderText('+254712345678'))
   await userEvent.type(screen.getByPlaceholderText('+254712345678'), '+254712345678')
   await userEvent.type(screen.getByPlaceholderText('Create password'), 'StrongPass123!')
   await userEvent.type(screen.getByPlaceholderText('Confirm password'), 'StrongPass123!')
 
-  await userEvent.click(screen.getByRole('button', { name: /Create Account/i }))
+  await userEvent.click(screen.getByRole('button', { name: /Create account/i }))
 
   expect(await screen.findByText('Email is already registered.')).toBeInTheDocument()
   expect(await screen.findByText('This email is already registered.')).toBeInTheDocument()
@@ -81,12 +83,15 @@ test('Register signs the user in and routes to the personal dashboard after succ
     </TestMemoryRouter>
   )
 
+  await userEvent.click(screen.getByRole('button', { name: /Individual account/i }))
   await userEvent.type(screen.getByPlaceholderText('Alex Morgan'), 'Jane Doe')
+  await userEvent.type(screen.getByPlaceholderText('name@company.com'), 'new@example.com')
+  await userEvent.clear(screen.getByPlaceholderText('+254712345678'))
   await userEvent.type(screen.getByPlaceholderText('+254712345678'), '+254712345678')
   await userEvent.type(screen.getByPlaceholderText('Create password'), 'StrongPass123!')
   await userEvent.type(screen.getByPlaceholderText('Confirm password'), 'StrongPass123!')
 
-  await userEvent.click(screen.getByRole('button', { name: /Create Account/i }))
+  await userEvent.click(screen.getByRole('button', { name: /Create account/i }))
 
   await waitFor(() => {
     expect(navigateMock).toHaveBeenCalledWith('/dashboard', { replace: true })
@@ -121,10 +126,12 @@ test('Register routes team users straight into their new workspace', async () =>
   await userEvent.click(screen.getByRole('button', { name: /Team account/i }))
   await userEvent.type(screen.getByPlaceholderText('Growth Squad'), 'Growth Squad')
   await userEvent.type(screen.getByPlaceholderText('name@company.com'), 'team@example.com')
+  await userEvent.clear(screen.getByPlaceholderText('+254712345678'))
+  await userEvent.type(screen.getByPlaceholderText('+254712345678'), '+254712345678')
   await userEvent.type(screen.getByPlaceholderText('Create password'), 'StrongPass123!')
   await userEvent.type(screen.getByPlaceholderText('Confirm password'), 'StrongPass123!')
 
-  await userEvent.click(screen.getByRole('button', { name: /Create Account/i }))
+  await userEvent.click(screen.getByRole('button', { name: /Create workspace/i }))
 
   await waitFor(() => {
     expect(navigateMock).toHaveBeenCalledWith('/teams/team-42/overview', { replace: true })

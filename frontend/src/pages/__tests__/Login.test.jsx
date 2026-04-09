@@ -52,6 +52,7 @@ test('Login surfaces backend errors and field validation', async () => {
     </TestMemoryRouter>
   )
 
+  await userEvent.click(screen.getByRole('button', { name: /Individual account/i }))
   await userEvent.type(screen.getByPlaceholderText('name@company.com or +254712345678'), 'invalid@example.com')
   await userEvent.type(screen.getByPlaceholderText('Enter your password'), 'bad-pass')
 
@@ -74,6 +75,7 @@ test('Login blocks admin access for non-staff users', async () => {
     </TestMemoryRouter>
   )
 
+  await userEvent.click(screen.getByRole('button', { name: /Individual account/i }))
   await userEvent.type(screen.getByPlaceholderText('name@company.com or +254712345678'), 'user@example.com')
   await userEvent.type(screen.getByPlaceholderText('Enter your password'), 'valid-pass')
 
@@ -97,6 +99,7 @@ test('Login redirects after successful authentication', async () => {
     </TestMemoryRouter>
   )
 
+  await userEvent.click(screen.getByRole('button', { name: /Individual account/i }))
   await userEvent.type(screen.getByPlaceholderText('name@company.com or +254712345678'), 'user@example.com')
   await userEvent.type(screen.getByPlaceholderText('Enter your password'), 'valid-pass')
 

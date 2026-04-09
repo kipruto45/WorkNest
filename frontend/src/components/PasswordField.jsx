@@ -8,24 +8,28 @@ export default function PasswordField({
   placeholder,
   requiredMessage,
   autoComplete = 'current-password',
+  containerClassName = '',
+  labelClassName = '',
+  inputClassName = '',
+  toggleButtonClassName = '',
 }) {
   const [visible, setVisible] = useState(false)
 
   return (
-    <div>
-      {label ? <label className="mb-2 block text-sm font-semibold text-emerald-950">{label}</label> : null}
+    <div className={containerClassName}>
+      {label ? <label className={`mb-2 block text-sm font-semibold text-emerald-950 ${labelClassName}`}>{label}</label> : null}
       <div className="relative">
         <input
           type={visible ? 'text' : 'password'}
           {...register(name, requiredMessage ? { required: requiredMessage } : undefined)}
-          className="input-field pr-12"
+          className={`input-field pr-12 ${inputClassName}`}
           placeholder={placeholder}
           autoComplete={autoComplete}
         />
         <button
           type="button"
           onClick={() => setVisible((current) => !current)}
-          className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-500 transition-colors hover:text-emerald-700"
+          className={`absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-500 transition-colors hover:text-emerald-700 ${toggleButtonClassName}`}
           aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
           aria-pressed={visible}
         >

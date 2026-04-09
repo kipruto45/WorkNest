@@ -68,6 +68,14 @@ const analyticsPoints = [
   'Leads can spot concentration risk before it becomes delay.',
 ]
 
+const heroPhrases = [
+  { text: 'Plan with clarity.', emphasis: 'clarity' },
+  { text: 'Assign with confidence.', emphasis: 'confidence' },
+  { text: 'Deliver on time.', emphasis: 'on time' },
+  { text: 'Keep every team aligned.', emphasis: 'aligned' },
+  { text: 'Track work without chaos.', emphasis: 'without chaos' },
+]
+
 const footerColumns = [
   {
     title: 'Product',
@@ -100,14 +108,17 @@ const footerColumns = [
 
 const containerClass = 'mx-auto w-full max-w-[1240px] px-6 lg:px-8'
 const primaryButtonClass =
-  'inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(5,150,105,0.2)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-[0_18px_34px_rgba(5,150,105,0.24)]'
+  'landing-primary-button inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[16px] px-5 text-sm font-semibold text-white transition-all duration-200'
 const secondaryButtonClass =
-  'inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-900 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-50'
+  'landing-secondary-button inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[16px] px-5 text-sm font-semibold transition-all duration-200'
 const panelClass =
-  'rounded-[28px] border border-slate-200/80 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.07)]'
+  'rounded-[30px] border border-slate-200/80 bg-white shadow-[0_28px_70px_rgba(15,23,42,0.08)]'
 
 export default function Landing() {
   const [isScrolled, setIsScrolled] = useState(false)
+  const [activePhraseIndex, setActivePhraseIndex] = useState(0)
+  const [visiblePhrase, setVisiblePhrase] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 12)
@@ -118,32 +129,64 @@ export default function Landing() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  return (
-    <div className="relative isolate min-h-screen overflow-x-clip bg-[#f5f6f8] text-slate-950">
-      <div className="absolute inset-x-0 top-0 -z-10 h-[720px] bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.1),transparent_32%),linear-gradient(180deg,#f8fbf8_0%,#f5f6f8_100%)]" />
+  useEffect(() => {
+    const currentPhrase = heroPhrases[activePhraseIndex].text
+    let timer
 
-      <header
-        className={`sticky top-0 z-50 border-b transition-all duration-300 ${
-          isScrolled ? 'border-slate-200/80 bg-[rgba(245,246,248,0.86)] backdrop-blur-xl' : 'border-transparent bg-transparent'
-        }`}
-      >
+    if (!isDeleting && visiblePhrase !== currentPhrase) {
+      timer = window.setTimeout(() => {
+        setVisiblePhrase(currentPhrase.slice(0, visiblePhrase.length + 1))
+      }, 52)
+    } else if (!isDeleting && visiblePhrase === currentPhrase) {
+      timer = window.setTimeout(() => {
+        setIsDeleting(true)
+      }, 1600)
+    } else if (isDeleting && visiblePhrase.length > 0) {
+      timer = window.setTimeout(() => {
+        setVisiblePhrase(currentPhrase.slice(0, visiblePhrase.length - 1))
+      }, 26)
+    } else {
+      timer = window.setTimeout(() => {
+        setIsDeleting(false)
+        setActivePhraseIndex((index) => (index + 1) % heroPhrases.length)
+      }, 180)
+    }
+
+    return () => window.clearTimeout(timer)
+  }, [activePhraseIndex, visiblePhrase, isDeleting])
+
+  const activePhrase = heroPhrases[activePhraseIndex]
+
+  return (
+    <div className="relative isolate min-h-screen overflow-x-clip bg-[#f5f7f4] text-slate-950">
+      <div className="absolute inset-x-0 top-0 -z-10 h-[820px] bg-[linear-gradient(180deg,#fbfdfb_0%,#f5f7f4_60%,#f5f7f4_100%)]" />
+      <div className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-[420px] w-[760px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.12)_0%,rgba(16,185,129,0.05)_28%,transparent_70%)] blur-3xl" />
+      <div className="pointer-events-none absolute right-[-140px] top-[120px] -z-10 h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(4,120,87,0.08)_0%,rgba(16,185,129,0.03)_34%,transparent_72%)] blur-3xl" />
+
+      <header className="sticky top-0 z-50 pt-4 transition-all duration-300">
         <div className={containerClass}>
-          <div className="flex h-20 items-center justify-between gap-6">
+          <div
+            className={`landing-navbar-shell flex min-h-[72px] items-center justify-between gap-6 rounded-full px-4 sm:px-5 ${
+              isScrolled
+                ? 'border border-emerald-100/90 bg-[rgba(255,255,255,0.82)] shadow-[0_16px_42px_rgba(15,23,42,0.09)] backdrop-blur-xl'
+                : 'border border-white/70 bg-[rgba(255,255,255,0.64)] shadow-[0_10px_30px_rgba(15,23,42,0.05)] backdrop-blur-lg'
+            }`}
+          >
             <AppLogo
               to="/"
               subtitle="Structured task operations"
-              imageClassName="h-10 w-10"
+              imageClassName="h-10 w-10 rounded-2xl"
               titleClassName="text-[13px] font-semibold uppercase tracking-[0.22em] text-slate-950"
               subtitleClassName="text-sm text-slate-500"
             />
 
-            <nav className="hidden items-center gap-8 lg:flex">
+            <nav className="hidden items-center gap-2 lg:flex">
               {navItems.map((item) =>
                 item.to ? (
                   <Link
                     key={item.label}
                     to={item.to}
-                    className="text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-slate-950"
+                    className="landing-nav-link"
                   >
                     {item.label}
                   </Link>
@@ -151,7 +194,7 @@ export default function Landing() {
                   <a
                     key={item.href}
                     href={item.href}
-                    className="text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-slate-950"
+                    className="landing-nav-link"
                   >
                     {item.label}
                   </a>
@@ -159,8 +202,8 @@ export default function Landing() {
               )}
             </nav>
 
-            <div className="flex items-center gap-3">
-              <Link to="/login" className="hidden text-sm font-semibold text-slate-700 transition-colors hover:text-slate-950 sm:inline-flex">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Link to="/login" className="landing-navbar-signin hidden sm:inline-flex">
                 Sign in
               </Link>
               <Link to="/register" className={primaryButtonClass}>
@@ -174,22 +217,31 @@ export default function Landing() {
       <main>
         <section className="relative overflow-hidden pb-24 pt-10 md:pb-28 md:pt-16">
           <div className={containerClass}>
-            <div className="grid items-center gap-16 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
+            <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,0.84fr)_minmax(0,1.16fr)] lg:gap-12 xl:gap-16">
               <div className="fade-in">
-                <div className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                  Built for product, operations, and delivery teams
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-white/88 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700 shadow-[0_8px_18px_rgba(15,118,110,0.08)] backdrop-blur">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_5px_rgba(16,185,129,0.14)]" />
+                  WorkNest for modern delivery teams
                 </div>
-                <h1 className="mt-7 max-w-[11ch] text-balance font-display text-[3.35rem] font-bold leading-[0.95] tracking-[-0.05em] text-slate-950 md:text-[4.6rem]">
-                  Work that moves with clarity.
+                <h1 className="mt-8 max-w-[11ch] text-balance font-display text-[3.45rem] font-bold leading-[0.92] tracking-[-0.055em] text-slate-950 md:text-[4.85rem]">
+                  Work that moves with conviction.
                 </h1>
-                <p className="mt-6 max-w-[34rem] text-lg leading-8 text-slate-600">
-                  WorkNest gives modern teams one calm, structured place to plan tasks, assign ownership, track deadlines,
+                <p className="mt-6 max-w-[35rem] text-[1.04rem] leading-8 text-slate-600 md:text-lg">
+                  WorkNest gives modern teams one calm, structured place to plan work, assign ownership, track deadlines,
                   and keep delivery visible from kickoff to completion.
                 </p>
 
-                <div className="mt-9 flex flex-wrap gap-3">
+                <div className="landing-typewriter-panel mt-7" aria-live="polite" aria-atomic="true">
+                  <div className="landing-typewriter-label">Inside WorkNest</div>
+                  <div className="landing-typewriter-line">
+                    {renderTypedPhrase(visiblePhrase, activePhrase.emphasis)}
+                    <span className="landing-typewriter-caret" aria-hidden="true" />
+                  </div>
+                </div>
+
+                <div className="mt-8 flex flex-wrap gap-3">
                   <Link to="/register" className={primaryButtonClass}>
-                    Start your workspace
+                    Start free
                     <ArrowRightIcon className="h-4 w-4" />
                   </Link>
                   <a href="#workflow" className={secondaryButtonClass}>
@@ -201,7 +253,7 @@ export default function Landing() {
                 <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm text-slate-500">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                    No credit card required
+                    Start in minutes with personal or team workspaces
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-emerald-600" />
@@ -209,17 +261,22 @@ export default function Landing() {
                   </div>
                 </div>
 
-                <div className="mt-10 rounded-2xl border border-slate-200/80 bg-white/90 px-5 py-4 shadow-[0_16px_42px_rgba(15,23,42,0.05)]">
-                  <div className="flex items-start gap-4">
+                <div className="mt-10 grid gap-3 sm:grid-cols-2 xl:max-w-[40rem]">
+                  <div className="landing-hero-note">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
                       <SparkIcon className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-950">Trusted by teams that need a steadier operating rhythm</p>
+                      <p className="text-sm font-semibold text-slate-950">Built for steadier operating rhythm</p>
                       <p className="mt-1 text-sm leading-6 text-slate-600">
-                        Setup stays lightweight, while the workspace feels robust enough for real deadlines, ownership, and cross-team coordination.
+                        Setup stays lightweight while the workspace feels ready for deadlines, ownership, and visible execution.
                       </p>
                     </div>
+                  </div>
+                  <div className="landing-hero-metrics">
+                    <MetricChip label="Launch time" value="< 10 min" />
+                    <MetricChip label="Owner visibility" value="100%" />
+                    <MetricChip label="Active teams" value="2,400+" />
                   </div>
                 </div>
               </div>
@@ -231,7 +288,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="border-y border-slate-200/80 bg-white">
+        <section className="border-y border-slate-200/80 bg-white/90 backdrop-blur">
           <div className={containerClass}>
             <div className="flex flex-col gap-8 py-7 lg:flex-row lg:items-center lg:justify-between">
               <div className="max-w-[28rem]">
@@ -243,7 +300,7 @@ export default function Landing() {
 
               <div className="grid flex-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 {trustStats.map((item) => (
-                  <div key={item.label} className="rounded-2xl border border-slate-200/70 bg-slate-50/80 px-4 py-4">
+                  <div key={item.label} className="rounded-2xl border border-slate-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(246,249,246,0.96))] px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
                     <div className="text-2xl font-semibold tracking-tight text-slate-950">{item.value}</div>
                     <div className="mt-1 text-sm leading-6 text-slate-600">{item.label}</div>
                   </div>
@@ -376,7 +433,7 @@ export default function Landing() {
 
         <section className="py-24 md:py-28">
           <div className={containerClass}>
-            <div className="overflow-hidden rounded-[34px] border border-emerald-200 bg-[linear-gradient(180deg,#ecfdf5_0%,#dff7ec_100%)] px-6 py-12 text-slate-950 shadow-[0_26px_64px_rgba(15,118,110,0.12)] md:px-10">
+            <div className="overflow-hidden rounded-[34px] border border-emerald-200 bg-[linear-gradient(180deg,#f3fcf7_0%,#def5e7_100%)] px-6 py-12 text-slate-950 shadow-[0_26px_64px_rgba(15,118,110,0.12)] md:px-10">
               <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Final CTA</p>
@@ -389,11 +446,11 @@ export default function Landing() {
                 </div>
 
                 <div className="flex flex-wrap gap-3 lg:justify-end">
-                  <Link to="/register" className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700">
+                  <Link to="/register" className={primaryButtonClass}>
                     Create your workspace
                     <ArrowRightIcon className="h-4 w-4" />
                   </Link>
-                  <Link to="/contact" className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-emerald-200 bg-white/70 px-5 text-sm font-semibold text-emerald-900 transition-colors duration-200 hover:bg-white">
+                  <Link to="/contact" className={`${secondaryButtonClass} border-emerald-200 bg-white/72 text-emerald-950`}>
                     Talk to us
                   </Link>
                 </div>
@@ -472,6 +529,34 @@ export default function Landing() {
   )
 }
 
+function renderTypedPhrase(visibleText, emphasis) {
+  if (!visibleText) {
+    return <span className="text-slate-400">Plan with clarity.</span>
+  }
+
+  if (!emphasis) {
+    return <span>{visibleText}</span>
+  }
+
+  const startIndex = visibleText.toLowerCase().indexOf(emphasis.toLowerCase())
+
+  if (startIndex === -1) {
+    return <span>{visibleText}</span>
+  }
+
+  const before = visibleText.slice(0, startIndex)
+  const highlighted = visibleText.slice(startIndex, startIndex + emphasis.length)
+  const after = visibleText.slice(startIndex + emphasis.length)
+
+  return (
+    <span>
+      {before}
+      <span className="text-emerald-700">{highlighted}</span>
+      {after}
+    </span>
+  )
+}
+
 function SectionIntro({ eyebrow, title, description, align = 'center' }) {
   const wrapperClass = align === 'left' ? 'max-w-[34rem]' : 'mx-auto max-w-[46rem] text-center'
   const titleClass = align === 'left' ? '' : 'mx-auto'
@@ -496,112 +581,174 @@ function MiniStat({ label, value }) {
   )
 }
 
+function MetricChip({ label, value }) {
+  return (
+    <div className="landing-metric-chip">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-2 text-xl font-semibold tracking-tight text-slate-950">{value}</p>
+    </div>
+  )
+}
+
+function HeroMetricCard({ label, value, tone = 'slate' }) {
+  const toneClass =
+    tone === 'emerald'
+      ? 'landing-hero-metric-card-emerald'
+      : tone === 'amber'
+        ? 'landing-hero-metric-card-amber'
+        : ''
+
+  return (
+    <div className={`landing-hero-metric-card ${toneClass}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <p className="text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_6px_rgba(16,185,129,0.14)]" />
+      </div>
+    </div>
+  )
+}
+
 function HeroWorkspacePreview() {
   return (
-    <div className={`${panelClass} mx-auto w-full max-w-[860px] overflow-hidden`}>
-      <WindowHeader title="WorkNest workspace" path="app.worknest.com/releases" />
+    <div className="landing-mockup-shell mx-auto w-full max-w-[900px]">
+      <div className="landing-mockup-glow" aria-hidden="true" />
+      <div className="landing-floating-note landing-floating-note-left">
+        <span className="landing-floating-label">Ops cadence</span>
+        <span className="landing-floating-value">Execution stays visible</span>
+      </div>
+      <div className="landing-floating-note landing-floating-note-right">
+        <span className="landing-floating-label">Ownership</span>
+        <span className="landing-floating-value">14 owners aligned</span>
+      </div>
 
-      <div className="grid gap-5 bg-[linear-gradient(180deg,#f8fcf8_0%,#f3f8f4_100%)] p-5 lg:grid-cols-[188px_minmax(0,1fr)]">
-        <aside className="rounded-[24px] border border-slate-200/80 bg-white p-4">
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-emerald-950">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">June release</div>
-            <div className="mt-2 text-3xl font-semibold tracking-tight">42</div>
-            <div className="mt-1 text-sm text-emerald-800">active items across the launch plan</div>
-          </div>
+      <div className={`${panelClass} relative mx-auto w-full overflow-hidden`}>
+        <WindowHeader title="WorkNest workspace" path="app.worknest.com/releases" />
 
-          <div className="mt-4 space-y-2">
-            <SidebarPill label="Overview" active />
-            <SidebarPill label="Team board" />
-            <SidebarPill label="Milestones" />
-            <SidebarPill label="Activity" />
-          </div>
-        </aside>
+        <div className="grid gap-5 bg-[linear-gradient(180deg,#fbfefb_0%,#f3f8f4_100%)] p-5 lg:grid-cols-[196px_minmax(0,1fr)]">
+          <aside className="rounded-[26px] border border-slate-200/85 bg-[linear-gradient(180deg,#ffffff_0%,#f7faf7_100%)] p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+            <div className="rounded-[22px] border border-emerald-200/80 bg-[linear-gradient(180deg,#effcf4_0%,#e1f7ea_100%)] px-4 py-4 text-emerald-950">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">June release</div>
+              <div className="mt-2 text-3xl font-semibold tracking-tight">42</div>
+              <div className="mt-1 text-sm text-emerald-800">active items across the launch plan</div>
+            </div>
 
-        <div className="space-y-4">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-            <div className="rounded-[24px] border border-slate-200/80 bg-white p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Weekly board</div>
-                  <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">Launch readiness</h3>
+            <div className="mt-4 space-y-2">
+              <SidebarPill label="Overview" active />
+              <SidebarPill label="Team board" />
+              <SidebarPill label="Milestones" />
+              <SidebarPill label="Activity" />
+            </div>
+
+            <div className="mt-4 rounded-[22px] border border-slate-200/80 bg-white px-4 py-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Delivery pace</div>
+              <div className="mt-2 flex items-end justify-between gap-3">
+                <div className="text-2xl font-semibold tracking-tight text-slate-950">92%</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Healthy</div>
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-slate-200">
+                <div className="h-full w-[92%] rounded-full bg-[linear-gradient(90deg,#16a34a_0%,#059669_100%)]" />
+              </div>
+            </div>
+          </aside>
+
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <HeroMetricCard label="Tasks shipped" value="128" tone="emerald" />
+              <HeroMetricCard label="Due this week" value="13" tone="slate" />
+              <HeroMetricCard label="Blocked items" value="02" tone="amber" />
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.14fr)_minmax(0,0.86fr)]">
+              <div className="rounded-[26px] border border-slate-200/85 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Weekly board</div>
+                    <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">Launch readiness</h3>
+                  </div>
+                  <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                    On track
+                  </div>
                 </div>
-                <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
-                  On track
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <PreviewColumn
+                    title="Ready"
+                    count="14"
+                    items={[
+                      { title: 'Launch QA checklist', meta: 'Amina · Due today' },
+                      { title: 'Comms review', meta: 'Sara · Approved' },
+                    ]}
+                  />
+                  <PreviewColumn
+                    title="In progress"
+                    count="09"
+                    items={[
+                      { title: 'Migration dry run', meta: 'Daniel · 3 blockers cleared' },
+                      { title: 'Support macros', meta: 'Ivy · In review' },
+                    ]}
+                  />
+                  <PreviewColumn
+                    title="Next"
+                    count="19"
+                    items={[
+                      { title: 'Ops sign-off', meta: 'Pending owner review' },
+                      { title: 'Final release notes', meta: 'Drafting window' },
+                    ]}
+                  />
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <PreviewColumn
-                  title="Ready"
-                  count="14"
-                  items={[
-                    { title: 'Launch QA checklist', meta: 'Amina · Due today' },
-                    { title: 'Comms review', meta: 'Sara · Approved' },
-                  ]}
-                />
-                <PreviewColumn
-                  title="In progress"
-                  count="09"
-                  items={[
-                    { title: 'Migration dry run', meta: 'Daniel · 3 blockers cleared' },
-                    { title: 'Support macros', meta: 'Ivy · In review' },
-                  ]}
-                />
-                <PreviewColumn
-                  title="Next"
-                  count="19"
-                  items={[
-                    { title: 'Ops sign-off', meta: 'Pending owner review' },
-                    { title: 'Final release notes', meta: 'Drafting window' },
-                  ]}
-                />
+              <div className="rounded-[26px] border border-slate-200/85 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-slate-950">Today&apos;s execution view</div>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                    Live
+                  </span>
+                </div>
+                <div className="mt-4 space-y-3">
+                  <ExecutionItem title="High priority" value="07" tone="red" />
+                  <ExecutionItem title="Due this week" value="13" tone="blue" />
+                  <ExecutionItem title="Awaiting review" value="05" tone="slate" />
+                </div>
+                <div className="mt-4 rounded-2xl bg-[linear-gradient(180deg,#f8faf8_0%,#f2f7f3_100%)] px-4 py-4">
+                  <div className="flex items-center justify-between text-sm text-slate-500">
+                    <span>Delivery confidence</span>
+                    <span className="font-semibold text-slate-950">82%</span>
+                  </div>
+                  <div className="mt-3 h-2 rounded-full bg-slate-200">
+                    <div className="h-full w-[82%] rounded-full bg-[linear-gradient(90deg,#16a34a_0%,#059669_100%)]" />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="rounded-[24px] border border-slate-200/80 bg-white p-4">
-              <div className="text-sm font-semibold text-slate-950">Today&apos;s execution view</div>
-              <div className="mt-4 space-y-3">
-                <ExecutionItem title="High priority" value="07" tone="red" />
-                <ExecutionItem title="Due this week" value="13" tone="blue" />
-                <ExecutionItem title="Awaiting review" value="05" tone="slate" />
-              </div>
-              <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-4">
-                <div className="flex items-center justify-between text-sm text-slate-500">
-                  <span>Delivery confidence</span>
-                  <span className="font-semibold text-slate-950">82%</span>
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,0.96fr)_minmax(0,1.04fr)]">
+              <div className="rounded-[26px] border border-slate-200/85 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-950">Upcoming deadlines</div>
+                    <div className="mt-1 text-sm text-slate-500">Nothing gets buried under status noise.</div>
+                  </div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Calendar sync</div>
                 </div>
-                <div className="mt-3 h-2 rounded-full bg-slate-200">
-                  <div className="h-full w-[82%] rounded-full bg-emerald-600" />
+                <div className="mt-4 space-y-3">
+                  <DeadlineRow title="Customer migration handoff" due="Today" owner="Amina" />
+                  <DeadlineRow title="Support enablement review" due="Thu" owner="Ivy" />
+                  <DeadlineRow title="Release memo" due="Fri" owner="Daniel" />
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
-            <div className="rounded-[24px] border border-slate-200/80 bg-white p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm font-semibold text-slate-950">Upcoming deadlines</div>
-                  <div className="mt-1 text-sm text-slate-500">Nothing gets buried under status noise.</div>
+              <div className="rounded-[26px] border border-slate-200/85 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold text-slate-950">Team activity</div>
+                  <AvatarStack />
                 </div>
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Calendar sync</div>
-              </div>
-              <div className="mt-4 space-y-3">
-                <DeadlineRow title="Customer migration handoff" due="Today" owner="Amina" />
-                <DeadlineRow title="Support enablement review" due="Thu" owner="Ivy" />
-                <DeadlineRow title="Release memo" due="Fri" owner="Daniel" />
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-slate-200/80 bg-white p-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-950">Team activity</div>
-                <AvatarStack />
-              </div>
-              <div className="mt-4 space-y-3">
-                <ActivityRow person="Maya" message="Moved migration dry run into review and tagged support." />
-                <ActivityRow person="Amina" message="Updated launch checklist with final approval steps." />
-                <ActivityRow person="Ivy" message="Confirmed macro rollout plan for day-one tickets." />
+                <div className="mt-4 space-y-3">
+                  <ActivityRow person="Maya" message="Moved migration dry run into review and tagged support." />
+                  <ActivityRow person="Amina" message="Updated launch checklist with final approval steps." />
+                  <ActivityRow person="Ivy" message="Confirmed macro rollout plan for day-one tickets." />
+                </div>
               </div>
             </div>
           </div>
