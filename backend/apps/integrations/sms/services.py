@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import random
 import re
+import threading
 from typing import Any
 
 from django.conf import settings
@@ -11,9 +12,10 @@ from django.utils import timezone
 
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, create_audit_log
-from apps.integrations.constants import DEFAULT_SMS_PROVIDER, SMS_PROVIDER_AFRICAS_TALKING, SUPPORTED_SMS_PROVIDERS
+from apps.integrations.constants import DEFAULT_SMS_PROVIDER, SMS_PROVIDER_AFRICAS_TALKING, SMS_PROVIDER_CELCOM, SUPPORTED_SMS_PROVIDERS
 from apps.integrations.models import SMSDelivery
 from apps.integrations.sms.africastalking import AfricasTalkingSMSProvider
+from apps.integrations.sms.celcom import CelcomSMSProvider
 from apps.integrations.sms.exceptions import SMSConfigurationError, SMSSendFailedError
 from apps.integrations.validators import sanitize_provider_error, validate_provider_name
 
@@ -49,6 +51,8 @@ def get_sms_provider(provider_name: str | None = None):
     )
     if resolved_provider == SMS_PROVIDER_AFRICAS_TALKING:
         return AfricasTalkingSMSProvider()
+    if resolved_provider == SMS_PROVIDER_CELCOM:
+        return CelcomSMSProvider()
     raise SMSConfigurationError("Unsupported SMS provider.")
 
 
@@ -251,6 +255,54 @@ def _log_sms_action(*, actor=None, action: str, delivery: SMSDelivery, metadata:
     )
 
 
+def _deliver_sms_inline(*, delivery: SMSDelivery, actor=None) -> SMSDelivery:
+    try:
+        mark_sms_delivery_sending(delivery=delivery)
+        provider_response = deliver_sms_message(to=delivery.phone_number, message=delivery.message_body, metadata=delivery.metadata)
+    except (SMSConfigurationError, SMSSendFailedError) as exc:
+        error_message = sanitize_provider_error(exc, fallback_message="SMS delivery failed.")
+        mark_sms_delivery_failed(delivery=delivery, message=error_message)
+        _log_sms_action(actor=actor, action=AuditAction.SMS_FAILED, delivery=delivery, metadata={"reason": error_message})
+        return delivery
+    except Exception:  # pragma: no cover
+        mark_sms_delivery_failed(delivery=delivery, message="SMS delivery failed.")
+        _log_sms_action(actor=actor, action=AuditAction.SMS_FAILED, delivery=delivery, metadata={"reason": "unexpected_failure"})
+        logger.exception("sms_inline_delivery_failed", extra={"delivery_id": str(delivery.id), "message_type": delivery.message_type})
+        return delivery
+
+    mark_sms_delivery_sent(delivery=delivery, provider_response=provider_response)
+    _log_sms_action(actor=actor, action=AuditAction.SMS_SENT, delivery=delivery, metadata={"provider": delivery.provider})
+    return delivery
+
+
+def _deliver_sms_background(*, delivery_id: str, actor=None) -> None:
+    actor_id = str(getattr(actor, "id", "") or "")
+
+    def runner() -> None:
+        from django.db import close_old_connections
+        from django.contrib.auth import get_user_model
+
+        close_old_connections()
+        try:
+            delivery = SMSDelivery.objects.filter(id=delivery_id).first()
+            if delivery is None:
+                return
+            background_actor = None
+            if actor_id:
+                background_actor = get_user_model().objects.filter(id=actor_id).first()
+            _deliver_sms_inline(delivery=delivery, actor=background_actor)
+        except Exception:  # pragma: no cover
+            logger.exception("sms_background_delivery_failed", extra={"delivery_id": delivery_id})
+        finally:
+            close_old_connections()
+
+    threading.Thread(
+        target=runner,
+        name=f"sms-delivery-{delivery_id}",
+        daemon=True,
+    ).start()
+
+
 def queue_sms(
     *,
     user=None,
@@ -329,28 +381,10 @@ def queue_sms(
     )
 
     def on_commit() -> None:
-        from apps.notifications.tasks import deliver_sms_task
-
-        if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) or not connection.in_atomic_block:
-            try:
-                mark_sms_delivery_sending(delivery=delivery)
-                provider_response = deliver_sms_message(to=delivery.phone_number, message=delivery.message_body, metadata=delivery.metadata)
-            except SMSSendFailedError as exc:
-                error_message = sanitize_provider_error(exc, fallback_message="SMS delivery failed.")
-                mark_sms_delivery_failed(delivery=delivery, message=error_message)
-                _log_sms_action(actor=actor, action=AuditAction.SMS_FAILED, delivery=delivery, metadata={"reason": error_message})
-                return
-            mark_sms_delivery_sent(delivery=delivery, provider_response=provider_response)
-            _log_sms_action(actor=actor, action=AuditAction.SMS_SENT, delivery=delivery, metadata={"provider": delivery.provider})
+        if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
+            _deliver_sms_inline(delivery=delivery, actor=actor)
             return
-
-        try:
-            async_result = deliver_sms_task.delay(str(delivery.id))
-            SMSDelivery.objects.filter(id=delivery.id).update(celery_task_id=str(async_result.id or ""))
-        except Exception:
-            logger.exception("sms_queue_failed", extra={"delivery_id": str(delivery.id), "message_type": message_type})
-            mark_sms_delivery_failed(delivery=delivery, message="SMS delivery could not be queued.")
-            _log_sms_action(actor=actor, action=AuditAction.SMS_FAILED, delivery=delivery, metadata={"reason": "queue_failed"})
+        _deliver_sms_background(delivery_id=str(delivery.id), actor=actor)
 
     _log_sms_action(actor=actor, action=AuditAction.SMS_QUEUED, delivery=delivery)
     if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) or not connection.in_atomic_block:

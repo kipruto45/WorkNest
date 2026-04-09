@@ -11,6 +11,7 @@ import AccountTypeCard from '../components/AccountTypeCard'
 import { hydrateCurrentUser, register as registerUser, setUser } from '../features/authSlice'
 import { authAPI, unwrapData } from '../services/api'
 import { resolvePostAuthPath } from '../utils/authRouting'
+import { beginGoogleAuth, clearGoogleAuthState } from '../utils/googleAuthState'
 
 const phonePattern = /^\+254\d{9}$/
 const registerHeroPhrases = [
@@ -192,22 +193,25 @@ export default function Register() {
 
     setGoogleLoading(true)
     try {
+      beginGoogleAuth({ flow: 'register', accountType: selectedAccountType, nextPath })
       const response = await authAPI.getGoogleLoginUrl(nextPath, selectedAccountType, 'register', trimmedTeamName)
       const payload = unwrapData(response)
       if (payload?.login_url) {
-        window.location.href = payload.login_url
+        window.location.assign(payload.login_url)
         return
       }
+      clearGoogleAuthState()
+      setGoogleLoading(false)
       toast.error('Google sign-in is not available.')
     } catch (error) {
+      clearGoogleAuthState()
+      setGoogleLoading(false)
       const backendMessage =
         error?.response?.data?.errors?.non_field_errors?.[0] ||
         error?.response?.data?.errors?.detail ||
         error?.response?.data?.message ||
         error?.message
       toast.error(backendMessage || 'Unable to start Google sign-in right now.')
-    } finally {
-      setGoogleLoading(false)
     }
   }
 
@@ -218,7 +222,7 @@ export default function Register() {
       title="Create your workspace account"
       subtitle="Create your account and start organizing work."
       compact
-      shellClassName="lg:h-dvh lg:max-h-dvh lg:overflow-hidden"
+      shellClassName="overflow-y-auto py-4 lg:py-6"
       heroLabel="WorkNest onboarding"
       heroHeadline="Start with a workspace that already feels composed."
       heroDescription="Set your mode, confirm your details, and start from a calmer operating system."
@@ -281,7 +285,7 @@ export default function Register() {
 
         <button type="button" onClick={handleGoogleLogin} disabled={googleLoading || !watch('account_type')} className="btn-secondary w-full justify-center">
           {googleLoading ? (
-            'Connecting to Google...'
+            'Redirecting to Google...'
           ) : (
             <span className="flex items-center gap-3">
               <img src="/google.png" alt="" className="h-5 w-5" />

@@ -13,6 +13,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_auth_action
+from apps.common.exceptions import ServiceUnavailableError
 from apps.common.ip import normalize_client_ip
 from rest_framework import exceptions
 
@@ -28,6 +29,7 @@ from apps.integrations.email.services import (
     queue_welcome_email,
 )
 from apps.integrations.exceptions import OAuthValidationFailedError
+from apps.integrations.models import EmailDelivery, SMSDelivery
 from apps.integrations.sms.services import (
     generate_phone_verification_code,
     infer_phone_country_code,
@@ -340,11 +342,16 @@ def send_email_verification(*, user, actor=None):
     if user.email_verified or not user.email:
         return None
     token = create_email_verification_token(user=user)
-    return queue_email_verification_email(
+    delivery = queue_email_verification_email(
         user=user,
         verification_url=_get_email_verification_link(token=token.token),
         actor=actor or user,
     )
+    _ensure_email_delivery_succeeded(
+        delivery=delivery,
+        fallback_message="Email verification could not be sent right now.",
+    )
+    return delivery
 
 
 def verify_email_address(*, token: str):
@@ -495,7 +502,7 @@ def create_phone_verification_code(*, user) -> PhoneVerificationCode:
 
 def request_phone_verification(*, user, actor=None) -> PhoneVerificationCode:
     verification = create_phone_verification_code(user=user)
-    queue_sms(
+    delivery = queue_sms(
         user=user,
         phone_number=user.phone_number,
         message_type="phone_verification",
@@ -507,6 +514,10 @@ def request_phone_verification(*, user, actor=None) -> PhoneVerificationCode:
         actor=actor or user,
         force=True,
         source="authentication.phone_verification",
+    )
+    _ensure_sms_delivery_succeeded(
+        delivery=delivery,
+        fallback_message="SMS verification could not be sent right now.",
     )
     return verification
 
@@ -593,7 +604,11 @@ def request_email_change(*, user, new_email: str, actor=None) -> CredentialChang
         code=generate_phone_verification_code(),
         expires_at=timezone.now() + timedelta(minutes=10),
     )
-    queue_credential_change_email(user=user, new_email=normalized_email, code=change_request.code, actor=actor or user)
+    delivery = queue_credential_change_email(user=user, new_email=normalized_email, code=change_request.code, actor=actor or user)
+    _ensure_email_delivery_succeeded(
+        delivery=delivery,
+        fallback_message="A verification code could not be sent to the new email address right now.",
+    )
     return change_request
 
 
@@ -614,7 +629,7 @@ def request_phone_change(*, user, new_phone_number: str, phone_country_code: str
         code=generate_phone_verification_code(),
         expires_at=timezone.now() + timedelta(minutes=10),
     )
-    queue_sms(
+    delivery = queue_sms(
         user=user,
         phone_number=normalized_phone,
         message_type="phone_verification",
@@ -626,6 +641,10 @@ def request_phone_change(*, user, new_phone_number: str, phone_country_code: str
         actor=actor or user,
         force=True,
         source="authentication.credential_change_phone",
+    )
+    _ensure_sms_delivery_succeeded(
+        delivery=delivery,
+        fallback_message="An SMS verification code could not be sent to the new phone number right now.",
     )
     return change_request
 
@@ -756,3 +775,22 @@ def _safe_log_auth_action(*, actor=None, action: str, target=None, metadata: dic
             "Unable to write auth audit log",
             extra={"action": action, "actor_id": str(getattr(actor, "pk", "")), "target_repr": target_repr},
         )
+
+
+def _raise_delivery_error(*, message: str) -> None:
+    sanitized_message = str(message or "").strip() or "A verification message could not be delivered right now."
+    raise ServiceUnavailableError(sanitized_message, errors={"detail": sanitized_message})
+
+
+def _ensure_email_delivery_succeeded(*, delivery: EmailDelivery | None, fallback_message: str) -> None:
+    if delivery is None:
+        return
+    if delivery.status in {EmailDelivery.Status.FAILED, EmailDelivery.Status.SKIPPED}:
+        _raise_delivery_error(message=delivery.last_error or fallback_message)
+
+
+def _ensure_sms_delivery_succeeded(*, delivery: SMSDelivery | None, fallback_message: str) -> None:
+    if delivery is None:
+        return
+    if delivery.status in {SMSDelivery.Status.FAILED, SMSDelivery.Status.SKIPPED}:
+        _raise_delivery_error(message=delivery.error_message or fallback_message)

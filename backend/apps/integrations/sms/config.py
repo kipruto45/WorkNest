@@ -8,7 +8,9 @@ from apps.integrations.constants import (
     AFRICAS_TALKING_LIVE_BASE_URL,
     AFRICAS_TALKING_SANDBOX_BASE_URL,
     AFRICAS_TALKING_SANDBOX_USERNAME,
+    CELCOM_SMS_BASE_URL,
     SMS_PROVIDER_AFRICAS_TALKING,
+    SMS_PROVIDER_CELCOM,
 )
 from apps.integrations.sms.exceptions import SMSConfigurationError
 
@@ -99,6 +101,32 @@ class AfricasTalkingConfig:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class CelcomConfig:
+    provider: str
+    partner_id: str
+    api_key: str
+    shortcode: str
+    base_url: str
+    pass_type: str
+
+    @property
+    def api_key_loaded(self) -> bool:
+        return bool(self.api_key)
+
+    def diagnostics(self) -> dict[str, object]:
+        return {
+            "provider": self.provider,
+            "base_url": self.base_url,
+            "partner_id": self.partner_id,
+            "api_key_loaded": self.api_key_loaded,
+            "api_key_masked": _mask_value(self.api_key),
+            "shortcode_configured": bool(self.shortcode),
+            "shortcode_masked": _mask_value(self.shortcode),
+            "pass_type": self.pass_type,
+        }
+
+
 def get_africas_talking_config(*, require_credentials: bool = True) -> AfricasTalkingConfig:
     environment = _normalize_environment(getattr(settings, "AFRICAS_TALKING_ENVIRONMENT", SANDBOX_ENVIRONMENT))
     use_sandbox = _resolve_use_sandbox(environment=environment)
@@ -136,4 +164,35 @@ def get_africas_talking_config(*, require_credentials: bool = True) -> AfricasTa
         environment=environment,
         use_sandbox=use_sandbox,
         base_url=base_url,
+    )
+
+
+def get_celcom_config(*, require_credentials: bool = True) -> CelcomConfig:
+    partner_id = str(getattr(settings, "CELCOM_PARTNER_ID", "")).strip()
+    api_key = str(getattr(settings, "CELCOM_API_KEY", "")).strip()
+    shortcode = str(getattr(settings, "CELCOM_SHORTCODE", "")).strip()
+    base_url = str(getattr(settings, "CELCOM_BASE_URL", "")).strip() or CELCOM_SMS_BASE_URL
+    pass_type = str(getattr(settings, "CELCOM_PASS_TYPE", "plain") or "plain").strip().lower() or "plain"
+
+    if pass_type not in {"plain", "bm5"}:
+        raise SMSConfigurationError("CELCOM_PASS_TYPE must be either 'plain' or 'bm5'.")
+
+    if require_credentials:
+        missing = []
+        if not partner_id:
+            missing.append("CELCOM_PARTNER_ID")
+        if not api_key:
+            missing.append("CELCOM_API_KEY")
+        if not shortcode:
+            missing.append("CELCOM_SHORTCODE")
+        if missing:
+            raise SMSConfigurationError(f"Missing required Celcom settings: {', '.join(missing)}.")
+
+    return CelcomConfig(
+        provider=SMS_PROVIDER_CELCOM,
+        partner_id=partner_id,
+        api_key=api_key,
+        shortcode=shortcode,
+        base_url=base_url,
+        pass_type=pass_type,
     )

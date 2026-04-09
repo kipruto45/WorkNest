@@ -9,6 +9,7 @@ import { TestMemoryRouter } from '../../test/router'
 
 const dispatchMock = vi.fn((action) => (typeof action === 'function' ? action() : action))
 const navigateMock = vi.fn()
+const getGoogleLoginUrl = vi.fn()
 
 vi.mock('react-redux', async () => {
   const actual = await vi.importActual('react-redux')
@@ -50,6 +51,18 @@ vi.mock('../../features/authSlice', () => ({
   }),
   setUser: (payload) => ({ type: 'auth/setUser', payload }),
 }))
+
+vi.mock('../../services/api', () => ({
+  authAPI: {
+    getGoogleLoginUrl: (...args) => getGoogleLoginUrl(...args),
+  },
+  unwrapData: (response) => response?.data?.data ?? response?.data ?? null,
+}))
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  getGoogleLoginUrl.mockReset()
+})
 
 test('Register surfaces backend errors and field validation', async () => {
   render(
@@ -159,4 +172,29 @@ test('Register routes team users straight into their new workspace', async () =>
   await waitFor(() => {
     expect(navigateMock).toHaveBeenCalledWith('/teams/team-42/overview', { replace: true })
   })
+})
+
+test('Register keeps the auth shell vertically scrollable for taller forms', () => {
+  const { container } = render(
+    <TestMemoryRouter initialEntries={['/register']}>
+      <Register />
+    </TestMemoryRouter>
+  )
+
+  expect(container.querySelector('.auth-shell')).toHaveClass('overflow-y-auto')
+})
+
+test('Register shows redirect feedback while Google signup is starting', async () => {
+  getGoogleLoginUrl.mockReturnValue(new Promise(() => {}))
+
+  render(
+    <TestMemoryRouter initialEntries={['/register']}>
+      <Register />
+    </TestMemoryRouter>
+  )
+
+  await userEvent.click(screen.getByRole('button', { name: /Individual account/i }))
+  await userEvent.click(screen.getByRole('button', { name: /Sign up with Google/i }))
+
+  expect(await screen.findByRole('button', { name: /Redirecting to Google/i })).toBeDisabled()
 })

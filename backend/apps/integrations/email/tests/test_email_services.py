@@ -385,6 +385,23 @@ class EmailWorkflowTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("Welcome to", mail.outbox[0].subject)
 
+    @override_settings(
+        EMAIL_DELIVERY_MODE="sync",
+        CELERY_TASK_ALWAYS_EAGER=False,
+        WELCOME_EMAIL_ENABLED=True,
+    )
+    @patch("apps.integrations.email.services.threading.Thread")
+    def test_sync_email_queue_schedules_background_delivery_without_blocking_request(self, thread_mock) -> None:
+        user = User.objects.create_user(email="background@example.com", password="StrongPass123!", name="Background User")
+
+        with self.captureOnCommitCallbacks(execute=True):
+            delivery = queue_welcome_email(user=user, actor=user)
+        delivery.refresh_from_db()
+
+        thread_mock.assert_called_once()
+        thread_mock.return_value.start.assert_called_once()
+        self.assertEqual(delivery.status, EmailDelivery.Status.QUEUED)
+
     def test_duplicate_dedupe_key_reuses_existing_delivery(self) -> None:
         invitation = TeamInvitation.objects.create(
             team=self.team,

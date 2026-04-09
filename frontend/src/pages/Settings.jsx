@@ -6,6 +6,7 @@ import PageHero from '../components/PageHero'
 import LoadingState from '../components/LoadingState'
 import { usersAPI, unwrapData } from '../services/api'
 import { setUser } from '../features/authSlice'
+import { extractApiError } from '../utils/apiErrors'
 import { CLIENT_STORAGE_KEYS, USER_PREFERENCE_KEYS } from '../utils/clientConfig.js'
 
 const notificationOptions = [
@@ -53,6 +54,10 @@ function writeWorkspacePrefs(settings) {
   } catch (_error) {
     return false
   }
+}
+
+function getApiErrorMessage(error, fallbackMessage) {
+  return extractApiError(error, { fallbackMessage }).message || fallbackMessage
 }
 
 export default function Settings() {
@@ -252,8 +257,7 @@ export default function Settings() {
       })
       toast.success('Verification code sent to the new email address.')
     } catch (error) {
-      const fieldError = error?.response?.data?.errors?.new_value?.[0]
-      toast.error(fieldError || error?.response?.data?.message || 'Unable to send an email verification code right now.')
+      toast.error(getApiErrorMessage(error, 'Unable to send an email verification code right now.'))
     } finally {
       setSendingEmailCode(false)
     }
@@ -273,8 +277,7 @@ export default function Settings() {
       syncUpdatedUser(unwrapData(response))
       toast.success('Email updated successfully.')
     } catch (error) {
-      const fieldError = error?.response?.data?.errors?.code?.[0]
-      toast.error(fieldError || error?.response?.data?.message || 'Verification code could not be confirmed.')
+      toast.error(getApiErrorMessage(error, 'Verification code could not be confirmed.'))
     } finally {
       setConfirmingEmailCode(false)
     }
@@ -294,8 +297,7 @@ export default function Settings() {
       })
       toast.success('Verification code sent to the new phone number.')
     } catch (error) {
-      const fieldError = error?.response?.data?.errors?.new_value?.[0]
-      toast.error(fieldError || error?.response?.data?.message || 'Unable to send an SMS verification code right now.')
+      toast.error(getApiErrorMessage(error, 'Unable to send an SMS verification code right now.'))
     } finally {
       setSendingPhoneCode(false)
     }
@@ -315,8 +317,7 @@ export default function Settings() {
       syncUpdatedUser(unwrapData(response))
       toast.success('Phone number updated successfully.')
     } catch (error) {
-      const fieldError = error?.response?.data?.errors?.code?.[0]
-      toast.error(fieldError || error?.response?.data?.message || 'Verification code could not be confirmed.')
+      toast.error(getApiErrorMessage(error, 'Verification code could not be confirmed.'))
     } finally {
       setConfirmingPhoneCode(false)
     }

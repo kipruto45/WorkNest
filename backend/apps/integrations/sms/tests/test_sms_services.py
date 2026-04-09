@@ -9,6 +9,7 @@ from django.test import TestCase, override_settings
 
 from apps.integrations.models import SMSDelivery
 from apps.integrations.sms.africastalking import AfricasTalkingSMSProvider
+from apps.integrations.sms.celcom import CelcomSMSProvider
 from apps.integrations.sms.exceptions import SMSConfigurationError
 from apps.integrations.sms.services import normalize_phone_number, queue_sms
 
@@ -76,6 +77,23 @@ class SMSServiceTests(TestCase):
 
         self.assertEqual(delivery.status, SMSDelivery.Status.SKIPPED)
         self.assertIn("valid phone number", delivery.error_message.lower())
+
+    @override_settings(SMS_ENABLED=True, CELERY_TASK_ALWAYS_EAGER=False)
+    @patch("apps.integrations.sms.services.threading.Thread")
+    def test_queue_sms_schedules_background_delivery_when_not_eager(self, thread_mock) -> None:
+        with self.captureOnCommitCallbacks(execute=True):
+            delivery = queue_sms(
+                user=self.user,
+                phone_number=self.user.phone_number,
+                message_type="task_assigned",
+                message_body="You have been assigned a task.",
+                dedupe_key="sms:test:background",
+            )
+
+        delivery.refresh_from_db()
+        thread_mock.assert_called_once()
+        thread_mock.return_value.start.assert_called_once()
+        self.assertEqual(delivery.status, SMSDelivery.Status.QUEUED)
 
 
 @override_settings(
@@ -171,3 +189,65 @@ class CheckSMSConfigCommandTests(TestCase):
         self.assertIn('"api_key_loaded": true', output)
         self.assertIn('"api_key_masked": "san', output)
         self.assertNotIn("sandbox-key-12345", output)
+
+    @override_settings(
+        SMS_ENABLED=True,
+        SMS_PROVIDER="celcom",
+        CELCOM_PARTNER_ID="36",
+        CELCOM_API_KEY="celcom-key-12345",
+        CELCOM_SHORTCODE="TEXTME",
+    )
+    def test_command_outputs_masked_celcom_json_summary(self) -> None:
+        stdout = StringIO()
+
+        call_command("check_sms_config", "--format=json", stdout=stdout)
+
+        output = stdout.getvalue()
+        self.assertIn('"provider": "celcom"', output)
+        self.assertIn('"partner_id": "36"', output)
+        self.assertIn('"shortcode_configured": true', output)
+        self.assertIn('"api_key_masked": "cel', output)
+        self.assertNotIn("celcom-key-12345", output)
+
+
+@override_settings(
+    SMS_ENABLED=True,
+    SMS_PROVIDER="celcom",
+    CELCOM_PARTNER_ID="36",
+    CELCOM_API_KEY="test-key",
+    CELCOM_SHORTCODE="TEXTME",
+)
+class CelcomProviderTests(TestCase):
+    def test_provider_maps_successful_response(self) -> None:
+        provider = CelcomSMSProvider()
+        response_body = (
+            b'{"responses":[{"respose-code":200,"response-description":"Success","mobile":254712345678,"messageid":8290842,"networkid":"1"}]}'
+        )
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return response_body
+
+        with patch("apps.integrations.sms.celcom.request.urlopen", return_value=FakeResponse()):
+            result = provider.send_sms(to="+254712345678", message="Hello from WorkNest")
+
+        self.assertEqual(result["provider"], "celcom")
+        self.assertEqual(result["message_id"], "8290842")
+        self.assertEqual(result["status"], "sent")
+        self.assertEqual(result["recipient"], "254712345678")
+
+    @override_settings(
+        SMS_PROVIDER="celcom",
+        CELCOM_PARTNER_ID="36",
+        CELCOM_API_KEY="test-key",
+        CELCOM_SHORTCODE="",
+    )
+    def test_provider_rejects_missing_shortcode(self) -> None:
+        with self.assertRaisesMessage(SMSConfigurationError, "Missing required Celcom settings: CELCOM_SHORTCODE."):
+            CelcomSMSProvider()

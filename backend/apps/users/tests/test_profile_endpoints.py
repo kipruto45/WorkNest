@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -11,6 +12,7 @@ from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.authentication.models import CredentialChangeRequest
+from apps.integrations.models import EmailDelivery, SMSDelivery
 
 User = get_user_model()
 
@@ -210,6 +212,49 @@ class UserProfileEndpointTests(APITestCase):
         self.assertEqual(self.user.phone_number, "+254711000099")
         self.assertTrue(self.user.phone_verified)
         mocked_queue_sms.assert_called_once()
+
+    @patch("apps.authentication.services.queue_credential_change_email")
+    def test_request_email_change_returns_service_unavailable_when_delivery_fails(self, mocked_queue_email) -> None:
+        mocked_queue_email.return_value = SimpleNamespace(
+            status=EmailDelivery.Status.FAILED,
+            last_error="Email delivery failed for the SMTP provider.",
+        )
+
+        response = self.client.post(
+            reverse("api_v1:users:me-credential-change-request"),
+            {
+                "credential_type": "email",
+                "new_value": "broken-email@example.com",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(response.data["errors"]["detail"], "Email delivery failed for the SMTP provider.")
+
+    @patch("apps.authentication.services.queue_sms")
+    def test_request_phone_change_returns_service_unavailable_when_sms_delivery_fails(self, mocked_queue_sms) -> None:
+        self.user.phone_number = "+254711000001"
+        self.user.phone_country_code = "+254"
+        self.user.phone_verified = True
+        self.user.save(update_fields=["phone_number", "phone_country_code", "phone_verified", "updated_at"])
+        mocked_queue_sms.return_value = SimpleNamespace(
+            status=SMSDelivery.Status.FAILED,
+            error_message="SMS provider is currently unavailable.",
+        )
+
+        response = self.client.post(
+            reverse("api_v1:users:me-credential-change-request"),
+            {
+                "credential_type": "phone",
+                "new_value": "+254711000099",
+                "phone_country_code": "+254",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(response.data["errors"]["detail"], "SMS provider is currently unavailable.")
 
     def test_phone_settings_reject_direct_phone_replacement(self) -> None:
         self.user.phone_number = "+254711000001"

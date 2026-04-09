@@ -8,6 +8,7 @@ import PasswordField from '../components/PasswordField'
 import { login } from '../features/authSlice'
 import { authAPI, unwrapData } from '../services/api'
 import { resolvePostAuthPath } from '../utils/authRouting'
+import { beginGoogleAuth, clearGoogleAuthState } from '../utils/googleAuthState'
 
 const loginHeroPhrases = [
   { text: 'Pick up work with clarity.', emphasis: 'clarity' },
@@ -131,22 +132,26 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     setGoogleLoading(true)
     try {
+      beginGoogleAuth({ flow: 'login', nextPath })
       const response = await authAPI.getGoogleLoginUrl(nextPath, undefined, 'login')
       const payload = unwrapData(response)
       if (payload?.login_url) {
-        window.location.href = payload.login_url
+        window.location.assign(payload.login_url)
+        return
       } else {
+        clearGoogleAuthState()
+        setGoogleLoading(false)
         toast.error('Google sign-in is not available.')
       }
     } catch (error) {
+      clearGoogleAuthState()
+      setGoogleLoading(false)
       const backendMessage =
         error?.response?.data?.errors?.non_field_errors?.[0] ||
         error?.response?.data?.errors?.detail ||
         error?.response?.data?.message ||
         error?.message
       toast.error(backendMessage || 'Unable to start Google sign-in right now.')
-    } finally {
-      setGoogleLoading(false)
     }
   }
 
@@ -176,7 +181,7 @@ export default function Login() {
       <div className="space-y-4">
         <button type="button" onClick={handleGoogleLogin} disabled={googleLoading} className="btn-secondary w-full justify-center">
           {googleLoading ? (
-            'Connecting to Google...'
+            'Redirecting to Google...'
           ) : (
             <span className="flex items-center gap-3">
               <img src="/google.png" alt="" className="h-5 w-5" />

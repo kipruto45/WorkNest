@@ -3,6 +3,7 @@ import { toast } from 'react-toastify'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import { notificationsAPI, teamsAPI, unwrapData, unwrapResults, usersAPI } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
 import { formatDate, toSentenceCase } from '../utils/formatters'
 
 const panelClass = 'rounded-[26px] border border-slate-200 bg-white p-6 shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
@@ -25,6 +26,28 @@ const channelOptions = [
   { id: 'email_and_sms', label: 'Email + SMS' },
   { id: 'all', label: 'All channels' },
 ]
+
+const buildCommunicationToastMessage = (communication) => {
+  if (!communication) {
+    return 'Communication sent successfully.'
+  }
+
+  const recipientCount = communication.recipient_count ?? 0
+  const failedSmsCount = communication.failed_sms_count ?? 0
+  const deliveredInApp = communication.delivered_in_app_count ?? 0
+  const deliveredEmail = communication.delivered_email_count ?? 0
+  const deliveredSms = communication.delivered_sms_count ?? 0
+
+  if (communication.status === 'partial_failure') {
+    return `Communication sent to ${recipientCount} recipients. SMS failed for ${failedSmsCount}.`
+  }
+
+  if (communication.status === 'failed') {
+    return 'Communication was created, but delivery failed.'
+  }
+
+  return `Communication queued for ${recipientCount} recipients across ${[deliveredInApp && 'in-app', deliveredEmail && 'email', deliveredSms && 'SMS'].filter(Boolean).join(', ') || 'the selected channels'}.`
+}
 
 export default function AdminCommunications() {
   const [loading, setLoading] = useState(true)
@@ -201,7 +224,7 @@ export default function AdminCommunications() {
       }
       const response = await notificationsAPI.createAdminCommunication(payload)
       const created = unwrapData(response)
-      toast.success('Communication sent successfully.')
+      toast.success(buildCommunicationToastMessage(created))
       setCommunications((current) => (created ? [created, ...current] : current))
       setTitle('')
       setMessage('')
@@ -213,7 +236,12 @@ export default function AdminCommunications() {
         setSelectedTeams([])
       }
     } catch (requestError) {
-      toast.error(requestError?.response?.data?.message || 'Unable to send the communication right now.')
+      toast.error(
+        extractApiError(requestError, {
+          fallbackMessage: 'Unable to send the communication right now.',
+          serverMessage: 'Server error while sending the communication.',
+        }).message
+      )
     } finally {
       setSending(false)
     }

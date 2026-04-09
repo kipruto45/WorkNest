@@ -8,6 +8,7 @@ import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import { createTask } from '../features/tasksSlice'
 import { tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
 import { CLIENT_STORAGE_KEYS } from '../utils/clientConfig.js'
 import { formatDate, formatRelativeDate, toSentenceCase } from '../utils/formatters'
 
@@ -410,23 +411,27 @@ export default function MyTasks() {
       ]
         .filter(Boolean)
         .join('\n\n')
+      const taskPayload = {
+        ...(resolvedWorkspaceId ? { team_id: resolvedWorkspaceId } : {}),
+        title: draft.title.trim(),
+        description: combinedDescription,
+        priority: draft.priority,
+        status: 'todo',
+        estimated_minutes: draft.estimated_minutes ? Number(draft.estimated_minutes) : null,
+        planned_for_date: draft.planned_for_date || null,
+        start_at: combineDateTime(draft.start_date, draft.start_time),
+        due_date: combineDateTime(draft.due_date, draft.due_time),
+        blocked_reason: draft.blocked_reason.trim(),
+        recurrence_pattern: draft.recurrence_pattern,
+        recurrence_interval: Number(draft.recurrence_interval || 1),
+        source_template: draft.source_template || null,
+      }
+      if (!isPersonalAccount && draft.assigned_to) {
+        taskPayload.assigned_to = draft.assigned_to
+      }
+
       const createdTask = await dispatch(
-        createTask({
-          ...(resolvedWorkspaceId ? { team_id: resolvedWorkspaceId } : {}),
-          title: draft.title.trim(),
-          description: combinedDescription,
-          priority: draft.priority,
-          status: 'todo',
-          assigned_to: isPersonalAccount ? null : draft.assigned_to || null,
-          estimated_minutes: draft.estimated_minutes ? Number(draft.estimated_minutes) : null,
-          planned_for_date: draft.planned_for_date || null,
-          start_at: combineDateTime(draft.start_date, draft.start_time),
-          due_date: combineDateTime(draft.due_date, draft.due_time),
-          blocked_reason: draft.blocked_reason.trim(),
-          recurrence_pattern: draft.recurrence_pattern,
-          recurrence_interval: Number(draft.recurrence_interval || 1),
-          source_template: draft.source_template || null,
-        })
+        createTask(taskPayload)
       ).unwrap()
 
       if (draft.save_as_template && draft.template_name.trim()) {
@@ -458,7 +463,8 @@ export default function MyTasks() {
       await loadTasks()
       navigate(`/tasks/${createdTask.id}`)
     } catch (error) {
-      toast.error(error?.message || 'Unable to create task right now.')
+      const apiError = typeof error === 'string' ? { message: error } : error?.message ? error : extractApiError(error, { fallbackMessage: 'Unable to create task right now.' })
+      toast.error(apiError.message || 'Unable to create task right now.')
     } finally {
       setSaving(false)
       setTemplateCreating(false)

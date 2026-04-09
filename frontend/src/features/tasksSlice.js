@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { tasksAPI, unwrapData, unwrapResults } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
 
 export const fetchMyTasks = createAsyncThunk('tasks/fetchMyTasks', async () => {
   const response = await tasksAPI.getMyTasks()
@@ -22,9 +23,13 @@ export const fetchKanban = createAsyncThunk('tasks/fetchKanban', async (teamId) 
   }
 })
 
-export const createTask = createAsyncThunk('tasks/create', async (data) => {
-  const response = await tasksAPI.createTask(data)
-  return unwrapData(response)
+export const createTask = createAsyncThunk('tasks/create', async (data, { rejectWithValue }) => {
+  try {
+    const response = await tasksAPI.createTask(data)
+    return unwrapData(response)
+  } catch (error) {
+    return rejectWithValue(extractApiError(error, { fallbackMessage: 'Unable to create task right now.' }))
+  }
 })
 
 export const updateTask = createAsyncThunk('tasks/update', async ({ id, data }) => {

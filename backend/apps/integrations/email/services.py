@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from types import SimpleNamespace
 from typing import Any
 
@@ -35,7 +36,7 @@ from apps.integrations.email.builders import (
 from apps.integrations.email.sendgrid import SendGridEmailProvider
 from apps.integrations.email.smtp import SMTPEmailProvider
 from apps.integrations.email.templates import render_email_template
-from apps.integrations.exceptions import EmailSendFailedError
+from apps.integrations.exceptions import EmailDeliveryError, EmailSendFailedError, IntegrationConfigurationError
 from apps.integrations.models import EmailDelivery
 from apps.integrations.validators import validate_provider_name
 
@@ -201,12 +202,55 @@ def _is_async_email_delivery_enabled() -> bool:
     return str(getattr(settings, "EMAIL_DELIVERY_MODE", "sync")).strip().lower() == "async"
 
 
+def _deliver_email_background(*, delivery_id: str, payload_data: dict[str, Any]) -> None:
+    def runner() -> None:
+        from django.db import close_old_connections
+
+        close_old_connections()
+        try:
+            delivery = EmailDelivery.objects.filter(id=delivery_id).first()
+            if delivery is None:
+                return
+            payload = QueuedEmailPayload.from_dict(payload_data)
+            _deliver_email_inline(payload=payload, delivery=delivery)
+        except Exception:  # pragma: no cover
+            logger.exception("email_background_delivery_failed", extra={"delivery_id": delivery_id})
+        finally:
+            close_old_connections()
+
+    threading.Thread(
+        target=runner,
+        name=f"email-delivery-{delivery_id}",
+        daemon=True,
+    ).start()
+
+
+def _schedule_email_delivery(*, payload: QueuedEmailPayload, delivery: EmailDelivery) -> None:
+    if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
+        _deliver_email_inline(payload=payload, delivery=delivery)
+        return
+
+    if _is_async_email_delivery_enabled():
+        from apps.integrations.email.tasks import deliver_email_task
+
+        try:
+            async_result = deliver_email_task.delay(str(delivery.id), payload.to_dict())
+            EmailDelivery.objects.filter(id=delivery.id).update(celery_task_id=str(async_result.id or ""))
+            return
+        except Exception:  # pragma: no cover
+            logger.exception("email_queue_failed", extra={"delivery_id": str(delivery.id), "email_type": payload.email_type})
+            _deliver_email_inline(payload=payload, delivery=delivery)
+            return
+
+    _deliver_email_background(delivery_id=str(delivery.id), payload_data=payload.to_dict())
+
+
 def _deliver_email_inline(*, payload: QueuedEmailPayload, delivery: EmailDelivery) -> EmailDelivery:
     mark_email_delivery_processing(delivery=delivery)
 
     try:
         provider_response = deliver_prepared_email(payload=payload)
-    except EmailSendFailedError as exc:
+    except (EmailDeliveryError, IntegrationConfigurationError) as exc:
         mark_email_delivery_failed(delivery=delivery, message=str(exc))
         _safe_record_delivery_event(
             action=AuditAction.EMAIL_FAILED,
@@ -254,18 +298,7 @@ def queue_email(*, payload: QueuedEmailPayload, actor=None, user=None) -> EmailD
     delivery = _create_delivery_record(payload=payload)
 
     def on_commit() -> None:
-        from apps.integrations.email.tasks import deliver_email_task
-
-        if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) or not _is_async_email_delivery_enabled():
-            _deliver_email_inline(payload=payload, delivery=delivery)
-            return
-
-        try:
-            async_result = deliver_email_task.delay(str(delivery.id), payload.to_dict())
-            EmailDelivery.objects.filter(id=delivery.id).update(celery_task_id=str(async_result.id or ""))
-        except Exception as exc:  # pragma: no cover
-            logger.exception("email_queue_failed", extra={"delivery_id": str(delivery.id), "email_type": payload.email_type})
-            _deliver_email_inline(payload=payload, delivery=delivery)
+        _schedule_email_delivery(payload=payload, delivery=delivery)
 
     if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) or not connection.in_atomic_block:
         on_commit()

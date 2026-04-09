@@ -101,6 +101,55 @@ def _auth_entry_path(flow: str) -> str:
     return "/register" if flow == "register" else "/login"
 
 
+def _google_request_timeout_seconds() -> int:
+    try:
+        return max(5, int(getattr(settings, "GOOGLE_OAUTH_REQUEST_TIMEOUT_SECONDS", 10)))
+    except (TypeError, ValueError):
+        return 10
+
+
+def build_google_callback_url(request: HttpRequest) -> str:
+    configured_redirect_uri = str(getattr(settings, "GOOGLE_REDIRECT_URI", "")).strip()
+    if configured_redirect_uri:
+        return configured_redirect_uri
+
+    backend_url = str(getattr(settings, "BACKEND_URL", "")).strip().rstrip("/")
+    if not backend_url:
+        backend_url = request.build_absolute_uri("/").rstrip("/")
+    return f"{backend_url}/api/v1/auth/google/callback/"
+
+
+def build_google_login_url(
+    request: HttpRequest,
+    *,
+    next_path: str = "",
+    account_type: str = "",
+    flow: str = "login",
+    team_name: str = "",
+) -> str | None:
+    client_id = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", "")).strip()
+    client_secret = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_SECRET", "")).strip()
+    if not client_id or not client_secret:
+        return None
+
+    params = {
+        "client_id": client_id,
+        "redirect_uri": build_google_callback_url(request),
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "online",
+    }
+    state = build_google_oauth_state(
+        next_path=_normalize_frontend_next_path(next_path),
+        account_type=account_type,
+        flow=flow,
+        team_name=team_name,
+    )
+    if state:
+        params["state"] = state
+    return f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+
+
 def get_google_authorization_url(redirect_uri: str, state: str = "") -> str:
     """Build the Google OAuth authorization URL."""
     client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', '')
@@ -131,13 +180,23 @@ def exchange_code_for_token(code: str, redirect_uri: str) -> dict:
         'redirect_uri': redirect_uri,
     }
     
-    response = requests.post(token_url, data=data, timeout=30)
+    try:
+        response = requests.post(token_url, data=data, timeout=_google_request_timeout_seconds())
+    except requests.Timeout as exc:
+        raise GoogleOAuthCallbackError(
+            "google_token_exchange_failed",
+            "Google token exchange timed out. Please try again.",
+        ) from exc
     if response.status_code >= 400:
         try:
             error_payload = response.json()
         except ValueError:
             error_payload = {"detail": response.text}
-        logger.warning("Google token exchange failed", extra={"google_error_payload": error_payload})
+        logger.warning(
+            "Google token exchange failed for redirect_uri=%s with error=%s",
+            redirect_uri,
+            error_payload,
+        )
         raise GoogleOAuthCallbackError(
             "google_token_exchange_failed",
             str(error_payload.get("error_description") or error_payload.get("error") or "Google token exchange failed."),
@@ -152,7 +211,13 @@ def get_google_user_info(access_token: str) -> dict:
     userinfo_url = 'https://www.googleapis.com/oauth2/v2/userinfo'
     headers = {'Authorization': f'Bearer {access_token}'}
     
-    response = requests.get(userinfo_url, headers=headers, timeout=30)
+    try:
+        response = requests.get(userinfo_url, headers=headers, timeout=_google_request_timeout_seconds())
+    except requests.Timeout as exc:
+        raise GoogleOAuthCallbackError(
+            "google_userinfo_failed",
+            "Google profile lookup timed out. Please try again.",
+        ) from exc
     if response.status_code >= 400:
         try:
             error_payload = response.json()
@@ -236,15 +301,8 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
         if state_payload["flow"] == "register" and not account_type:
             redirect_url = _frontend_url_with_path(f"{auth_entry_path}?error=account_type_required")
             return HttpResponseRedirect(redirect_url)
-        configured_redirect_uri = str(getattr(settings, "GOOGLE_REDIRECT_URI", "")).strip()
-        if configured_redirect_uri:
-            redirect_uri = configured_redirect_uri
-        else:
-            backend_url = str(getattr(settings, "BACKEND_URL", "")).strip().rstrip("/")
-            if not backend_url:
-                backend_url = request.build_absolute_uri("/").rstrip("/")
-            redirect_uri = f"{backend_url}/api/v1/auth/google/callback/"
-        
+        redirect_uri = build_google_callback_url(request)
+
         token_data = exchange_code_for_token(code, redirect_uri)
         access_token = token_data.get('access_token')
         

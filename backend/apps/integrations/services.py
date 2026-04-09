@@ -6,6 +6,7 @@ from apps.integrations.constants import (
     EMAIL_PROVIDER_SENDGRID,
     EMAIL_PROVIDER_SMTP,
     SMS_PROVIDER_AFRICAS_TALKING,
+    SMS_PROVIDER_CELCOM,
     STORAGE_PROVIDER_LOCAL,
     STORAGE_PROVIDER_SUPABASE,
 )
@@ -50,6 +51,8 @@ def validate_integrations_configuration() -> dict:
 
     if sms_provider == SMS_PROVIDER_AFRICAS_TALKING:
         ensure_required_settings(setting_names=["AFRICAS_TALKING_USERNAME", "AFRICAS_TALKING_API_KEY"])
+    elif sms_provider == SMS_PROVIDER_CELCOM:
+        ensure_required_settings(setting_names=["CELCOM_PARTNER_ID", "CELCOM_API_KEY", "CELCOM_SHORTCODE"])
 
     if storage_provider == STORAGE_PROVIDER_SUPABASE:
         ensure_required_settings(setting_names=["SUPABASE_URL", "ATTACHMENTS_SUPABASE_BUCKET"])

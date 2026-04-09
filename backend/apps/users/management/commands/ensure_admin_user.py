@@ -44,4 +44,4 @@ class Command(BaseCommand):
         state = "Created" if created else "Updated"
         self.stdout.write(self.style.SUCCESS(f"{state} admin user successfully."))
         self.stdout.write(f"email={email}")
-        self.stdout.write(f"password={password}")
+        self.stdout.write("password=[securely applied from input]")

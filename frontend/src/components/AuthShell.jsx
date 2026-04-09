@@ -21,7 +21,7 @@ export default function AuthShell({
   logoSubtitle = '',
 }) {
   return (
-    <div className={`app-shell auth-shell relative flex min-h-dvh items-center justify-center overflow-hidden px-4 ${compact ? 'py-2 lg:py-2' : 'py-4 lg:py-6'} ${shellClassName}`}>
+    <div className={`app-shell auth-shell relative flex min-h-dvh items-center justify-center overflow-x-hidden px-4 ${compact ? 'py-2 lg:py-2' : 'py-4 lg:py-6'} ${shellClassName}`}>
       <div className="auth-shell-glow auth-shell-glow-left" />
       <div className="auth-shell-glow auth-shell-glow-right" />
       <div className="auth-shell-grid" />

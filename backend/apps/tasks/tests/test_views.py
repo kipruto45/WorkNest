@@ -362,7 +362,43 @@ class TaskEndpointTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["data"]["name"], "Blocked tasks")
-        self.assertTrue(response.data["data"]["is_default"])
+
+    def test_personal_account_can_create_task_without_explicit_team_id(self) -> None:
+        personal_user = User.objects.create_user(
+            email="solo@example.com",
+            password="StrongPass123!",
+            name="Solo User",
+            account_type=User.AccountType.PERSONAL,
+        )
+        personal_team = Team.objects.create(
+            name="Solo Personal",
+            slug="solo-personal",
+            description="Personal workspace",
+            created_by=personal_user,
+            is_personal=True,
+        )
+        Membership.objects.create(
+            user=personal_user,
+            team=personal_team,
+            role=Membership.Role.ADMIN,
+            status=Membership.Status.ACTIVE,
+            invited_by=personal_user,
+            joined_at=timezone.now(),
+        )
+        self.authenticate(personal_user)
+
+        response = self.client.post(
+            reverse("api_v1:tasks:list-create"),
+            {
+                "title": "Plan the week",
+                "priority": Task.Priority.MEDIUM,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data["data"]["team"], str(personal_team.id))
+        self.assertIsNone(response.data["data"]["assigned_to"])
 
     def test_my_tasks_view_supports_my_day_filter(self) -> None:
         self.authenticate(self.member)

@@ -1,4 +1,4 @@
-export default function LoadingState({ label = 'Loading workspace' }) {
+export default function LoadingState({ label = 'Loading workspace', description = '' }) {
   return (
     <div className="glass-panel flex min-h-[240px] items-center justify-center p-6">
       <div className="w-full max-w-sm text-center">
@@ -9,6 +9,7 @@ export default function LoadingState({ label = 'Loading workspace' }) {
           </svg>
         </div>
         <p className="mt-4 text-sm font-semibold text-slate-900">{label}</p>
+        {description ? <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p> : null}
         <div className="mx-auto mt-5 grid max-w-xs gap-2">
           <div className="h-2.5 rounded-full bg-slate-200/80" />
           <div className="h-2.5 rounded-full bg-slate-100" />

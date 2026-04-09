@@ -3,9 +3,11 @@ from __future__ import annotations
 EMAIL_PROVIDER_SMTP = "smtp"
 EMAIL_PROVIDER_SENDGRID = "sendgrid"
 SMS_PROVIDER_AFRICAS_TALKING = "africas_talking"
+SMS_PROVIDER_CELCOM = "celcom"
 AFRICAS_TALKING_SANDBOX_USERNAME = "sandbox"
 AFRICAS_TALKING_SANDBOX_BASE_URL = "https://api.sandbox.africastalking.com/version1/messaging"
 AFRICAS_TALKING_LIVE_BASE_URL = "https://api.africastalking.com/version1/messaging"
+CELCOM_SMS_BASE_URL = "https://isms.celcomafrica.com/api/services/sendsms/"
 
 STORAGE_PROVIDER_LOCAL = "local"
 STORAGE_PROVIDER_SUPABASE = "supabase"
@@ -19,6 +21,7 @@ SUPPORTED_EMAIL_PROVIDERS = {
 
 SUPPORTED_SMS_PROVIDERS = {
     SMS_PROVIDER_AFRICAS_TALKING,
+    SMS_PROVIDER_CELCOM,
 }
 
 SUPPORTED_STORAGE_PROVIDERS = {

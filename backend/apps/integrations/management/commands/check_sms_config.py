@@ -6,13 +6,13 @@ import os
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.integrations.constants import SMS_PROVIDER_AFRICAS_TALKING
-from apps.integrations.sms.config import get_africas_talking_config
+from apps.integrations.constants import SMS_PROVIDER_AFRICAS_TALKING, SMS_PROVIDER_CELCOM
+from apps.integrations.sms.config import get_africas_talking_config, get_celcom_config
 from apps.integrations.sms.exceptions import SMSConfigurationError
 
 
 class Command(BaseCommand):
-    help = "Print the resolved Africa's Talking SMS configuration with secrets masked."
+    help = "Print the resolved SMS configuration with secrets masked."
 
     def add_arguments(self, parser) -> None:
         parser.add_argument(
@@ -32,7 +32,11 @@ class Command(BaseCommand):
         }
 
         try:
-            config = get_africas_talking_config()
+            provider = summary["provider"]
+            if provider == SMS_PROVIDER_CELCOM:
+                config = get_celcom_config()
+            else:
+                config = get_africas_talking_config()
         except SMSConfigurationError as exc:
             summary["valid"] = False
             summary["error"] = str(exc)

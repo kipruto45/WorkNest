@@ -2,6 +2,7 @@ import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
+import { toast } from 'react-toastify'
 
 import Settings from '../Settings'
 import { TestMemoryRouter } from '../../test/router'
@@ -58,6 +59,10 @@ vi.mock('react-toastify', () => ({
     error: vi.fn(),
   },
 }))
+
+beforeEach(() => {
+  vi.clearAllMocks()
+})
 
 test('Settings saves notification preferences and same-number SMS settings together', async () => {
   const user = userEvent.setup()
@@ -152,4 +157,39 @@ test('Settings requests email change verification before updating sign-in creden
       new_value: 'updated@example.com',
     })
   )
+})
+
+test('Settings surfaces provider-specific delivery errors for email verification requests', async () => {
+  const user = userEvent.setup()
+  getProfile.mockResolvedValueOnce({ data: { data: currentUser } })
+  getNotificationPreferences.mockResolvedValueOnce({ data: { data: { channels: { in_app: {}, email: {} } } } })
+  requestCredentialChange.mockRejectedValueOnce({
+    response: {
+      status: 503,
+      data: {
+        success: false,
+        message: 'Request failed.',
+        errors: {
+          detail: 'Email delivery failed for the SMTP provider.',
+        },
+      },
+    },
+  })
+
+  render(
+    <TestMemoryRouter>
+      <Settings />
+    </TestMemoryRouter>
+  )
+
+  await waitFor(() => expect(getProfile).toHaveBeenCalled())
+
+  const emailInputs = screen.getAllByPlaceholderText('name@example.com')
+  await user.clear(emailInputs[0])
+  await user.type(emailInputs[0], 'updated@example.com')
+  await user.click(screen.getByRole('button', { name: /Send email code/i }))
+
+  await waitFor(() => {
+    expect(toast.error).toHaveBeenCalledWith('Email delivery failed for the SMTP provider.')
+  })
 })

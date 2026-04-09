@@ -487,7 +487,7 @@ class TaskCreateSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop("team_id")
+        validated_data.pop("team_id", None)
         team = validated_data.pop("team")
         assignee = validated_data.pop("assigned_to_user", None)
         validated_data.pop("assigned_to", None)

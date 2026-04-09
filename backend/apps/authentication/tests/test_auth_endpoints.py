@@ -6,7 +6,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.test import override_settings
 from django.conf import settings
-from django.urls import reverse
+from django.urls import resolve, reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
@@ -667,6 +667,11 @@ class AuthenticationEndpointTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["data"]["provider"], "google")
+
+    def test_google_auth_routes_resolve_through_api_namespace(self) -> None:
+        self.assertEqual(resolve("/api/v1/auth/google/config/").view_name, "api_v1:authentication:google-config")
+        self.assertEqual(resolve("/api/v1/auth/google/login/").view_name, "api_v1:authentication:google-login")
+        self.assertEqual(resolve("/api/v1/auth/google/callback/").view_name, "api_v1:authentication:google-callback")
 
     @override_settings(GOOGLE_OAUTH_CLIENT_ID="client", GOOGLE_OAUTH_CLIENT_SECRET="secret")
     def test_google_login_endpoint_redirects_when_configured(self) -> None:
