@@ -281,7 +281,7 @@ export default function Landing() {
                 </div>
               </div>
 
-              <div className="fade-in-delayed">
+              <div className="fade-in-delayed lg:-mt-6 xl:-mt-8">
                 <HeroWorkspacePreview />
               </div>
             </div>

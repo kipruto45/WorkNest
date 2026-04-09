@@ -9,6 +9,17 @@ import Layout from '../../components/Layout'
 import { TestMemoryRouter } from '../../test/router'
 import { CLIENT_STORAGE_KEYS } from '../../utils/clientConfig'
 
+const toastInfoMock = vi.fn()
+
+vi.mock('react-toastify', () => ({
+  toast: {
+    info: (...args) => toastInfoMock(...args),
+    success: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+  },
+}))
+
 vi.mock('../../hooks/useRealtimeNotifications', () => ({
   useRealtimeNotifications: () => undefined,
 }))
@@ -88,4 +99,44 @@ test('workspace switcher allows changing from personal to team workspace', async
   fireEvent.change(select, { target: { value: 'team:team-42' } })
 
   expect(await screen.findByText('Team Home')).toBeInTheDocument()
+})
+
+test('team-only users cannot switch to personal workspace without personal account', async () => {
+  localStorage.setItem(CLIENT_STORAGE_KEYS.workspacePrefs, JSON.stringify({}))
+  const user = {
+    id: 'user-team',
+    name: 'Team User',
+    email: 'team@example.com',
+    account_type: 'team',
+    workspace_options: [{ id: 'team-42', is_personal: false, name: 'Delivery Team', my_role: 'admin' }],
+    default_team_id: 'team-42',
+  }
+
+  renderLayoutWithState(user, '/teams/team-42/overview')
+
+  const select = screen.getByLabelText('Active workspace')
+  fireEvent.change(select, { target: { value: 'personal' } })
+
+  expect(await screen.findByText('Team Home')).toBeInTheDocument()
+  expect(toastInfoMock).toHaveBeenCalled()
+})
+
+test('personal users without team memberships get a no-group access message', async () => {
+  localStorage.setItem(CLIENT_STORAGE_KEYS.workspacePrefs, JSON.stringify({}))
+  const user = {
+    id: 'user-personal',
+    name: 'Personal User',
+    email: 'personal@example.com',
+    account_type: 'personal',
+    workspace_options: [{ id: 'personal-team', is_personal: true, name: 'Personal workspace', my_role: 'admin' }],
+    default_team_id: 'personal-team',
+  }
+
+  renderLayoutWithState(user, '/dashboard')
+
+  const select = screen.getByLabelText('Active workspace')
+  fireEvent.change(select, { target: { value: 'team:__none__' } })
+
+  expect(await screen.findByText('Personal Home')).toBeInTheDocument()
+  expect(toastInfoMock).toHaveBeenCalled()
 })

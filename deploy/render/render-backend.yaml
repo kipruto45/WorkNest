@@ -31,7 +31,7 @@ services:
       - key: FRONTEND_URL
         sync: false
       - key: PUBLIC_WEBAPP_URL
-        value: https://worknested.netlify.app
+        value: https://work-nest-lemon.vercel.app
       - key: BACKEND_URL
         sync: false
       - key: INVITE_LINK_BASE_URL

@@ -64,6 +64,9 @@ def _collect_error_messages(errors) -> list[str]:
 
 def _resolve_error_message(*, status_code: int, errors) -> str:
     if status_code == status.HTTP_400_BAD_REQUEST:
+        explicit_messages = _collect_error_messages(errors)
+        if explicit_messages:
+            return explicit_messages[0]
         return "Validation failed."
 
     if status_code == status.HTTP_401_UNAUTHORIZED:

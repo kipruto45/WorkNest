@@ -148,7 +148,7 @@ class Command(BaseCommand):
             payloads = [
                 build_password_reset_email_payload(
                     user=recipient,
-                    reset_url="https://worknested.netlify.app/reset-password?uid=test-user&token=test-token",
+                    reset_url="https://work-nest-lemon.vercel.app/reset-password?uid=test-user&token=test-token",
                 ),
                 build_team_invite_email_payload(invitation=invitation),
                 build_invitation_reminder_email_payload(invitation=invitation),

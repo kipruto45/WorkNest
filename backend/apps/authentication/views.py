@@ -323,11 +323,17 @@ class EmailVerificationResendView(APIView):
     permission_classes = [AuthenticatedSessionPermission]
 
     def post(self, request, *args, **kwargs):  # type: ignore[override]
-        send_email_verification(user=request.user, actor=request.user)
+        delivery = send_email_verification(user=request.user, actor=request.user)
         return success_response(
             request=request,
             message="Verification email queued successfully.",
-            data={"email_verified": request.user.email_verified},
+            data={
+                "email_verified": request.user.email_verified,
+                "delivery": {
+                    "status": getattr(delivery, "status", None),
+                    "last_error": getattr(delivery, "last_error", ""),
+                },
+            },
         )
 
 

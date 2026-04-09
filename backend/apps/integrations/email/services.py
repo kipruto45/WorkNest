@@ -282,9 +282,10 @@ def _deliver_email_inline(*, payload: QueuedEmailPayload, delivery: EmailDeliver
 
 
 def queue_email(*, payload: QueuedEmailPayload, actor=None, user=None, force: bool = False, deliver_immediately: bool = False) -> EmailDelivery:
-    existing = _find_existing_delivery(dedupe_key=payload.dedupe_key)
-    if existing is not None:
-        return existing
+    if not force:
+        existing = _find_existing_delivery(dedupe_key=payload.dedupe_key)
+        if existing is not None:
+            return existing
 
     if not force and _should_skip_email(user=user, email_type=payload.email_type):
         delivery = _create_delivery_record(
@@ -396,8 +397,12 @@ def send_team_invite_email(*, invitation=None, team=None, recipient_email: str =
     return deliver_prepared_email(payload=build_team_invite_email_payload(invitation=invitation))
 
 
-def queue_team_invite_email(*, invitation, actor=None) -> EmailDelivery:
-    return queue_email(payload=build_team_invite_email_payload(invitation=invitation), actor=actor or invitation.invited_by)
+def queue_team_invite_email(*, invitation, actor=None, deliver_immediately: bool = False) -> EmailDelivery:
+    return queue_email(
+        payload=build_team_invite_email_payload(invitation=invitation),
+        actor=actor or invitation.invited_by,
+        deliver_immediately=deliver_immediately,
+    )
 
 
 def send_invitation_reminder_email(*, invitation=None, team=None, recipient_email: str = "", role: str = "", invitation_link: str = "", expires_at=None, custom_message: str = "", invited_by=None) -> dict[str, Any]:
@@ -413,8 +418,12 @@ def send_invitation_reminder_email(*, invitation=None, team=None, recipient_emai
     return deliver_prepared_email(payload=build_invitation_reminder_email_payload(invitation=invitation))
 
 
-def queue_invitation_reminder_email(*, invitation, actor=None) -> EmailDelivery:
-    return queue_email(payload=build_invitation_reminder_email_payload(invitation=invitation), actor=actor or invitation.invited_by)
+def queue_invitation_reminder_email(*, invitation, actor=None, deliver_immediately: bool = False) -> EmailDelivery:
+    return queue_email(
+        payload=build_invitation_reminder_email_payload(invitation=invitation),
+        actor=actor or invitation.invited_by,
+        deliver_immediately=deliver_immediately,
+    )
 
 
 def send_invitation_revoked_email(*, invitation=None, team=None, recipient_email: str = "", invited_by=None, actor=None) -> dict[str, Any]:

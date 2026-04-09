@@ -62,7 +62,7 @@ test('EmailVerificationStatus verifies token from the URL', async () => {
 })
 
 test('EmailVerificationStatus can resend verification for signed-in users', async () => {
-  resendVerificationMock.mockResolvedValueOnce({ data: { data: {} } })
+  resendVerificationMock.mockResolvedValueOnce({ data: { data: { delivery: { status: 'sent' } } } })
 
   render(
     <TestMemoryRouter initialEntries={['/verify-email']}>
@@ -75,5 +75,5 @@ test('EmailVerificationStatus can resend verification for signed-in users', asyn
   await userEvent.click(screen.getByRole('button', { name: /Resend verification email/i }))
 
   await waitFor(() => expect(resendVerificationMock).toHaveBeenCalled())
-  expect(await screen.findByText(/fresh verification link is on its way/i)).toBeInTheDocument()
+  expect(await screen.findByText(/fresh verification link was sent/i)).toBeInTheDocument()
 })

@@ -49,7 +49,7 @@ class AuthenticationServiceTests(TestCase):
 
     @override_settings(
         FRONTEND_URL="http://localhost:5173",
-        PASSWORD_RESET_LINK_BASE_URL="https://worknested.netlify.app/reset-password",
+        PASSWORD_RESET_LINK_BASE_URL="https://work-nest-lemon.vercel.app/reset-password",
     )
     def test_request_password_reset_prefers_public_reset_url(self) -> None:
         user = User.objects.create_user(
@@ -62,7 +62,7 @@ class AuthenticationServiceTests(TestCase):
         request_password_reset(email=user.email, request=request)
 
         self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("https://worknested.netlify.app/reset-password", mail.outbox[0].body)
+        self.assertIn("https://work-nest-lemon.vercel.app/reset-password", mail.outbox[0].body)
         self.assertNotIn("http://localhost:5173/reset-password", mail.outbox[0].body)
 
     @override_settings(
@@ -82,7 +82,7 @@ class AuthenticationServiceTests(TestCase):
         request_password_reset(email=user.email, request=request)
 
         self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("https://worknested.netlify.app/reset-password", mail.outbox[0].body)
+        self.assertIn("https://work-nest-lemon.vercel.app/reset-password", mail.outbox[0].body)
         self.assertNotIn("http://localhost:5173/reset-password", mail.outbox[0].body)
 
     def test_request_password_reset_does_not_error_for_unknown_email(self) -> None:

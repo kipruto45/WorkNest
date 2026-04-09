@@ -4,6 +4,7 @@ import { toast } from 'react-toastify'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import { calendarAPI, dashboardAPI, teamsAPI, unwrapData } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
 import { formatDate, formatRelativeDate, toSentenceCase } from '../utils/formatters'
 import { resolveMembershipRole } from '../utils/permissions'
 
@@ -27,6 +28,8 @@ export default function TeamCalendar() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [team, setTeam] = useState(null)
+  const [pageError, setPageError] = useState('')
+  const [googleStatusError, setGoogleStatusError] = useState('')
   const [events, setEvents] = useState([])
   const [query, setQuery] = useState('')
   const [googleStatus, setGoogleStatus] = useState(null)
@@ -43,13 +46,32 @@ export default function TeamCalendar() {
 
   const loadCalendar = useCallback(async () => {
     setLoading(true)
-    try {
-      const [teamResponse, calendarResponse, statusResponse] = await Promise.all([
-        teamsAPI.getTeam(teamId),
-        dashboardAPI.getTeamCalendar(teamId, { page_size: 200 }),
-        calendarAPI.getGoogleStatus({ scope: 'team', team_id: teamId }),
-      ])
-      const payload = unwrapData(calendarResponse)
+    setPageError('')
+    setGoogleStatusError('')
+
+    const [teamResult, calendarResult, statusResult] = await Promise.allSettled([
+      teamsAPI.getTeam(teamId),
+      dashboardAPI.getTeamCalendar(teamId, { page_size: 200 }),
+      calendarAPI.getGoogleStatus({ scope: 'team', team_id: teamId }),
+    ])
+
+    if (teamResult.status === 'fulfilled') {
+      setTeam(unwrapData(teamResult.value))
+    } else {
+      setTeam(null)
+      setEvents([])
+      setGoogleStatus(null)
+      const parsed = extractApiError(teamResult.reason, {
+        fallbackMessage: 'Unable to load this team workspace.',
+      })
+      setPageError(parsed.message)
+      toast.error(parsed.message)
+      setLoading(false)
+      return
+    }
+
+    if (calendarResult.status === 'fulfilled') {
+      const payload = unwrapData(calendarResult.value)
       const items = Array.isArray(payload)
         ? payload
         : Array.isArray(payload?.results)
@@ -57,17 +79,31 @@ export default function TeamCalendar() {
           : Array.isArray(payload?.events)
             ? payload.events
             : []
-      const statusPayload = unwrapData(statusResponse) || null
-      setTeam(unwrapData(teamResponse))
       setEvents(items)
+    } else {
+      setEvents([])
+      const parsed = extractApiError(calendarResult.reason, {
+        fallbackMessage: 'Unable to load team deadlines.',
+      })
+      setPageError(parsed.message)
+      toast.error(parsed.message)
+    }
+
+    if (statusResult.status === 'fulfilled') {
+      const statusPayload = unwrapData(statusResult.value) || null
       setGoogleStatus(statusPayload)
       setSelectedCalendarId(statusPayload?.calendar_id || '')
-    } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to load team deadlines.')
-      setEvents([])
-    } finally {
-      setLoading(false)
+      setGoogleStatusError('')
+    } else {
+      setGoogleStatus(null)
+      setSelectedCalendarId('')
+      const parsed = extractApiError(statusResult.reason, {
+        fallbackMessage: 'Google Calendar status is currently unavailable for this team.',
+      })
+      setGoogleStatusError(parsed.message)
     }
+
+    setLoading(false)
   }, [teamId])
 
   useEffect(() => {
@@ -142,7 +178,7 @@ export default function TeamCalendar() {
       downloadTextFile(payload.content || '', payload.filename || 'team-tasks.ics', 'text/calendar;charset=utf-8')
       toast.success('Team calendar export downloaded.')
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to export team calendar.')
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to export team calendar.' }).message)
     } finally {
       setBusyAction('')
     }
@@ -165,7 +201,7 @@ export default function TeamCalendar() {
       setSelectedEventIds(entries.filter((item) => item.is_valid).map((item) => item.event_id))
       toast.success('Team import preview ready.')
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to preview team import.')
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to preview team import.' }).message)
     } finally {
       setBusyAction('')
       event.target.value = ''
@@ -188,7 +224,7 @@ export default function TeamCalendar() {
       setSelectedEventIds([])
       await loadCalendar()
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to import selected team events.')
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to import selected team events.' }).message)
     } finally {
       setBusyAction('')
     }
@@ -208,7 +244,9 @@ export default function TeamCalendar() {
       }
       window.location.assign(url)
     } catch (error) {
-      toast.error(error?.response?.data?.message || error.message || 'Unable to start Google Calendar connection.')
+      toast.error(
+        extractApiError(error, { fallbackMessage: error?.message || 'Unable to start Google Calendar connection.' }).message
+      )
       setBusyAction('')
     }
   }
@@ -221,7 +259,7 @@ export default function TeamCalendar() {
       setGoogleCalendars([])
       await loadCalendar()
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to disconnect team Google Calendar.')
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to disconnect team Google Calendar.' }).message)
     } finally {
       setBusyAction('')
     }
@@ -234,7 +272,7 @@ export default function TeamCalendar() {
       const payload = unwrapData(response) || {}
       setGoogleCalendars(Array.isArray(payload.calendars) ? payload.calendars : [])
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to load Google calendars.')
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to load Google calendars.' }).message)
     } finally {
       setBusyAction('')
     }
@@ -254,7 +292,7 @@ export default function TeamCalendar() {
       toast.success('Team target calendar saved.')
       await loadCalendar()
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to update Google calendar target.')
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to update Google calendar target.' }).message)
     } finally {
       setBusyAction('')
     }
@@ -275,14 +313,30 @@ export default function TeamCalendar() {
       )
       await loadCalendar()
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Team Google sync failed.')
+      toast.error(extractApiError(error, { fallbackMessage: 'Team Google sync failed.' }).message)
     } finally {
       setBusyAction('')
     }
   }
 
-  if (loading || !team) {
+  if (loading) {
     return <LoadingState label="Loading team calendar" />
+  }
+
+  if (!team) {
+    return (
+      <div className="space-y-6">
+        <EmptyState
+          title="Team calendar is unavailable"
+          description={pageError || 'We could not load this team workspace right now.'}
+          action={
+            <button type="button" onClick={loadCalendar} className="btn-secondary">
+              Retry
+            </button>
+          }
+        />
+      </div>
+    )
   }
 
   return (
@@ -316,6 +370,9 @@ export default function TeamCalendar() {
       </section>
 
       <section className={`${panelClass} p-6 lg:p-7`}>
+        {pageError ? (
+          <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{pageError}</div>
+        ) : null}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Calendar operations</p>
@@ -341,6 +398,11 @@ export default function TeamCalendar() {
 
         {canManageCalendar ? (
           <div className="mt-5 rounded-[20px] border border-slate-200 bg-[#fcfcfb] p-4">
+            {googleStatusError ? (
+              <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                {googleStatusError}
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               {!googleStatus?.connected ? (
                 <button type="button" className="btn-primary" onClick={handleConnectGoogle} disabled={busyAction !== ''}>

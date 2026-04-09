@@ -27,7 +27,7 @@ EMAIL_TYPE_TASK_STATUS_CHANGED = "task_status_changed"
 EMAIL_TYPE_ATTACHMENT_UPLOADED = "attachment_uploaded"
 EMAIL_TYPE_NOTIFICATION = "notification"
 EMAIL_TYPE_ADMIN_COMMUNICATION = "admin_communication"
-DEFAULT_PUBLIC_WEBAPP_URL = "https://worknested.netlify.app"
+DEFAULT_PUBLIC_WEBAPP_URL = "https://work-nest-lemon.vercel.app"
 
 
 def _get_app_name() -> str:
@@ -69,13 +69,13 @@ def _strip_known_frontend_suffix(url: str) -> str:
 
 
 def _get_frontend_url() -> str:
-    configured_frontend = str(getattr(settings, "FRONTEND_URL", "")).strip().rstrip("/")
-    if _is_public_absolute_url(configured_frontend):
-        return configured_frontend
-
     public_webapp_url = str(getattr(settings, "PUBLIC_WEBAPP_URL", "")).strip().rstrip("/")
     if _is_public_absolute_url(public_webapp_url):
         return public_webapp_url
+
+    configured_frontend = str(getattr(settings, "FRONTEND_URL", "")).strip().rstrip("/")
+    if _is_public_absolute_url(configured_frontend):
+        return configured_frontend
 
     for candidate in (
         getattr(settings, "INVITE_LINK_BASE_URL", ""),

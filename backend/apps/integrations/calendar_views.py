@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from urllib.parse import urlencode
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import HttpResponseRedirect
 from django.utils import timezone
@@ -14,6 +13,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.views import APIView
 
 from apps.common.responses import success_response
+from apps.integrations.email.builders import _get_frontend_url
 from apps.integrations.calendar_serializers import (
     CalendarImportConfirmSerializer,
     CalendarImportPreviewSerializer,
@@ -51,7 +51,7 @@ User = get_user_model()
 
 
 def _frontend_redirect_url(*, return_path: str = "", params: dict | None = None) -> str:
-    frontend_url = str(getattr(settings, "FRONTEND_URL", "")).strip().rstrip("/")
+    frontend_url = _get_frontend_url().rstrip("/")
     path = return_path if return_path.startswith("/") else "/settings"
     query = urlencode(params or {})
     if frontend_url:

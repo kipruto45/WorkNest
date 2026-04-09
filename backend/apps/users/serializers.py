@@ -41,14 +41,19 @@ def build_presence_payload(user: User) -> dict:
 
 
 class UserPublicSerializer(serializers.ModelSerializer):
+    email = serializers.SerializerMethodField()
     avatar = serializers.SerializerMethodField()
     bio = serializers.SerializerMethodField()
     presence = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "name", "avatar", "bio", "presence")
+        fields = ("id", "name", "email", "avatar", "bio", "presence")
         read_only_fields = fields
+
+    def get_email(self, obj: User) -> str:
+        value = getattr(obj, "email", "") or ""
+        return value if isinstance(value, str) else str(value)
 
     def get_avatar(self, obj: User) -> str:
         value = getattr(obj, "avatar", "") or ""

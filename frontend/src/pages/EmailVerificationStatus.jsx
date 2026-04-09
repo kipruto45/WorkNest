@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import AppLogo from '../components/AppLogo'
 import { setUser } from '../features/authSlice'
 import { authAPI, unwrapData } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
 
 export default function EmailVerificationStatus() {
   const dispatch = useDispatch()
@@ -37,7 +38,9 @@ export default function EmailVerificationStatus() {
       } catch (error) {
         if (!isCancelled) {
           setStatus('error')
-          setMessage(error?.response?.data?.message || 'That verification link is invalid or has expired.')
+          setMessage(
+            extractApiError(error, { fallbackMessage: 'That verification link is invalid or has expired.' }).message
+          )
         }
       }
     }
@@ -51,12 +54,17 @@ export default function EmailVerificationStatus() {
   const handleResend = async () => {
     setResending(true)
     try {
-      await authAPI.resendVerification()
+      const response = await authAPI.resendVerification()
+      const payload = unwrapData(response) || {}
       setStatus('pending')
-      setMessage('A fresh verification link is on its way to your inbox.')
+      setMessage(
+        payload?.delivery?.status === 'sent'
+          ? 'A fresh verification link was sent to your inbox.'
+          : 'A fresh verification link is being delivered to your inbox.'
+      )
     } catch (error) {
       setStatus('error')
-      setMessage(error?.response?.data?.message || 'We could not resend the verification email right now.')
+      setMessage(extractApiError(error, { fallbackMessage: 'We could not resend the verification email right now.' }).message)
     } finally {
       setResending(false)
     }

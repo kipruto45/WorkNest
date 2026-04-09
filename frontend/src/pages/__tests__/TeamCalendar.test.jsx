@@ -98,3 +98,31 @@ test('admin view shows import and google management actions', async () => {
   expect(screen.getByText('Import .ics')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Connect Google' })).toBeInTheDocument()
 })
+
+test('calendar still renders when google status request fails', async () => {
+  const payload = buildCalendarResponse('admin')
+  getTeamMock.mockResolvedValueOnce({ data: { data: payload.team } })
+  getTeamCalendarMock.mockResolvedValueOnce({ data: { data: payload.calendar.events } })
+  getGoogleStatusMock.mockRejectedValueOnce({
+    response: {
+      status: 400,
+      data: {
+        message: 'Validation failed.',
+        errors: {
+          team_id: ['Team not found or unavailable.'],
+        },
+      },
+    },
+  })
+
+  render(
+    <TestMemoryRouter initialEntries={['/teams/team-1/calendar']}>
+      <Routes>
+        <Route path="/teams/:teamId/calendar" element={<TeamCalendar />} />
+      </Routes>
+    </TestMemoryRouter>
+  )
+
+  expect(await screen.findByText('Delivery Team schedule view')).toBeInTheDocument()
+  expect(screen.getByText('Team not found or unavailable.')).toBeInTheDocument()
+})

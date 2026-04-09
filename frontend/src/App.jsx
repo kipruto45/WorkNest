@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useMemo } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { ToastContainer } from 'react-toastify'
@@ -87,6 +87,13 @@ function AdminRoute({ children }) {
 
 function DashboardRoute() {
   const { token, user, hydrating, bootstrapped } = useSelector((state) => state.auth)
+  const hasPersonalWorkspace = useMemo(
+    () =>
+      user?.account_type === 'personal' ||
+      user?.primary_mode === 'personal' ||
+      (Array.isArray(user?.workspace_options) && user.workspace_options.some((workspace) => workspace?.is_personal)),
+    [user]
+  )
 
   if (token && (!bootstrapped || hydrating)) {
     return <RouteFallback />
@@ -96,7 +103,7 @@ function DashboardRoute() {
     return <Navigate to="/admin" replace />
   }
 
-  if (user?.account_type === 'team') {
+  if (user?.account_type === 'team' && !hasPersonalWorkspace) {
     if (user?.default_team_id) {
       return <Navigate to={`/teams/${user.default_team_id}/overview`} replace />
     }

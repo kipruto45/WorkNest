@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
+import { toast } from 'react-toastify'
 import { logout } from '../features/authSlice'
 import { fetchUnreadCount } from '../features/notificationsSlice'
 import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications'
@@ -136,7 +137,7 @@ export default function Layout() {
         role: item.my_role || '',
       }))
 
-    if (!normalized.some((item) => item.isPersonal)) {
+    if ((user?.account_type === 'personal' || user?.primary_mode === 'personal') && !normalized.some((item) => item.isPersonal)) {
       normalized.unshift({
         id: 'personal',
         name: 'Personal workspace',
@@ -153,10 +154,15 @@ export default function Layout() {
       })
     }
     return normalized
-  }, [user?.workspace_options, user?.default_team_id, user?.account_type])
+  }, [user?.workspace_options, user?.default_team_id, user?.account_type, user?.primary_mode])
   const teamWorkspaces = useMemo(() => workspaceEntries.filter((item) => !item.isPersonal), [workspaceEntries])
+  const hasPersonalWorkspace = useMemo(() => workspaceEntries.some((item) => item.isPersonal), [workspaceEntries])
+  const hasTeamWorkspace = useMemo(
+    () => teamWorkspaces.length > 0 || Boolean(user?.has_team_workspaces),
+    [teamWorkspaces.length, user?.has_team_workspaces]
+  )
   const [workspaceValue, setWorkspaceValue] = useState('personal')
-  const showWorkspaceSwitcher = !isAdminRoute && workspaceEntries.length > 1
+  const showWorkspaceSwitcher = !isAdminRoute && Boolean(user)
 
   useEffect(() => {
     if (routeTeamId) {
@@ -173,11 +179,22 @@ export default function Layout() {
         return
       }
     }
+    if (hasPersonalWorkspace) {
+      setWorkspaceValue('personal')
+      return
+    }
+    if (teamWorkspaces.length) {
+      const nextValue = `team:${teamWorkspaces[0].id}`
+      setWorkspaceValue(nextValue)
+      writeWorkspacePrefs(nextValue)
+      return
+    }
     setWorkspaceValue('personal')
-  }, [routeTeamId, teamWorkspaces])
+  }, [routeTeamId, teamWorkspaces, hasPersonalWorkspace])
 
   const selectedWorkspaceTeamId = workspaceValue.startsWith('team:') ? workspaceValue.slice(5) : ''
-  const activeTeamId = routeTeamId || selectedWorkspaceTeamId || user?.default_team_id || ''
+  const fallbackTeamId = user?.account_type === 'team' ? user?.default_team_id || '' : ''
+  const activeTeamId = routeTeamId || selectedWorkspaceTeamId || fallbackTeamId
   const isTeamWorkspace = !isAdminRoute && Boolean(activeTeamId)
   const teamBasePath = activeTeamId ? `/teams/${activeTeamId}` : '/team-setup'
   const teamNav = activeTeamId
@@ -248,16 +265,50 @@ export default function Layout() {
 
   const handleWorkspaceSwitch = (event) => {
     const nextValue = event.target.value
-    setWorkspaceValue(nextValue)
-    writeWorkspacePrefs(nextValue)
+    const previousValue = workspaceValue
+
     if (nextValue === 'personal') {
+      if (!hasPersonalWorkspace) {
+        setWorkspaceValue(previousValue)
+        toast.info(
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-900">
+              You do not have a personal account yet. Create one from the register page to access Personal Workspace.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                toast.dismiss()
+                dispatch(logout()).finally(() => {
+                  navigate('/register?account_type=personal&next=%2Fdashboard')
+                })
+              }}
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700"
+            >
+              Register personal account
+            </button>
+          </div>
+        )
+        return
+      }
+      setWorkspaceValue(nextValue)
+      writeWorkspacePrefs(nextValue)
       navigate('/dashboard')
       return
     }
     if (nextValue.startsWith('team:')) {
       const nextTeamId = nextValue.slice(5)
+      if (!nextTeamId || nextTeamId === '__none__' || !teamWorkspaces.some((item) => item.id === nextTeamId)) {
+        setWorkspaceValue(previousValue)
+        toast.info('You do not have access to a team dashboard because you do not belong to any group.')
+        return
+      }
+      setWorkspaceValue(nextValue)
+      writeWorkspacePrefs(nextValue)
       navigate(`/teams/${nextTeamId}/overview`)
+      return
     }
+    setWorkspaceValue(previousValue)
   }
 
   const quickActions = useMemo(() => {
@@ -535,11 +586,15 @@ export default function Layout() {
                               Personal workspace
                             </option>
                           ))}
+                        {!hasPersonalWorkspace ? (
+                          <option value="personal">Personal workspace (register required)</option>
+                        ) : null}
                         {teamWorkspaces.map((team) => (
                           <option key={team.id} value={`team:${team.id}`}>
                             {team.name}
                           </option>
                         ))}
+                        {!hasTeamWorkspace ? <option value="team:__none__">Team dashboard (no group access)</option> : null}
                       </select>
                     </label>
                   </div>

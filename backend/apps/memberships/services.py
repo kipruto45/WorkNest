@@ -12,6 +12,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_membership_action
+from apps.integrations.email.builders import _get_frontend_url
 from apps.integrations.email.services import (
     queue_invitation_accepted_email,
     queue_invitation_reminder_email,
@@ -19,6 +20,7 @@ from apps.integrations.email.services import (
     queue_role_changed_email,
     queue_team_invite_email,
 )
+from apps.integrations.models import EmailDelivery
 from apps.memberships.models import Membership, TeamInvitation
 from apps.memberships.selectors import get_team_member
 from apps.teams.permissions import can_manage_team_invites
@@ -33,7 +35,7 @@ def _get_invitation_expiry():
 
 
 def _build_invitation_link(*, token: str) -> str:
-    frontend_url = getattr(settings, "FRONTEND_URL", "").rstrip("/")
+    frontend_url = _get_frontend_url().rstrip("/")
     if frontend_url:
         return f"{frontend_url}/invitations/{token}"
     return f"/invitations/{token}"
@@ -84,11 +86,27 @@ def _ensure_target_is_not_active_member(*, team, email: str) -> None:
 
 
 def _send_invitation_email(*, invitation: TeamInvitation) -> None:
-    queue_team_invite_email(invitation=invitation, actor=invitation.invited_by)
+    delivery = queue_team_invite_email(
+        invitation=invitation,
+        actor=invitation.invited_by,
+        deliver_immediately=True,
+    )
+    if delivery.status in {EmailDelivery.Status.FAILED, EmailDelivery.Status.SKIPPED}:
+        raise ValidationError(
+            {"email": [delivery.last_error or "Invitation email could not be delivered right now."]}
+        )
 
 
 def _send_invitation_reminder(*, invitation: TeamInvitation) -> None:
-    queue_invitation_reminder_email(invitation=invitation, actor=invitation.invited_by)
+    delivery = queue_invitation_reminder_email(
+        invitation=invitation,
+        actor=invitation.invited_by,
+        deliver_immediately=True,
+    )
+    if delivery.status in {EmailDelivery.Status.FAILED, EmailDelivery.Status.SKIPPED}:
+        raise ValidationError(
+            {"email": [delivery.last_error or "Invitation reminder email could not be delivered right now."]}
+        )
 
 
 def _notify_existing_invitee(*, invitation: TeamInvitation) -> None:

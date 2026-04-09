@@ -49,26 +49,47 @@ export default function TeamInvitations() {
   const loadInvitations = useCallback(async () => {
     setLoading(true)
     setPageError('')
-    try {
-      const [teamResponse, invitationsResponse] = await Promise.all([
-        teamsAPI.getTeam(teamId),
-        teamsAPI.getInvitations(teamId, { page_size: 100 }),
-      ])
-      setTeam(unwrapData(teamResponse))
-      setInvitations(unwrapResults(invitationsResponse))
-    } catch (error) {
-      if (error.response?.status === 403) {
+    const [teamResult, invitationsResult] = await Promise.allSettled([
+      teamsAPI.getTeam(teamId),
+      teamsAPI.getInvitations(teamId, { page_size: 100 }),
+    ])
+
+    if (teamResult.status === 'fulfilled') {
+      setTeam(unwrapData(teamResult.value))
+    } else {
+      const parsed = extractApiError(teamResult.reason, {
+        fallbackMessage: 'Unable to load this team workspace.',
+      })
+      if (parsed.status === 403) {
         navigate('/403')
+        setLoading(false)
         return
       }
-      const parsed = extractApiError(error, {
-        fallbackMessage: 'Unable to load invitations right now.',
-      })
+      setTeam(null)
+      setInvitations([])
       setPageError(parsed.message)
       toast.error(parsed.message)
-    } finally {
       setLoading(false)
+      return
     }
+
+    if (invitationsResult.status === 'fulfilled') {
+      setInvitations(unwrapResults(invitationsResult.value))
+    } else {
+      const parsed = extractApiError(invitationsResult.reason, {
+        fallbackMessage: 'Unable to load invitations right now.',
+      })
+      if (parsed.status === 403) {
+        navigate('/403')
+        setLoading(false)
+        return
+      }
+      setInvitations([])
+      setPageError(parsed.message)
+      toast.error(parsed.message)
+    }
+
+    setLoading(false)
   }, [navigate, teamId])
 
   useEffect(() => {
@@ -156,8 +177,24 @@ export default function TeamInvitations() {
     })
   }, [invitations])
 
-  if (loading || !team) {
+  if (loading) {
     return <LoadingState label="Loading invitations" />
+  }
+
+  if (!team) {
+    return (
+      <div className="space-y-6">
+        <EmptyState
+          title="Invitations are unavailable"
+          description={pageError || 'We could not load this team workspace right now.'}
+          action={
+            <button type="button" onClick={loadInvitations} className="btn-secondary">
+              Retry
+            </button>
+          }
+        />
+      </div>
+    )
   }
   const pendingCount = invitations.filter((invitation) => invitation.status === 'pending').length
   const role = resolveMembershipRole(team) || 'member'

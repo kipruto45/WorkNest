@@ -4,6 +4,7 @@ import { toast } from 'react-toastify'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import { dashboardAPI, tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
 import { formatDate, formatRelativeDate, getInitials, toSentenceCase } from '../utils/formatters'
 import { canManageMembers, resolveMembershipRole } from '../utils/permissions'
 
@@ -22,6 +23,7 @@ export default function TeamMembers() {
   const { teamId } = useParams()
   const [loading, setLoading] = useState(true)
   const [team, setTeam] = useState(null)
+  const [pageError, setPageError] = useState('')
   const [members, setMembers] = useState([])
   const [workload, setWorkload] = useState([])
   const [kanban, setKanban] = useState({ todo: [], in_progress: [], in_review: [], done: [] })
@@ -31,33 +33,65 @@ export default function TeamMembers() {
 
   const loadMembers = useCallback(async () => {
     setLoading(true)
-    try {
-      const [teamResponse, membersResponse, workloadResponse, kanbanResponse] = await Promise.all([
-        teamsAPI.getTeam(teamId),
-        teamsAPI.getTeamMembers(teamId, { page_size: 100 }),
-        dashboardAPI.getTeamWorkload(teamId),
-        tasksAPI.getKanban(teamId),
-      ])
-      setTeam(unwrapData(teamResponse))
-      setMembers(unwrapResults(membersResponse))
-      setWorkload(unwrapData(workloadResponse)?.workload || [])
+    setPageError('')
 
-      const board = unwrapData(kanbanResponse) || {}
+    const [teamResult, membersResult, workloadResult, kanbanResult] = await Promise.allSettled([
+      teamsAPI.getTeam(teamId),
+      teamsAPI.getTeamMembers(teamId, { page_size: 100 }),
+      dashboardAPI.getTeamWorkload(teamId),
+      tasksAPI.getKanban(teamId),
+    ])
+
+    if (teamResult.status === 'fulfilled') {
+      setTeam(unwrapData(teamResult.value))
+    } else {
+      setTeam(null)
+      const parsed = extractApiError(teamResult.reason, {
+        fallbackMessage: 'Unable to load this team workspace.',
+      })
+      setPageError(parsed.message)
+      toast.error(parsed.message)
+      setLoading(false)
+      return
+    }
+
+    if (membersResult.status === 'fulfilled') {
+      setMembers(unwrapResults(membersResult.value))
+    } else {
+      setMembers([])
+      const parsed = extractApiError(membersResult.reason, {
+        fallbackMessage: 'Unable to load team members.',
+      })
+      setPageError(parsed.message)
+      toast.error(parsed.message)
+    }
+
+    if (workloadResult.status === 'fulfilled') {
+      setWorkload(unwrapData(workloadResult.value)?.workload || [])
+    } else {
+      setWorkload([])
+    }
+
+    if (kanbanResult.status === 'fulfilled') {
+      const board = unwrapData(kanbanResult.value) || {}
       setKanban({
         todo: board.todo?.tasks || [],
         in_progress: board.in_progress?.tasks || [],
         in_review: board.in_review?.tasks || [],
         done: board.done?.tasks || [],
       })
-    } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to load members.')
-    } finally {
-      setLoading(false)
+    } else {
+      setKanban({ todo: [], in_progress: [], in_review: [], done: [] })
     }
+
+    setLoading(false)
   }, [teamId])
 
   useEffect(() => {
-    loadMembers()
+    const handle = window.setTimeout(() => {
+      loadMembers()
+    }, 0)
+    return () => window.clearTimeout(handle)
   }, [loadMembers])
 
   const allTasks = useMemo(
@@ -67,7 +101,7 @@ export default function TeamMembers() {
 
   const memberRows = useMemo(() => {
     return members.map((membership) => {
-      const user = membership.user || {}
+      const user = membership.user || membership.member || membership.user_data || {}
       const assignedTasks = allTasks.filter((task) => String(task.assigned_to || '') === String(user.id || ''))
       const completed = assignedTasks.filter((task) => task.status === 'done').length
       const overdue = assignedTasks.filter((task) => isTaskOverdue(task)).length
@@ -127,8 +161,24 @@ export default function TeamMembers() {
     }
   }
 
-  if (loading || !team) {
+  if (loading) {
     return <LoadingState label="Loading team members" />
+  }
+
+  if (!team) {
+    return (
+      <div className="space-y-6">
+        <EmptyState
+          title="Team members are unavailable"
+          description={pageError || 'We could not load this team workspace right now.'}
+          action={
+            <button type="button" onClick={loadMembers} className="btn-secondary">
+              Retry
+            </button>
+          }
+        />
+      </div>
+    )
   }
 
   return (
@@ -163,6 +213,9 @@ export default function TeamMembers() {
       </section>
 
       <section className={`${panelClass} p-6 lg:p-7`}>
+        {pageError ? (
+          <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{pageError}</div>
+        ) : null}
         <div className="grid gap-3 md:grid-cols-3">
           <label className="text-sm font-medium text-slate-600">
             Search

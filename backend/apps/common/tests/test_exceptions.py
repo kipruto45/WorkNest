@@ -18,6 +18,7 @@ class CommonExceptionTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(response.data["success"])
+        self.assertEqual(response.data["message"], "Required")
         self.assertEqual(response.data["errors"]["field"], ["Required"])
 
     def test_custom_exception_handler_supports_conflict_error(self) -> None:

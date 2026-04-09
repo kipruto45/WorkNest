@@ -59,6 +59,7 @@ export default function Register() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const nextPath = searchParams.get('next') || '/dashboard'
+  const accountTypeHint = searchParams.get('account_type')
   const authError = searchParams.get('error')
   const {
     register,
@@ -95,6 +96,17 @@ export default function Register() {
 
     toast.error(errorMessages[authError] || 'Sign up could not be completed.')
   }, [authError])
+
+  useEffect(() => {
+    if (accountTypeHint !== 'personal' && accountTypeHint !== 'team') {
+      return
+    }
+    setValue('account_type', accountTypeHint, { shouldValidate: true, shouldDirty: true })
+    if (accountTypeHint === 'personal') {
+      setValue('team_name', '', { shouldValidate: false, shouldDirty: false })
+    }
+    clearErrors('account_type')
+  }, [accountTypeHint, clearErrors, setValue])
 
   useEffect(() => {
     const currentPhrase = registerHeroPhrases[activePhraseIndex].text

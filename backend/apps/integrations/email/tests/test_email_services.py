@@ -31,6 +31,7 @@ from apps.integrations.email.sendgrid import SendGridEmailProvider
 from apps.integrations.email.services import (
     get_email_provider,
     queue_credential_change_email,
+    queue_email_verification_email,
     queue_notification_email,
     queue_password_reset_email,
     queue_team_invite_email,
@@ -128,6 +129,24 @@ class EmailWorkflowTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].from_email, "admin@example.com")
         self.assertIn("654321", mail.outbox[0].body)
+
+    @override_settings(ADMIN_EMAIL="admin@example.com")
+    def test_forced_email_verification_resend_bypasses_deduplication(self) -> None:
+        queue_email_verification_email(
+            user=self.member,
+            verification_url="https://work-nest-lemon.vercel.app/verify-email?token=first-token",
+            actor=self.member,
+        )
+        queue_email_verification_email(
+            user=self.member,
+            verification_url="https://work-nest-lemon.vercel.app/verify-email?token=second-token",
+            actor=self.member,
+        )
+
+        self.assertEqual(EmailDelivery.objects.filter(email_type="email_verification", recipient_email=self.member.email).count(), 2)
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertIn("first-token", mail.outbox[0].body)
+        self.assertIn("second-token", mail.outbox[1].body)
 
     def test_team_invitation_email_is_queued_and_uses_modern_template(self) -> None:
         invitation = TeamInvitation.objects.create(
@@ -270,9 +289,9 @@ class EmailWorkflowTests(TestCase):
 
     @override_settings(
         FRONTEND_URL="http://localhost:5173",
-        PUBLIC_WEBAPP_URL="https://worknested.netlify.app",
-        PASSWORD_RESET_LINK_BASE_URL="https://worknested.netlify.app/reset-password",
-        LOGO_URL="https://worknested.netlify.app/logo_hd.png",
+        PUBLIC_WEBAPP_URL="https://work-nest-lemon.vercel.app",
+        PASSWORD_RESET_LINK_BASE_URL="https://work-nest-lemon.vercel.app/reset-password",
+        LOGO_URL="https://work-nest-lemon.vercel.app/logo_hd.png",
     )
     def test_transactional_email_buttons_prefer_public_webapp_urls(self) -> None:
         invitation = TeamInvitation.objects.create(
@@ -311,7 +330,7 @@ class EmailWorkflowTests(TestCase):
         payloads = [
             build_password_reset_email_payload(
                 user=self.member,
-                reset_url="https://worknested.netlify.app/reset-password?uid=test&token=abc",
+                reset_url="https://work-nest-lemon.vercel.app/reset-password?uid=test&token=abc",
             ),
             build_team_invite_email_payload(invitation=invitation),
             build_invitation_reminder_email_payload(invitation=invitation),
@@ -339,16 +358,16 @@ class EmailWorkflowTests(TestCase):
 
         for payload in payloads:
             with self.subTest(email_type=payload.email_type):
-                self.assertIn("https://worknested.netlify.app", payload.context["button_url"])
+                self.assertIn("https://work-nest-lemon.vercel.app", payload.context["button_url"])
                 self.assertNotIn("http://localhost:5173", payload.context["button_url"])
 
         self.assertEqual(
             build_team_invite_email_payload(invitation=invitation).context["button_url"],
-            f"https://worknested.netlify.app/invitations/{invitation.token}",
+            f"https://work-nest-lemon.vercel.app/invitations/{invitation.token}",
         )
         self.assertEqual(
             build_welcome_email_payload(user=self.member).context["button_url"],
-            "https://worknested.netlify.app/dashboard",
+            "https://work-nest-lemon.vercel.app/dashboard",
         )
 
     @override_settings(
@@ -373,11 +392,11 @@ class EmailWorkflowTests(TestCase):
 
         self.assertEqual(
             invite_payload.context["button_url"],
-            f"https://worknested.netlify.app/invitations/{invitation.token}",
+            f"https://work-nest-lemon.vercel.app/invitations/{invitation.token}",
         )
         self.assertEqual(
             welcome_payload.context["button_url"],
-            "https://worknested.netlify.app/dashboard",
+            "https://work-nest-lemon.vercel.app/dashboard",
         )
         self.assertNotIn("http://localhost:5173", invite_payload.context["button_url"])
         self.assertNotIn("http://localhost:5173", welcome_payload.context["button_url"])
