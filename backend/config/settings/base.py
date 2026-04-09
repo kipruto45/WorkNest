@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from urllib.parse import urlparse
 from pathlib import Path
 from email.utils import formataddr
 
@@ -94,6 +95,27 @@ env = environ.Env(
 environ.Env.read_env(BASE_DIR / ".env")
 
 
+def _parse_host_from_url(value: str) -> str:
+    candidate = str(value or "").strip()
+    if not candidate:
+        return ""
+    parsed = urlparse(candidate if "://" in candidate else f"https://{candidate}")
+    return (parsed.hostname or "").strip()
+
+
+def _merge_unique_strings(*groups: list[str]) -> list[str]:
+    results: list[str] = []
+    seen: set[str] = set()
+    for group in groups:
+        for item in group:
+            candidate = str(item or "").strip()
+            if not candidate or candidate in seen:
+                continue
+            seen.add(candidate)
+            results.append(candidate)
+    return results
+
+
 def build_database_config() -> dict:
     database_url = env("DATABASE_URL", default=None)
     if database_url:
@@ -119,8 +141,21 @@ def build_database_config() -> dict:
 SECRET_KEY = env("SECRET_KEY", default="unsafe-development-key")
 DEBUG = env("DEBUG")
 ENVIRONMENT = env("ENVIRONMENT")
-ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 API_VERSION = "v1"
+
+_configured_allowed_hosts = env("ALLOWED_HOSTS")
+_derived_allowed_hosts = _merge_unique_strings(
+    _configured_allowed_hosts,
+    [
+        _parse_host_from_url(env("BACKEND_URL")),
+        _parse_host_from_url(env("FRONTEND_URL")),
+        _parse_host_from_url(env("PUBLIC_WEBAPP_URL")),
+        str(env("RENDER_EXTERNAL_HOSTNAME", default="")).strip(),
+        "127.0.0.1",
+        "localhost",
+    ],
+)
+ALLOWED_HOSTS = _derived_allowed_hosts or ["127.0.0.1", "localhost"]
 
 DJANGO_APPS = [
     "django.contrib.admin",
@@ -258,8 +293,8 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.MultiPartParser",
     ),
     "DEFAULT_THROTTLE_CLASSES": (
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
+        "apps.common.throttles.AnonRateThrottle",
+        "apps.common.throttles.UserRateThrottle",
     ),
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/minute",
@@ -294,8 +329,18 @@ AUTHENTICATION_BACKENDS = (
 )
 
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
-CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
+_configured_cors_origins = env("CORS_ALLOWED_ORIGINS")
+_derived_browser_origins = _merge_unique_strings(
+    _configured_cors_origins,
+    [
+        str(env("FRONTEND_URL")).strip(),
+        str(env("PUBLIC_WEBAPP_URL")).strip(),
+        "http://localhost:3000",
+        "http://localhost:5173",
+    ],
+)
+CORS_ALLOWED_ORIGINS = _derived_browser_origins
+CSRF_TRUSTED_ORIGINS = _merge_unique_strings(env("CSRF_TRUSTED_ORIGINS"), _derived_browser_origins)
 
 REDIS_HOST = env("REDIS_HOST")
 REDIS_PORT = env("REDIS_PORT")
@@ -305,7 +350,11 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": REDIS_URL,
-    }
+    },
+    "throttle": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "worknest-throttle-cache",
+    },
 }
 
 CHANNEL_LAYERS = {
