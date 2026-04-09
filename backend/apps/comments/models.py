@@ -6,6 +6,8 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from apps.common.models import TimeStampedUUIDModel
+
 
 class Comment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -17,6 +19,8 @@ class Comment(models.Model):
         null=True,
         related_name="comments",
     )
+    guest_name = models.CharField(max_length=255, blank=True)
+    guest_email = models.EmailField(blank=True)
     parent = models.ForeignKey(
         "self",
         on_delete=models.CASCADE,
@@ -73,3 +77,26 @@ class CommentReaction(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id}:{self.emoji} on {self.comment_id}"
+
+
+class CommentVersion(TimeStampedUUIDModel):
+    comment = models.ForeignKey("comments.Comment", on_delete=models.CASCADE, related_name="versions")
+    content = models.TextField()
+    edited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="comment_versions",
+    )
+    edited_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "comment_versions"
+        ordering = ["-edited_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["comment", "edited_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Version for {self.comment_id} at {self.edited_at}"

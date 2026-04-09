@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useSelector } from 'react-redux'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
+import { useForm } from 'react-hook-form'
+import { toast } from 'react-toastify'
 import LoadingState from '../components/LoadingState'
 import EmptyState from '../components/EmptyState'
 import { dashboardAPI, notificationsAPI, tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { createTeam } from '../features/teamsSlice'
+import { extractApiError } from '../utils/apiErrors'
 import { formatDate, formatRelativeDate, getInitials, toSentenceCase } from '../utils/formatters'
 
 const dashboardSurface = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
@@ -11,6 +15,8 @@ const compactSurface = 'rounded-[22px] border border-slate-200 bg-[#fcfcfb]'
 
 export default function Dashboard() {
   const { user } = useSelector((state) => state.auth)
+  const dispatch = useDispatch()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState({})
   const [assignedTasks, setAssignedTasks] = useState([])
@@ -18,14 +24,28 @@ export default function Dashboard() {
   const [completedThisWeek, setCompletedThisWeek] = useState([])
   const [notifications, setNotifications] = useState([])
   const [teams, setTeams] = useState([])
+  const [teamsRefreshing, setTeamsRefreshing] = useState(false)
   const [pinnedTeams, setPinnedTeams] = useState([])
   const [recentTeams, setRecentTeams] = useState([])
   const [favoriteTasks, setFavoriteTasks] = useState([])
   const [recentTasks, setRecentTasks] = useState([])
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const {
+    register: registerTeam,
+    handleSubmit: handleCreateSubmit,
+    reset: resetCreateForm,
+    setError: setCreateError,
+    clearErrors: clearCreateErrors,
+    formState: { errors: createErrors, isSubmitting: isCreating },
+  } = useForm()
 
-  useEffect(() => {
-    const loadDashboard = async () => {
-      setLoading(true)
+  const loadDashboard = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) {
+        setLoading(true)
+      } else {
+        setTeamsRefreshing(true)
+      }
       try {
         const [
           summaryResponse,
@@ -62,15 +82,22 @@ export default function Dashboard() {
         setFavoriteTasks(unwrapResults(favoriteTasksResponse))
         setRecentTasks(unwrapResults(recentTasksResponse))
       } finally {
-        setLoading(false)
+        if (!silent) {
+          setLoading(false)
+        } else {
+          setTeamsRefreshing(false)
+        }
       }
-    }
+    },
+    []
+  )
 
+  useEffect(() => {
     loadDashboard()
-  }, [])
+  }, [loadDashboard])
 
-  const now = new Date()
   const dueSoonTasks = useMemo(() => {
+    const now = new Date()
     const soon = new Date()
     soon.setDate(soon.getDate() + 5)
 
@@ -81,7 +108,7 @@ export default function Dashboard() {
         return dueDate >= now && dueDate <= soon
       })
       .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
-  }, [assignedTasks, now])
+  }, [assignedTasks])
 
   const urgentTasks = useMemo(() => {
     const nearDeadline = dueSoonTasks.filter((task) => task.priority === 'high' || task.priority === 'critical')
@@ -136,6 +163,7 @@ export default function Dashboard() {
   }, [completedThisWeek])
   const maxWeeklyCount = Math.max(1, ...weeklyCompletionSeries.map((item) => item.count))
   const teamWorkspacePreview = useMemo(() => {
+    const now = new Date()
     return teams
       .map((team) => {
         const relevantTasks = assignedTasks.filter((task) => String(task.team || task.team_id || '') === String(team.id))
@@ -155,7 +183,7 @@ export default function Dashboard() {
       })
       .sort((left, right) => right.myTaskCount - left.myTaskCount || right.dueSoonCount - left.dueSoonCount)
       .slice(0, 3)
-  }, [assignedTasks, now, teams])
+  }, [assignedTasks, teams])
   const continueItems = useMemo(() => recentTasks.slice(0, 4), [recentTasks])
   const favoriteTaskItems = useMemo(() => favoriteTasks.slice(0, 4), [favoriteTasks])
   const pinnedTeamItems = useMemo(() => pinnedTeams.slice(0, 4), [pinnedTeams])
@@ -163,6 +191,70 @@ export default function Dashboard() {
 
   if (loading) {
     return <LoadingState label="Loading your personal dashboard" />
+  }
+
+  const handleOpenCreateModal = () => {
+    clearCreateErrors()
+    setShowCreateModal(true)
+  }
+
+  const handleCloseCreateModal = () => {
+    clearCreateErrors()
+    resetCreateForm()
+    setShowCreateModal(false)
+  }
+
+  const handleCreateTeam = async (data) => {
+    clearCreateErrors()
+    try {
+      const team = await dispatch(
+        createTeam({
+          name: data.name.trim(),
+          description: data.description?.trim() || '',
+        })
+      ).unwrap()
+      toast.success(
+        <div className="flex flex-wrap items-center gap-3">
+          <span>Team created. Invite your teammates by email next.</span>
+          <button
+            type="button"
+            onClick={() => navigate(`/teams/${team.id}/overview`)}
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700"
+          >
+            Open team
+          </button>
+        </div>
+      )
+      handleCloseCreateModal()
+      await loadDashboard({ silent: true })
+      navigate(`/teams/${team.id}/overview`)
+    } catch (error) {
+      const apiError =
+        typeof error === 'string'
+          ? { message: error, fieldErrors: {} }
+          : error?.fieldErrors || error?.status
+            ? error
+            : extractApiError(error, {
+                fallbackMessage: 'Failed to create team.',
+                forbiddenMessage: 'You are not authorized to create a team.',
+                serverMessage: 'Server error while creating team.',
+              })
+
+      Object.entries(apiError.fieldErrors || {}).forEach(([field, value]) => {
+        const message = Array.isArray(value) ? value[0] : value
+        if (field === 'name' || field === 'description') {
+          setCreateError(field, { type: 'server', message })
+        }
+      })
+      setCreateError('root', { type: 'server', message: apiError.message })
+      console.error('create_team_failed', {
+        location: 'dashboard',
+        status: apiError.status,
+        requestId: apiError.requestId,
+        errors: apiError.errors,
+      })
+      toast.error(apiError.message)
+    }
   }
 
   return (
@@ -339,12 +431,22 @@ export default function Dashboard() {
         <SectionHeader
           eyebrow="My Teams"
           title="Member workspaces"
-          action={<Link to="/teams" className="text-sm font-semibold text-emerald-700">Open teams</Link>}
+          action={
+            <div className="flex flex-wrap gap-3">
+              <button type="button" onClick={handleOpenCreateModal} className="text-sm font-semibold text-emerald-700">
+                Create team
+              </button>
+              <Link to="/teams" className="text-sm font-semibold text-emerald-700">Open teams</Link>
+            </div>
+          }
         />
 
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
           Only teams you belong to appear here, so every workspace link takes you into a member-only team dashboard.
         </p>
+        {teamsRefreshing ? (
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Refreshing teams…</p>
+        ) : null}
 
         <div className="mt-5 grid gap-4 xl:grid-cols-3">
           {teamWorkspacePreview.length === 0 ? (
@@ -353,9 +455,9 @@ export default function Dashboard() {
               title="No team workspaces yet"
               description="As soon as you join or create a team, its workspace dashboard will appear here for quick access."
               action={
-                <Link to="/teams" className="btn-primary">
-                  Explore teams
-                </Link>
+                <button type="button" onClick={handleOpenCreateModal} className="btn-primary">
+                  Create your first team
+                </button>
               }
             />
           ) : (
@@ -394,8 +496,74 @@ export default function Dashboard() {
               </Link>
             ))
           )}
+          {teamsRefreshing && teamWorkspacePreview.length > 0
+            ? Array.from({ length: Math.max(0, 3 - teamWorkspacePreview.length) }).map((_, index) => (
+                <div
+                  key={`team-skeleton-${index}`}
+                  className="rounded-[22px] border border-slate-200 bg-[#fcfcfb] p-5 animate-pulse"
+                >
+                  <div className="h-10 w-10 rounded-2xl bg-slate-200" />
+                  <div className="mt-4 h-4 w-3/4 rounded bg-slate-200" />
+                  <div className="mt-2 h-3 w-1/2 rounded bg-slate-200" />
+                  <div className="mt-5 grid grid-cols-3 gap-3">
+                    <div className="h-8 rounded bg-slate-200" />
+                    <div className="h-8 rounded bg-slate-200" />
+                    <div className="h-8 rounded bg-slate-200" />
+                  </div>
+                </div>
+              ))
+            : null}
         </div>
       </section>
+
+      {showCreateModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/30 px-4 backdrop-blur-sm">
+          <div className="page-shell w-full max-w-xl p-6 md:p-8">
+            <h3 className="font-display text-3xl font-bold text-emerald-950">Create a new team</h3>
+            <p className="mt-2 text-sm leading-6 text-soft">Start a workspace for shared task planning, invites, and delivery tracking.</p>
+
+            <form onSubmit={handleCreateSubmit(handleCreateTeam)} className="mt-6 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-emerald-950">Team name</label>
+                <input
+                  {...registerTeam('name', {
+                    required: 'Team name is required.',
+                    validate: (value) => value.trim().length > 0 || 'Team name is required.',
+                  })}
+                  className="input-field"
+                  placeholder="Growth Squad"
+                />
+                {createErrors.name ? <p className="mt-2 text-sm text-red-500">{createErrors.name.message}</p> : null}
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-emerald-950">Description</label>
+                <textarea
+                  {...registerTeam('description')}
+                  className="input-field min-h-[140px]"
+                  placeholder="What does this team own?"
+                />
+                {createErrors.description ? <p className="mt-2 text-sm text-red-500">{createErrors.description.message}</p> : null}
+              </div>
+
+              {createErrors.root ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {createErrors.root.message}
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap justify-end gap-3">
+                <button type="button" onClick={handleCloseCreateModal} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isCreating} className="btn-primary">
+                  {isCreating ? 'Creating...' : 'Create team'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-2">
         <section className={`${dashboardSurface} p-6 lg:p-7`}>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -6,6 +6,7 @@ import { toast } from 'react-toastify'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import { invitationsAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
 import { formatDate, toSentenceCase } from '../utils/formatters'
 import { canManageInvitations, resolveMembershipRole } from '../utils/permissions'
 import {
@@ -28,10 +29,13 @@ export default function TeamInvitations() {
   const [team, setTeam] = useState(null)
   const [invitations, setInvitations] = useState([])
   const [showComposer, setShowComposer] = useState(false)
+  const [pageError, setPageError] = useState('')
   const {
     register,
     handleSubmit,
     reset,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(invitationFormSchema),
@@ -42,8 +46,9 @@ export default function TeamInvitations() {
     },
   })
 
-  const loadInvitations = async () => {
+  const loadInvitations = useCallback(async () => {
     setLoading(true)
+    setPageError('')
     try {
       const [teamResponse, invitationsResponse] = await Promise.all([
         teamsAPI.getTeam(teamId),
@@ -56,15 +61,19 @@ export default function TeamInvitations() {
         navigate('/403')
         return
       }
-      toast.error('Unable to load invitations right now.')
+      const parsed = extractApiError(error, {
+        fallbackMessage: 'Unable to load invitations right now.',
+      })
+      setPageError(parsed.message)
+      toast.error(parsed.message)
     } finally {
       setLoading(false)
     }
-  }
+  }, [navigate, teamId])
 
   useEffect(() => {
     loadInvitations()
-  }, [teamId])
+  }, [loadInvitations])
 
   useEffect(() => {
     if (searchParams.get('compose') === '1') {
@@ -81,6 +90,7 @@ export default function TeamInvitations() {
 
   const onSubmit = async (data) => {
     setSubmitting(true)
+    clearErrors()
     try {
       await teamsAPI.inviteMember(teamId, data)
       toast.success('Invitation sent successfully.')
@@ -88,8 +98,17 @@ export default function TeamInvitations() {
       setShowComposer(false)
       await loadInvitations()
     } catch (error) {
-      const message = error.response?.data?.message || 'Unable to send invitation.'
-      toast.error(message)
+      const parsed = extractApiError(error, {
+        fallbackMessage: 'Unable to send invitation.',
+      })
+      Object.entries(parsed.fieldErrors || {}).forEach(([field, message]) => {
+        const value = Array.isArray(message) ? message[0] : message
+        if (value) {
+          setError(field, { message: value })
+        }
+      })
+      setError('root', { message: parsed.message })
+      toast.error(parsed.message)
     } finally {
       setSubmitting(false)
     }
@@ -101,7 +120,7 @@ export default function TeamInvitations() {
       toast.success('Invitation resent.')
       await loadInvitations()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Unable to resend invitation.')
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to resend invitation.' }).message)
     }
   }
 
@@ -111,7 +130,7 @@ export default function TeamInvitations() {
       toast.success('Invitation revoked.')
       await loadInvitations()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Unable to revoke invitation.')
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to revoke invitation.' }).message)
     }
   }
 
@@ -121,23 +140,36 @@ export default function TeamInvitations() {
       toast.success('Invitation role updated.')
       await loadInvitations()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Unable to update invitation role.')
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to update invitation role.' }).message)
     }
   }
+
+  const sortedInvitations = useMemo(() => {
+    const statusRank = { pending: 0, expired: 1, declined: 2, revoked: 3, accepted: 4 }
+    return [...invitations].sort((left, right) => {
+      const leftRank = statusRank[left.status] ?? 99
+      const rightRank = statusRank[right.status] ?? 99
+      if (leftRank !== rightRank) {
+        return leftRank - rightRank
+      }
+      return new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime()
+    })
+  }, [invitations])
 
   if (loading || !team) {
     return <LoadingState label="Loading invitations" />
   }
-
   const pendingCount = invitations.filter((invitation) => invitation.status === 'pending').length
   const role = resolveMembershipRole(team) || 'member'
-  const canInviteMembers = canManageInvitations({
+  const isPersonalWorkspace = Boolean(team?.is_personal)
+  const canInviteMembers = !isPersonalWorkspace && canManageInvitations({
     role,
     allowManagerInvites: team.allow_manager_invites,
   })
-  const canEditPolicy = canManageInvitePolicy(role)
+  const canEditPolicy = !isPersonalWorkspace && canManageInvitePolicy(role)
 
   const openComposer = () => {
+    clearErrors()
     setShowComposer(true)
     const nextParams = new URLSearchParams(searchParams)
     nextParams.set('compose', '1')
@@ -145,6 +177,8 @@ export default function TeamInvitations() {
   }
 
   const closeComposer = () => {
+    clearErrors()
+    reset({ email: '', role: 'member', custom_message: '' })
     setShowComposer(false)
     const nextParams = new URLSearchParams(searchParams)
     nextParams.delete('compose')
@@ -161,7 +195,7 @@ export default function TeamInvitations() {
       setTeam(unwrapData(response))
       toast.success('Invite policy updated.')
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Unable to update invite policy.')
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to update invite policy.' }).message)
     } finally {
       setPolicySaving(false)
     }
@@ -200,6 +234,27 @@ export default function TeamInvitations() {
           </div>
         </div>
       </section>
+
+      {pageError ? (
+        <section className="rounded-[24px] border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
+          {pageError}
+        </section>
+      ) : null}
+
+      {isPersonalWorkspace ? (
+        <section className={`${panelClass} p-6 lg:p-7`}>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Owner-only workspace</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-950">Personal workspaces stay private</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+            This workspace belongs to your individual account and does not support invitations. Create a shared team workspace when you are ready to collaborate with other people.
+          </p>
+          <div className="mt-5">
+            <button type="button" onClick={() => navigate('/teams')} className="btn-secondary">
+              Open teams
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className={`${panelClass} p-6 lg:p-7`}>
         <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
@@ -268,7 +323,7 @@ export default function TeamInvitations() {
               }
             />
           ) : (
-            invitations.map((invitation) => {
+            sortedInvitations.map((invitation) => {
               const isEditable = canInviteMembers && canEditInvitation(invitation)
               const canTakeActions = canInviteMembers && canRevokeOrResendInvitation(invitation)
               return (
@@ -375,6 +430,7 @@ export default function TeamInvitations() {
                     </option>
                   ))}
                 </select>
+                {errors.role ? <p className="mt-2 text-sm text-rose-600">{errors.role.message}</p> : null}
               </div>
 
               <div>
@@ -386,6 +442,12 @@ export default function TeamInvitations() {
                 />
                 {errors.custom_message ? <p className="mt-2 text-sm text-rose-600">{errors.custom_message.message}</p> : null}
               </div>
+
+              {errors.root ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {errors.root.message}
+                </div>
+              ) : null}
 
               <div className="flex flex-wrap justify-end gap-3">
                 <button type="button" onClick={closeComposer} className="btn-secondary">

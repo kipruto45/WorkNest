@@ -2,14 +2,16 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.core import mail
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
+from unittest.mock import patch
 
 from apps.comments.models import Comment
-from apps.integrations.models import EmailDelivery
+from apps.integrations.models import EmailDelivery, SMSDelivery
 from apps.notifications.constants import NotificationType
 from apps.notifications.models import Notification
 from apps.notifications.services import (
+    create_admin_communication,
     create_bulk_notifications,
     create_notification,
     notify_comment_activity,
@@ -24,11 +26,26 @@ from apps.memberships.models import TeamInvitation, Membership
 User = get_user_model()
 
 
+@override_settings(SMS_ENABLED=True, CELERY_TASK_ALWAYS_EAGER=True)
 class NotificationServiceTests(TestCase):
     def setUp(self) -> None:
         self.owner = User.objects.create_user(email="owner@example.com", password="StrongPass123!", name="Owner")
-        self.member = User.objects.create_user(email="member@example.com", password="StrongPass123!", name="Member")
-        self.assignee = User.objects.create_user(email="assignee@example.com", password="StrongPass123!", name="Assignee")
+        self.member = User.objects.create_user(
+            email="member@example.com",
+            password="StrongPass123!",
+            name="Member",
+            phone_number="+254711000001",
+            phone_verified=True,
+            sms_opt_in=True,
+        )
+        self.assignee = User.objects.create_user(
+            email="assignee@example.com",
+            password="StrongPass123!",
+            name="Assignee",
+            phone_number="+254711000002",
+            phone_verified=True,
+            sms_opt_in=True,
+        )
         self.team = create_team_with_owner(created_by=self.owner, name="Platform")
         self.team.memberships.create(
             user=self.member,
@@ -77,11 +94,16 @@ class NotificationServiceTests(TestCase):
             due_date=timezone.now() + timedelta(days=1),
         )
 
-        notification = notify_task_assignment(task=task, actor=self.owner)
+        with patch(
+            "apps.integrations.sms.services.deliver_sms_message",
+            return_value={"provider": "africas_talking", "message_id": "msg-task", "status": "sent"},
+        ), self.captureOnCommitCallbacks(execute=True):
+            notification = notify_task_assignment(task=task, actor=self.owner)
 
         self.assertIsNotNone(notification)
         self.assertEqual(notification.type, NotificationType.TASK_ASSIGNED)
         self.assertEqual(notification.user, self.assignee)
+        self.assertEqual(SMSDelivery.objects.filter(message_type=NotificationType.TASK_ASSIGNED).count(), 1)
 
     def test_notify_team_invite_creates_in_app_notification(self) -> None:
         invitation = TeamInvitation.objects.create(
@@ -92,11 +114,16 @@ class NotificationServiceTests(TestCase):
             expires_at=timezone.now() + timedelta(days=1),
         )
 
-        notification = notify_team_invite(invitation=invitation, recipient_user=self.member)
+        with patch(
+            "apps.integrations.sms.services.deliver_sms_message",
+            return_value={"provider": "africas_talking", "message_id": "msg-invite", "status": "sent"},
+        ), patch("apps.notifications.services.send_team_invite_event"), self.captureOnCommitCallbacks(execute=True):
+            notification = notify_team_invite(invitation=invitation, recipient_user=self.member)
 
         self.assertIsNotNone(notification)
         self.assertEqual(notification.type, NotificationType.TEAM_INVITE)
         self.assertEqual(notification.metadata["invitation_token"], invitation.token)
+        self.assertEqual(SMSDelivery.objects.filter(message_type=NotificationType.TEAM_INVITE).count(), 1)
 
     def test_notify_comment_activity_creates_mention_and_comment_notifications(self) -> None:
         task = Task.objects.create(
@@ -111,12 +138,17 @@ class NotificationServiceTests(TestCase):
             content="Please review this @member",
         )
 
-        notifications = notify_comment_activity(comment=comment, mentions=[self.member])
+        with patch(
+            "apps.integrations.sms.services.deliver_sms_message",
+            return_value={"provider": "africas_talking", "message_id": "msg-mention", "status": "sent"},
+        ), self.captureOnCommitCallbacks(execute=True):
+            notifications = notify_comment_activity(comment=comment, mentions=[self.member])
 
         self.assertEqual(Notification.objects.count(), 2)
         mention_types = {notification.type for notification in notifications}
         self.assertIn(NotificationType.MENTIONED_IN_COMMENT, mention_types)
         self.assertIn(NotificationType.COMMENT_POSTED, mention_types)
+        self.assertEqual(SMSDelivery.objects.filter(message_type=NotificationType.MENTIONED_IN_COMMENT).count(), 1)
 
     def test_notify_comment_activity_sends_one_email_per_recipient(self) -> None:
         task = Task.objects.create(
@@ -131,7 +163,10 @@ class NotificationServiceTests(TestCase):
             content="Please review this @member",
         )
 
-        with self.captureOnCommitCallbacks(execute=True):
+        with patch(
+            "apps.integrations.sms.services.deliver_sms_message",
+            return_value={"provider": "africas_talking", "message_id": "msg-email-test", "status": "sent"},
+        ), self.captureOnCommitCallbacks(execute=True):
             notify_comment_activity(comment=comment, mentions=[self.member])
 
         self.assertEqual(len(mail.outbox), 2)
@@ -140,3 +175,23 @@ class NotificationServiceTests(TestCase):
 
     def test_comment_posted_notifications_are_email_eligible(self) -> None:
         self.assertTrue(should_send_email_for_type(notification_type=NotificationType.COMMENT_POSTED))
+
+    def test_admin_communication_supports_sms_broadcasts(self) -> None:
+        with patch(
+            "apps.integrations.sms.services.deliver_sms_message",
+            return_value={"provider": "africas_talking", "message_id": "msg-admin", "status": "sent"},
+        ):
+            result = create_admin_communication(
+                actor=self.owner,
+                audience_type="selected_users",
+                channel_type="sms",
+                title="Urgent update",
+                message="Deployment starts at 21:00.",
+                user_ids=[str(self.member.id)],
+                confirm_broadcast=True,
+            )
+
+        communication = result["communication"]
+        communication.refresh_from_db()
+        self.assertEqual(communication.delivered_sms_count, 1)
+        self.assertEqual(communication.failed_sms_count, 0)

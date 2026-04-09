@@ -1,20 +1,25 @@
 from __future__ import annotations
 
-from django.db.models import Q, QuerySet
+from django.db.models import Prefetch, Q, QuerySet
 from django.utils import timezone
 
 from apps.audit_logs.models import AuditLog
 from apps.memberships.models import Membership
 from apps.tasks.constants import TASK_ORDERING_FIELDS
 from apps.tasks.models import (
+    AutomationRule,
     FavoriteTask,
+    GuestTaskAccess,
+    Milestone,
     RecentTaskVisit,
     SavedTaskView,
     Task,
     TaskChecklistItem,
+    TaskDependency,
     TaskLabel,
     TaskTemplate,
     TaskWatcher,
+    TimeEntry,
 )
 from apps.teams.models import Team
 
@@ -24,6 +29,7 @@ def _base_task_queryset() -> QuerySet[Task]:
         "team",
         "created_by",
         "assigned_to",
+        "milestone",
         "last_status_changed_by",
         "source_template",
     ).prefetch_related(
@@ -31,6 +37,8 @@ def _base_task_queryset() -> QuerySet[Task]:
         "checklist_items",
         "watchers__user",
         "favorited_by",
+        "incoming_dependencies",
+        "outgoing_dependencies",
     )
 
 
@@ -145,7 +153,51 @@ def get_saved_task_views(*, user, team_id: str | None = None, layout: str | None
         queryset = queryset.filter(Q(team_id=team_id) | Q(team__isnull=True))
     if layout:
         queryset = queryset.filter(layout=layout)
-    return queryset.order_by("-is_default", "name", "-updated_at")
+    return queryset.order_by("-is_pinned", "-is_default", "name", "-updated_at")
+
+
+def get_milestones(*, user, team_id: str):
+    return (
+        Milestone.objects.select_related("team", "created_by")
+        .prefetch_related(
+            Prefetch(
+                "tasks",
+                queryset=Task.objects.select_related("assigned_to").only(
+                    "id",
+                    "title",
+                    "status",
+                    "assigned_to_id",
+                    "assigned_to__name",
+                    "assigned_to__email",
+                    "milestone_id",
+                ),
+            )
+        )
+        .filter(team_id=team_id, team__memberships__user=user, team__memberships__status=Membership.Status.ACTIVE)
+        .order_by("status", "due_date", "-created_at")
+    )
+
+
+def get_time_entries_for_task(*, task: Task):
+    return TimeEntry.objects.select_related("user").filter(task=task).order_by("-start_time")
+
+
+def get_time_entries_for_user(*, user, team_id: str | None = None):
+    queryset = TimeEntry.objects.select_related("task", "task__team").filter(user=user)
+    if team_id:
+        queryset = queryset.filter(task__team_id=team_id)
+    return queryset.order_by("-start_time")
+
+
+def get_automation_rules(*, user, team_id: str | None = None):
+    queryset = AutomationRule.objects.select_related("team", "created_by")
+    if team_id:
+        return queryset.filter(team_id=team_id, team__memberships__user=user, team__memberships__status=Membership.Status.ACTIVE)
+    return queryset.filter(created_by=user)
+
+
+def get_guest_access_entries(*, task: Task):
+    return GuestTaskAccess.objects.filter(task=task).order_by("-created_at")
 
 
 def get_task_timeline(*, task: Task):
@@ -227,8 +279,14 @@ def filter_tasks(queryset: QuerySet[Task], filters) -> QuerySet[Task]:
 
     if planned_for_date := filters.get("planned_for_date"):
         queryset = queryset.filter(planned_for_date=planned_for_date)
+    if milestone_id := filters.get("milestone"):
+        queryset = queryset.filter(milestone_id=milestone_id)
     if _as_bool(filters.get("blocked")):
-        queryset = queryset.exclude(blocked_reason="")
+        blocked_task_ids = TaskDependency.objects.filter(
+            dependency_type=TaskDependency.DependencyType.BLOCKS,
+            from_task__status__in=[Task.Status.TODO, Task.Status.IN_PROGRESS, Task.Status.IN_REVIEW],
+        ).values_list("to_task_id", flat=True)
+        queryset = queryset.filter(Q(blocked_reason__isnull=False) & ~Q(blocked_reason="") | Q(id__in=blocked_task_ids))
     if _as_bool(filters.get("my_day")):
         queryset = queryset.filter(planned_for_date=timezone.localdate())
     if _as_bool(filters.get("due_today")):

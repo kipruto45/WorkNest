@@ -3,8 +3,9 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'react-toastify'
 import AuthShell from '../components/AuthShell'
-import { logout } from '../features/authSlice'
+import { hydrateCurrentUser, logout } from '../features/authSlice'
 import { invitationsAPI, unwrapData } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
 import { formatDate, toSentenceCase } from '../utils/formatters'
 import {
   deriveInvitationViewState,
@@ -83,16 +84,27 @@ export default function InvitationResponse() {
     try {
       if (intent === 'accept') {
         await invitationsAPI.accept(token)
+        try {
+          await dispatch(hydrateCurrentUser()).unwrap()
+        } catch (_error) {
+          // The invitation is already accepted; a transient bootstrap refresh should not block access.
+        }
         toast.success('Invitation accepted.')
         setInvitation((current) => (current ? { ...current, status: 'accepted' } : current))
+        if (team?.id) {
+          navigate(`/teams/${team.id}/overview`, { replace: true })
+          return
+        }
       } else {
         await invitationsAPI.decline(token)
         toast.success('Invitation declined.')
         setInvitation((current) => (current ? { ...current, status: 'declined' } : current))
       }
     } catch (error) {
-      const message = error.response?.data?.message || 'Unable to process the invitation right now.'
-      toast.error(message)
+      const parsed = extractApiError(error, {
+        fallbackMessage: 'Unable to process the invitation right now.',
+      })
+      toast.error(parsed.message)
       if (error.response?.status === 403) {
         setRequestState('ready')
       }
@@ -115,7 +127,7 @@ export default function InvitationResponse() {
       footer={
         <p>
           Need help?{' '}
-          <a className="font-semibold text-emerald-700 hover:text-emerald-800" href="mailto:kiprutovictor39@gmail.com">
+          <a className="font-semibold text-emerald-700 hover:text-emerald-800" href="mailto:support@worknest.example">
             Contact support
           </a>
         </p>

@@ -1,8 +1,12 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.test import override_settings
+from django.conf import settings
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from unittest.mock import patch
@@ -10,12 +14,30 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.integrations.models import EmailDelivery
-from apps.authentication.models import LoginActivity
+from apps.authentication.models import AuthSession, EmailVerificationToken, LoginActivity
+from apps.authentication.services import register_auth_session
+from apps.authentication.tokens import create_token_pair_for_user
+from apps.authentication.throttles import LoginThrottle, RegisterThrottle
+from apps.memberships.models import Membership
+from apps.teams.models import Team
 
 User = get_user_model()
 
 
+@override_settings(
+    REST_FRAMEWORK={
+        **settings.REST_FRAMEWORK,
+        "DEFAULT_THROTTLE_CLASSES": [],
+        "DEFAULT_THROTTLE_RATES": {},
+    }
+)
 class AuthenticationEndpointTests(APITestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        RegisterThrottle.rate = "1000/hour"
+        LoginThrottle.rate = "1000/hour"
+
     def test_register_returns_tokens_and_sets_cookie(self) -> None:
         response = self.client.post(
             reverse("api_v1:authentication:register"),
@@ -37,6 +59,61 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertEqual(response.data["data"]["user"]["email"], "jane@example.com")
         self.assertIn("refresh_token", response.cookies)
 
+    def test_register_requires_team_name_for_team_accounts(self) -> None:
+        response = self.client.post(
+            reverse("api_v1:authentication:register"),
+            {
+                "name": "Team Owner",
+                "email": "owner@example.com",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+                "account_type": "team",
+                "team_name": "",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("team_name", response.data["errors"])
+
+    def test_register_team_account_creates_team_and_default_team_id(self) -> None:
+        response = self.client.post(
+            reverse("api_v1:authentication:register"),
+            {
+                "name": "Team Owner",
+                "email": "team-owner@example.com",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+                "account_type": "team",
+                "team_name": "Alpha Squad",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user_id = response.data["data"]["user"]["id"]
+        self.assertTrue(Team.objects.filter(name="Alpha Squad").exists())
+        self.assertTrue(
+            Membership.objects.filter(user_id=user_id, role=Membership.Role.ADMIN, status=Membership.Status.ACTIVE).exists()
+        )
+        self.assertIsNotNone(response.data["data"]["user"]["default_team_id"])
+
+    def test_register_personal_account_creates_personal_team(self) -> None:
+        response = self.client.post(
+            reverse("api_v1:authentication:register"),
+            {
+                "name": "Personal Owner",
+                "email": "personal-owner@example.com",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+                "account_type": "personal",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user_id = response.data["data"]["user"]["id"]
+        self.assertTrue(Team.objects.filter(is_personal=True, created_by_id=user_id).exists())
     def test_register_rejects_duplicate_email(self) -> None:
         User.objects.create_user(email="jane@example.com", password="StrongPass123!", name="Jane Doe")
 
@@ -54,6 +131,42 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(response.data["success"])
         self.assertIn("email", response.data["errors"])
+
+    def test_register_accepts_phone_number_without_email(self) -> None:
+        response = self.client.post(
+            reverse("api_v1:authentication:register"),
+            {
+                "name": "Phone First",
+                "phone_number": "0712345678",
+                "phone_country_code": "+254",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["data"]["user"]["phone_number"], "+254712345678")
+        self.assertFalse(response.data["data"]["user"]["phone_verified"])
+        self.assertEqual(User.objects.filter(phone_number="+254712345678").count(), 1)
+
+    def test_register_rejects_duplicate_phone_number_after_normalization(self) -> None:
+        User.objects.create_user(phone_number="+254712345678", password="StrongPass123!", name="Phone Owner")
+
+        response = self.client.post(
+            reverse("api_v1:authentication:register"),
+            {
+                "name": "Phone Duplicate",
+                "phone_number": "0712345678",
+                "phone_country_code": "+254",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("phone_number", response.data["errors"])
 
     def test_login_returns_access_token_and_records_activity(self) -> None:
         user = User.objects.create_user(
@@ -75,6 +188,111 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertEqual(LoginActivity.objects.filter(user=user, success=True).count(), 1)
         user.refresh_from_db()
         self.assertIsNotNone(user.last_login)
+
+    def test_login_accepts_phone_number_credential(self) -> None:
+        user = User.objects.create_user(
+            phone_number="+254712345678",
+            password="StrongPass123!",
+            name="Phone Login",
+        )
+
+        response = self.client.post(
+            reverse("api_v1:authentication:login"),
+            {"credential": "0712345678", "password": "StrongPass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data"]["user"]["id"], str(user.id))
+        self.assertEqual(LoginActivity.objects.filter(user=user, success=True).count(), 1)
+
+    def test_current_user_works_after_phone_login(self) -> None:
+        user = User.objects.create_user(
+            phone_number="+254712345678",
+            password="StrongPass123!",
+            name="Phone User",
+        )
+
+        login_response = self.client.post(
+            reverse("api_v1:authentication:login"),
+            {"credential": "+254712345678", "password": "StrongPass123!"},
+            format="json",
+        )
+        access = login_response.data["data"]["tokens"]["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+        me_response = self.client.get(reverse("api_v1:authentication:me"))
+        self.assertEqual(me_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(me_response.data["data"]["phone_number"], user.phone_number)
+
+    def test_register_creates_email_verification_token(self) -> None:
+        response = self.client.post(
+            reverse("api_v1:authentication:register"),
+            {
+                "name": "Verify Me",
+                "email": "verify-me@example.com",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user = User.objects.get(email="verify-me@example.com")
+        self.assertFalse(user.email_verified)
+        self.assertTrue(EmailVerificationToken.objects.filter(user=user, used_at__isnull=True).exists())
+
+    def test_verify_email_endpoint_marks_user_verified(self) -> None:
+        user = User.objects.create_user(
+            email="verify-later@example.com",
+            password="StrongPass123!",
+            name="Verify Later",
+            email_verified=False,
+        )
+        token = EmailVerificationToken.objects.create(
+            user=user,
+            token="verify-token",
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+
+        response = self.client.post(
+            reverse("api_v1:authentication:email-verification-verify"),
+            {"token": token.token},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        token.refresh_from_db()
+        self.assertTrue(user.email_verified)
+        self.assertIsNotNone(token.used_at)
+
+    def test_login_creates_session_and_user_can_revoke_it(self) -> None:
+        user = User.objects.create_user(
+            email="session-user@example.com",
+            password="StrongPass123!",
+            name="Session User",
+        )
+
+        login_response = self.client.post(
+            reverse("api_v1:authentication:login"),
+            {"email": user.email, "password": "StrongPass123!"},
+            format="json",
+        )
+
+        access = login_response.data["data"]["tokens"]["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+        list_response = self.client.get(reverse("api_v1:authentication:sessions"))
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data["data"]), 1)
+
+        session_id = list_response.data["data"][0]["id"]
+        revoke_response = self.client.delete(reverse("api_v1:authentication:session-detail", kwargs={"pk": session_id}))
+        self.assertEqual(revoke_response.status_code, status.HTTP_200_OK)
+
+        session = AuthSession.objects.get(pk=session_id)
+        self.assertEqual(session.status, AuthSession.Status.REVOKED)
 
     def test_login_rejects_invalid_credentials(self) -> None:
         User.objects.create_user(
@@ -109,6 +327,24 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["success"])
         self.assertEqual(LoginActivity.objects.filter(user=user, success=True).count(), 1)
+
+    def test_login_returns_staff_flag_for_admin_user(self) -> None:
+        user = User.objects.create_user(
+            email="admin@example.com",
+            password="StrongPass123!",
+            name="Admin User",
+            is_staff=True,
+        )
+
+        response = self.client.post(
+            reverse("api_v1:authentication:login"),
+            {"email": user.email, "password": "StrongPass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertTrue(response.data["data"]["user"]["is_staff"])
 
     @patch("apps.authentication.services.queue_welcome_email", side_effect=RuntimeError("smtp unavailable"))
     def test_register_succeeds_when_welcome_email_queueing_fails(self, _mock_queue_welcome_email) -> None:
@@ -209,12 +445,9 @@ class AuthenticationEndpointTests(APITestCase):
             password="StrongPass123!",
             name="Jane Doe",
         )
-        login_response = self.client.post(
-            reverse("api_v1:authentication:login"),
-            {"email": user.email, "password": "StrongPass123!"},
-            format="json",
-        )
-        self.client.cookies = login_response.cookies
+        token_payload = create_token_pair_for_user(user=user)
+        register_auth_session(user=user, token_payload=token_payload, request=self.client.request().wsgi_request)
+        self.client.cookies[settings.AUTH_REFRESH_COOKIE_NAME] = token_payload["refresh"]
 
         response = self.client.post(reverse("api_v1:authentication:token-refresh"), {}, format="json")
 
@@ -398,14 +631,10 @@ class AuthenticationEndpointTests(APITestCase):
             last_name="User",
             bio="Synced from Google",
         )
+        token_payload = create_token_pair_for_user(user=user)
         authenticate_google_user_mock.return_value = {
             "user": user,
-            "tokens": {
-                "access": "access-token",
-                "refresh": "refresh-token",
-                "refresh_expires_in": 3600,
-                "token_type": "Bearer",
-            },
+            "tokens": token_payload,
             "is_new_user": False,
         }
 
@@ -419,3 +648,42 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertEqual(response.data["data"]["user"]["email"], user.email)
         self.assertEqual(response.data["data"]["user"]["auth_provider"], User.AuthProvider.GOOGLE)
         self.assertEqual(response.data["data"]["user"]["bio"], "Synced from Google")
+        self.assertEqual(AuthSession.objects.filter(user=user, status=AuthSession.Status.ACTIVE).count(), 1)
+        self.assertIn("refresh_token", response.cookies)
+        self.assertTrue(response.data["data"]["tokens"]["refresh_cookie_set"])
+
+    @override_settings(
+        GOOGLE_OAUTH_CLIENT_ID="client",
+        GOOGLE_OAUTH_CLIENT_SECRET="secret",
+        FRONTEND_URL="http://localhost:5173",
+    )
+    @patch("apps.authentication.adapter.get_google_user_info")
+    @patch("apps.authentication.adapter.exchange_code_for_token")
+    def test_google_oauth_callback_registers_session_and_uses_cookie_refresh(
+        self,
+        exchange_code_for_token_mock,
+        get_google_user_info_mock,
+    ) -> None:
+        exchange_code_for_token_mock.return_value = {"access_token": "google-access-token"}
+        get_google_user_info_mock.return_value = {
+            "email": "callback-user@example.com",
+            "given_name": "Callback",
+            "family_name": "User",
+            "name": "Callback User",
+            "picture": "https://example.com/avatar.png",
+        }
+
+        response = self.client.get(
+            reverse("api_v1:authentication:google-callback"),
+            {"code": "oauth-code", "state": "/teams/team-99/overview"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_302_FOUND)
+        self.assertIn("/auth/google/callback?", response["Location"])
+        self.assertIn("next=%2Fteams%2Fteam-99%2Foverview", response["Location"])
+        self.assertNotIn("refresh=", response["Location"])
+        self.assertIn("refresh_token", response.cookies)
+
+        user = User.objects.get(email="callback-user@example.com")
+        self.assertEqual(user.auth_provider, User.AuthProvider.GOOGLE)
+        self.assertTrue(AuthSession.objects.filter(user=user, status=AuthSession.Status.ACTIVE).exists())

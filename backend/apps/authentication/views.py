@@ -17,7 +17,9 @@ logger = logging.getLogger(__name__)
 
 from apps.authentication.permissions import AuthEntryPointPermission, AuthenticatedSessionPermission
 from apps.authentication.serializers import (
+    AuthSessionSerializer,
     AuthTokenResponseSerializer,
+    EmailVerificationRequestSerializer,
     GoogleOAuthConfigSerializer,
     GoogleOAuthLoginSerializer,
     LoginSerializer,
@@ -33,18 +35,26 @@ from apps.authentication.services import (
     clear_refresh_cookie,
     confirm_password_reset,
     create_user_account,
+    ensure_auth_session_is_active,
     get_google_oauth_config,
+    get_user_sessions,
     handle_google_auth,
     issue_tokens_for_user,
     normalize_token_value,
+    register_auth_session,
+    revoke_auth_session_for_token,
+    revoke_auth_session,
     request_password_reset,
+    rotate_auth_session,
+    send_email_verification,
     set_refresh_cookie,
     try_set_refresh_cookie,
+    verify_email_address,
 )
 from apps.authentication.throttles import LoginThrottle, PasswordResetThrottle, RegisterThrottle
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_auth_action
-from apps.common.responses import success_response
+from apps.common.responses import error_response, success_response
 from apps.integrations.email.builders import _get_frontend_url
 from apps.users.serializers import CurrentUserSerializer
 
@@ -61,7 +71,9 @@ def _serialize_authenticated_user(user) -> dict:
         )
         return {
             "id": str(getattr(user, "id", "")),
-            "email": getattr(user, "email", ""),
+            "email": getattr(user, "email", "") or "",
+            "phone_number": getattr(user, "phone_number", "") or "",
+            "phone_verified": bool(getattr(user, "phone_verified", False)),
             "name": getattr(user, "name", "") or "",
             "first_name": getattr(user, "first_name", "") or "",
             "last_name": getattr(user, "last_name", "") or "",
@@ -70,6 +82,9 @@ def _serialize_authenticated_user(user) -> dict:
             "timezone": getattr(user, "timezone", "UTC") or "UTC",
             "notification_preferences": {},
             "auth_provider": getattr(user, "auth_provider", "email") or "email",
+            "account_type": getattr(user, "account_type", "personal") or "personal",
+            "primary_mode": getattr(user, "primary_mode", getattr(user, "account_type", "personal") or "personal"),
+            "onboarding_completed": bool(getattr(user, "onboarding_completed", False)),
             "email_verified": bool(getattr(user, "email_verified", False)),
             "is_active": bool(getattr(user, "is_active", True)),
             "is_staff": bool(getattr(user, "is_staff", False)),
@@ -86,6 +101,15 @@ def _frontend_url_with_path(path: str) -> str:
     if frontend_url:
         return f"{frontend_url}{path}"
     return path
+
+
+def _normalize_frontend_next_path(next_path: str | None) -> str:
+    candidate = str(next_path or "").strip()
+    if not candidate.startswith("/"):
+        return ""
+    if candidate.startswith("//"):
+        return ""
+    return candidate
 
 
 def build_auth_response_payload(*, user, token_payload: dict, refresh_cookie_set: bool = True) -> dict:
@@ -110,13 +134,25 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = create_user_account(
-            email=serializer.validated_data["email"],
+            email=serializer.validated_data.get("email", ""),
+            phone_number=serializer.validated_data.get("phone_number", ""),
+            phone_country_code=serializer.validated_data.get("phone_country_code", ""),
             password=serializer.validated_data["password"],
             name=serializer.validated_data["name"],
             first_name=serializer.validated_data.get("first_name", ""),
             last_name=serializer.validated_data.get("last_name", ""),
+            auth_provider=(
+                User.AuthProvider.PHONE
+                if serializer.validated_data.get("phone_number") and not serializer.validated_data.get("email")
+                else User.AuthProvider.EMAIL
+            ),
+            account_type=serializer.validated_data.get("account_type", User.AccountType.PERSONAL),
+            team_name=serializer.validated_data.get("team_name", ""),
         )
         token_payload = issue_tokens_for_user(user=user)
+        register_auth_session(user=user, token_payload=token_payload, request=request)
+        if not user.email_verified:
+            send_email_verification(user=user)
         response = success_response(
             request=request,
             message="Registration completed successfully.",
@@ -137,7 +173,7 @@ class LoginView(APIView):
         serializer.is_valid(raise_exception=True)
 
         user, token_payload = authenticate_user_and_issue_tokens(
-            email=serializer.validated_data["email"],
+            credential=serializer.validated_data["credential"],
             password=serializer.validated_data["password"],
             request=request,
             remember_me=serializer.validated_data.get("remember_me", False),
@@ -166,6 +202,7 @@ class LogoutView(APIView):
         if not refresh_token:
             refresh_token = normalize_token_value(request.data.get("refresh"))
         if refresh_token:
+            revoke_auth_session_for_token(token_value=refresh_token)
             blacklist_refresh_token(refresh_token)
 
         response = success_response(
@@ -199,12 +236,16 @@ class RefreshTokenView(APIView):
             raise ValidationError({"refresh": _("Refresh token is required.")})
 
         try:
+            session = ensure_auth_session_is_active(token_value=token_value)
             refresh = RefreshToken(token_value)
             user = User.objects.get(id=refresh["user_id"])
             token_payload = issue_tokens_for_user(user=user)
             blacklist_refresh_token(token_value)
         except (TokenError, User.DoesNotExist):
             raise ValidationError({"refresh": _("Refresh token is invalid or expired.")})
+        except serializers.ValidationError as exc:
+            raise ValidationError(exc.detail)
+        rotate_auth_session(session=session, token_payload=token_payload, request=request)
 
         response = success_response(
             request=request,
@@ -262,6 +303,65 @@ class MeView(APIView):
         )
 
 
+class EmailVerificationView(APIView):
+    permission_classes = [AuthEntryPointPermission]
+
+    @extend_schema(request=EmailVerificationRequestSerializer, responses=CurrentUserSerializer)
+    def post(self, request, *args, **kwargs):  # type: ignore[override]
+        serializer = EmailVerificationRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = verify_email_address(token=serializer.validated_data["token"])
+        return success_response(
+            request=request,
+            message="Email verified successfully.",
+            data=CurrentUserSerializer(user).data,
+        )
+
+
+class EmailVerificationResendView(APIView):
+    permission_classes = [AuthenticatedSessionPermission]
+
+    def post(self, request, *args, **kwargs):  # type: ignore[override]
+        send_email_verification(user=request.user, actor=request.user)
+        return success_response(
+            request=request,
+            message="Verification email queued successfully.",
+            data={"email_verified": request.user.email_verified},
+        )
+
+
+class SessionListView(APIView):
+    permission_classes = [AuthenticatedSessionPermission]
+
+    @extend_schema(responses=AuthSessionSerializer(many=True))
+    def get(self, request, *args, **kwargs):  # type: ignore[override]
+        return success_response(
+            request=request,
+            message="Sessions retrieved successfully.",
+            data=AuthSessionSerializer(get_user_sessions(user=request.user), many=True).data,
+        )
+
+
+class SessionDetailView(APIView):
+    permission_classes = [AuthenticatedSessionPermission]
+
+    def delete(self, request, pk, *args, **kwargs):  # type: ignore[override]
+        session = request.user.auth_sessions.filter(pk=pk).first()
+        if session is None:
+            return success_response(
+                request=request,
+                message="Session not found.",
+                data=None,
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        revoke_auth_session(session=session)
+        return success_response(
+            request=request,
+            message="Session revoked successfully.",
+            data=None,
+        )
+
+
 class GoogleOAuthConfigView(APIView):
     permission_classes = [AuthEntryPointPermission]
 
@@ -276,7 +376,7 @@ class GoogleOAuthConfigView(APIView):
         return f"{backend_url}/api/v1/auth/google/callback/"
 
     @classmethod
-    def _build_login_url(cls, request) -> str:
+    def _build_login_url(cls, request, *, next_path: str = "") -> str:
         client_id = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", "")).strip()
         callback_url = cls._build_callback_url(request)
         params = {
@@ -286,6 +386,9 @@ class GoogleOAuthConfigView(APIView):
             "scope": "openid email profile",
             "access_type": "online",
         }
+        normalized_next_path = _normalize_frontend_next_path(next_path)
+        if normalized_next_path:
+            params["state"] = normalized_next_path
         return f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
 
     @extend_schema(responses=GoogleOAuthConfigSerializer)
@@ -293,6 +396,7 @@ class GoogleOAuthConfigView(APIView):
         client_id = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", "")).strip()
         client_secret = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_SECRET", "")).strip()
         is_enabled = bool(client_id and client_secret)
+        next_path = _normalize_frontend_next_path(request.query_params.get("next"))
 
         try:
             return success_response(
@@ -301,7 +405,7 @@ class GoogleOAuthConfigView(APIView):
                 data={
                     "provider": "google",
                     "enabled": is_enabled,
-                    "login_url": self._build_login_url(request) if is_enabled else None,
+                    "login_url": self._build_login_url(request, next_path=next_path) if is_enabled else None,
                     "callback_url": self._build_callback_url(request) if is_enabled else None,
                 },
             )
@@ -329,11 +433,12 @@ class GoogleLoginView(APIView):
         client_secret = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_SECRET", "")).strip()
         if not client_id or not client_secret:
             raise ValidationError({"detail": "Google OAuth is not configured on the backend."})
+        next_path = _normalize_frontend_next_path(request.query_params.get("next"))
 
         try:
             payload = {
                 "provider": "google",
-                "login_url": GoogleOAuthConfigView._build_login_url(request),
+                "login_url": GoogleOAuthConfigView._build_login_url(request, next_path=next_path),
             }
         except Exception as exc:
             logger.exception("Failed to generate Google login URL")
@@ -403,41 +508,44 @@ class GoogleAuthView(APIView):
             user = result["user"]
             tokens = result["tokens"]
             is_new_user = result["is_new_user"]
-            
-            return success_response(
+
+            register_auth_session(user=user, token_payload=tokens, request=request)
+            response = success_response(
                 request=request,
                 message="Google authentication successful",
                 data={
-                    "user": _serialize_authenticated_user(user),
-                    "tokens": tokens,
+                    **build_auth_response_payload(user=user, token_payload=tokens, refresh_cookie_set=False),
                     "is_new_user": is_new_user,
                 },
             )
+            response.data["data"]["tokens"]["refresh_cookie_set"] = try_set_refresh_cookie(response, tokens["refresh"])
+            return response
             
         except AccountConflictError as e:
-            return success_response(
+            return error_response(
                 request=request,
                 message="Account conflict detected",
-                data=None,
                 errors={"account": [e.message]},
                 status_code=rf_status.HTTP_409_CONFLICT,
             )
         
         except GoogleAuthError as e:
-            return success_response(
+            return error_response(
                 request=request,
                 message="Google authentication failed",
-                data=None,
                 errors={"google": [e.message]},
                 status_code=rf_status.HTTP_400_BAD_REQUEST,
             )
         
         except Exception as e:
             logger.exception("Unexpected error in Google auth")
-            return success_response(
+            return error_response(
                 request=request,
-                message="Google authentication could not be completed",
-                data=None,
-                errors={"error": ["An unexpected error occurred. Please try again."]},
+                message="Google authentication is temporarily unavailable",
+                errors={
+                    "google": [
+                        "Google sign-in could not be completed right now. Please try again or use email and password."
+                    ]
+                },
                 status_code=rf_status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

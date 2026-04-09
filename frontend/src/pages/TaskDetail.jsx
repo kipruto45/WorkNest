@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useForm } from 'react-hook-form'
 import { toast } from 'react-toastify'
 import LoadingState from '../components/LoadingState'
+import EmptyState from '../components/EmptyState'
 import { attachmentsAPI, commentsAPI, tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
 import { deleteTask, updateTask } from '../features/tasksSlice'
 import { formatDate, formatRelativeDate, toSentenceCase } from '../utils/formatters'
@@ -34,6 +35,18 @@ export default function TaskDetail() {
   const [teamMembers, setTeamMembers] = useState([])
   const [teamLabels, setTeamLabels] = useState([])
   const [timeline, setTimeline] = useState([])
+  const [timeEntries, setTimeEntries] = useState([])
+  const [guestAccess, setGuestAccess] = useState([])
+  const [guestEmail, setGuestEmail] = useState('')
+  const [guestPermission, setGuestPermission] = useState('view')
+  const [dependencySearch, setDependencySearch] = useState('')
+  const [dependencyResults, setDependencyResults] = useState([])
+  const [dependencyType, setDependencyType] = useState('blocks')
+  const [dependencyLoading, setDependencyLoading] = useState(false)
+  const [timeEntryNote, setTimeEntryNote] = useState('')
+  const [manualStart, setManualStart] = useState('')
+  const [manualEnd, setManualEnd] = useState('')
+  const [timeEntryBusy, setTimeEntryBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [commentValue, setCommentValue] = useState('')
@@ -48,6 +61,9 @@ export default function TaskDetail() {
   const [selectedAssigneeId, setSelectedAssigneeId] = useState('')
   const [statusDraft, setStatusDraft] = useState('todo')
   const [attachmentActionKey, setAttachmentActionKey] = useState('')
+  const [historyComment, setHistoryComment] = useState(null)
+  const [historyItems, setHistoryItems] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const {
     register,
     handleSubmit,
@@ -55,7 +71,7 @@ export default function TaskDetail() {
     formState: { isSubmitting },
   } = useForm()
 
-  const loadTaskData = async () => {
+  const loadTaskData = useCallback(async () => {
     setLoading(true)
     try {
       const taskResponse = await tasksAPI.getTask(taskId)
@@ -65,13 +81,24 @@ export default function TaskDetail() {
         return
       }
 
-      const [commentsResponse, attachmentsResponse, teamResponse, membersResponse, labelsResponse, timelineResponse] = await Promise.all([
+      const [
+        commentsResponse,
+        attachmentsResponse,
+        teamResponse,
+        membersResponse,
+        labelsResponse,
+        timelineResponse,
+        timeEntryResponse,
+        guestAccessResponse,
+      ] = await Promise.all([
         commentsAPI.getComments(taskId, { page_size: 100 }),
         attachmentsAPI.getForTask(taskId),
         teamsAPI.getTeam(taskData.team).catch(() => null),
         teamsAPI.getTeamMembers(taskData.team, { page_size: 100 }).catch(() => null),
         tasksAPI.getLabels({ team: taskData.team, page_size: 100 }).catch(() => null),
         tasksAPI.getTimeline(taskId, { page_size: 20 }).catch(() => null),
+        tasksAPI.getTimeEntries(taskId, { page_size: 20 }).catch(() => null),
+        tasksAPI.getGuestAccess(taskId).catch(() => null),
       ])
 
       setTask(taskData)
@@ -81,12 +108,15 @@ export default function TaskDetail() {
       setTeamMembers(membersResponse ? unwrapResults(membersResponse) : [])
       setTeamLabels(labelsResponse ? unwrapResults(labelsResponse) : [])
       setTimeline(timelineResponse ? unwrapResults(timelineResponse) : [])
+      setTimeEntries(timeEntryResponse ? unwrapResults(timeEntryResponse) : [])
+      setGuestAccess(guestAccessResponse ? unwrapResults(guestAccessResponse) : [])
       setSelectedAssigneeId(taskData.assigned_to || '')
       setStatusDraft(taskData.status)
       reset({
         title: taskData.title,
         description: taskData.description || '',
         priority: taskData.priority,
+        [TASK_FIELD_KEYS.startAt]: taskData[TASK_FIELD_KEYS.startAt] ? taskData[TASK_FIELD_KEYS.startAt].slice(0, 16) : '',
         [TASK_FIELD_KEYS.dueAt]: taskData[TASK_FIELD_KEYS.dueAt] ? taskData[TASK_FIELD_KEYS.dueAt].slice(0, 16) : '',
         status: taskData.status,
       })
@@ -96,11 +126,141 @@ export default function TaskDetail() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [navigate, reset, taskId])
 
   useEffect(() => {
     loadTaskData()
-  }, [taskId])
+  }, [loadTaskData])
+
+  useEffect(() => {
+    if (!dependencySearch.trim() || !task?.team) {
+      setDependencyResults([])
+      return
+    }
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      setDependencyLoading(true)
+      try {
+        const response = await tasksAPI.getTasks({ team: task.team, search: dependencySearch.trim(), page_size: 6 })
+        if (!cancelled) {
+          setDependencyResults(unwrapResults(response).filter((item) => item.id !== taskId))
+        }
+      } catch (_error) {
+        if (!cancelled) {
+          setDependencyResults([])
+        }
+      } finally {
+        if (!cancelled) {
+          setDependencyLoading(false)
+        }
+      }
+    }, 250)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [dependencySearch, task?.team, taskId])
+
+  const activeTimeEntry = timeEntries.find((entry) => !entry.end_time)
+
+  const handleStartTimer = async () => {
+    if (!taskId) return
+    setTimeEntryBusy(true)
+    try {
+      await tasksAPI.startTimeEntry(taskId)
+      await loadTaskData()
+      toast.success('Timer started.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to start the timer.')
+    } finally {
+      setTimeEntryBusy(false)
+    }
+  }
+
+  const handleStopTimer = async () => {
+    if (!activeTimeEntry) return
+    setTimeEntryBusy(true)
+    try {
+      await tasksAPI.stopTimeEntry(activeTimeEntry.id)
+      await loadTaskData()
+      toast.success('Timer stopped.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to stop the timer.')
+    } finally {
+      setTimeEntryBusy(false)
+    }
+  }
+
+  const handleManualEntry = async (event) => {
+    event.preventDefault()
+    if (!manualStart || !manualEnd) {
+      toast.error('Start and end time are required for manual entries.')
+      return
+    }
+    setTimeEntryBusy(true)
+    try {
+      await tasksAPI.createTimeEntry(taskId, {
+        start_time: manualStart,
+        end_time: manualEnd,
+        notes: timeEntryNote,
+      })
+      setTimeEntryNote('')
+      setManualStart('')
+      setManualEnd('')
+      await loadTaskData()
+      toast.success('Time entry saved.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to save time entry.')
+    } finally {
+      setTimeEntryBusy(false)
+    }
+  }
+
+  const handleAddDependency = async (targetId) => {
+    try {
+      await tasksAPI.createDependency(taskId, { to_task_id: targetId, dependency_type: dependencyType })
+      setDependencySearch('')
+      setDependencyResults([])
+      await loadTaskData()
+      toast.success('Dependency created.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to add dependency.')
+    }
+  }
+
+  const handleRemoveDependency = async (dependencyId) => {
+    try {
+      await tasksAPI.deleteDependency(dependencyId)
+      await loadTaskData()
+      toast.success('Dependency removed.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to remove dependency.')
+    }
+  }
+
+  const handleGuestAccessCreate = async (event) => {
+    event.preventDefault()
+    if (!guestEmail.trim()) return
+    try {
+      await tasksAPI.createGuestAccess(taskId, { email: guestEmail.trim(), permission: guestPermission })
+      setGuestEmail('')
+      setGuestPermission('view')
+      await loadTaskData()
+      toast.success('Guest access granted.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to grant guest access.')
+    }
+  }
+
+  const handleGuestAccessRevoke = async (entryId) => {
+    try {
+      await tasksAPI.revokeGuestAccess(entryId)
+      await loadTaskData()
+      toast.success('Guest access revoked.')
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to revoke access.')
+    }
+  }
 
   const handleUpdate = async (data) => {
     try {
@@ -111,6 +271,7 @@ export default function TaskDetail() {
             title: data.title,
             description: data.description,
             priority: data.priority,
+            [TASK_FIELD_KEYS.startAt]: data[TASK_FIELD_KEYS.startAt] || null,
             [TASK_FIELD_KEYS.dueAt]: data[TASK_FIELD_KEYS.dueAt] || null,
             status: data.status,
           },
@@ -186,6 +347,20 @@ export default function TaskDetail() {
       toast.success('Comment deleted.')
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Failed to delete comment.')
+    }
+  }
+
+  const handleCommentHistory = async (comment) => {
+    setHistoryComment(comment)
+    setHistoryLoading(true)
+    try {
+      const response = await commentsAPI.getHistory(comment.id, { page_size: 20 })
+      setHistoryItems(unwrapResults(response))
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Unable to load comment history.')
+      setHistoryItems([])
+    } finally {
+      setHistoryLoading(false)
     }
   }
 
@@ -516,6 +691,10 @@ export default function TaskDetail() {
                   </select>
                 </div>
                 <div>
+                  <label className="mb-2 block text-sm font-semibold text-emerald-950">Start time</label>
+                  <input type="datetime-local" {...register(TASK_FIELD_KEYS.startAt)} className="input-field" />
+                </div>
+                <div>
                   <label className="mb-2 block text-sm font-semibold text-emerald-950">Due date</label>
                   <input type="datetime-local" {...register(TASK_FIELD_KEYS.dueAt)} className="input-field" />
                 </div>
@@ -549,6 +728,7 @@ export default function TaskDetail() {
                     comment={comment}
                     currentUserId={currentUser?.id}
                     currentRole={currentRole}
+                    onViewHistory={handleCommentHistory}
                     onReply={postComment}
                     onUpdate={handleCommentUpdate}
                     onDelete={handleCommentDelete}
@@ -581,6 +761,7 @@ export default function TaskDetail() {
               <DetailRow label="Team" value={task.team_name} />
               <DetailRow label="Priority" value={toSentenceCase(task.priority)} />
               <DetailRow label="Status" value={toSentenceCase(task.status)} />
+              <DetailRow label="Start time" value={formatDate(task.start_at)} />
               <DetailRow label="Due date" value={formatDate(task.due_date)} />
               <DetailRow label="Created by" value={task.created_by_data?.name || 'Unknown'} />
               <DetailRow label="Assigned to" value={task.assigned_to_data?.name || 'Unassigned'} />
@@ -714,6 +895,227 @@ export default function TaskDetail() {
                   <span className="text-sm text-slate-500">No watchers yet.</span>
                 )}
               </div>
+            </div>
+          </section>
+
+          <section className="card fade-in">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Dependencies</p>
+                <h2 className="mt-2 text-2xl font-bold text-emerald-950">Blocked work and relationships</h2>
+              </div>
+              <div className="stat-chip">
+                {(task.dependencies_incoming || []).length + (task.dependencies_outgoing || []).length}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-[22px] border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-900">Blocked by</p>
+                <div className="mt-3 space-y-2">
+                  {(task.dependencies_incoming || []).length === 0 ? (
+                    <p className="text-sm text-slate-500">No incoming blockers.</p>
+                  ) : (
+                    task.dependencies_incoming.map((dependency) => (
+                      <div key={dependency.id} className="flex items-center justify-between rounded-2xl border border-slate-200 px-3 py-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{dependency.from_task_title}</p>
+                          <p className="text-xs text-slate-500">Status: {dependency.from_task_status?.replaceAll('_', ' ')}</p>
+                        </div>
+                        <button type="button" onClick={() => handleRemoveDependency(dependency.id)} className="btn-ghost">
+                          Remove
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div className="rounded-[22px] border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-900">Blocking</p>
+                <div className="mt-3 space-y-2">
+                  {(task.dependencies_outgoing || []).length === 0 ? (
+                    <p className="text-sm text-slate-500">No outgoing dependencies.</p>
+                  ) : (
+                    task.dependencies_outgoing.map((dependency) => (
+                      <div key={dependency.id} className="flex items-center justify-between rounded-2xl border border-slate-200 px-3 py-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{dependency.to_task_title}</p>
+                          <p className="text-xs text-slate-500">Status: {dependency.to_task_status?.replaceAll('_', ' ')}</p>
+                        </div>
+                        <button type="button" onClick={() => handleRemoveDependency(dependency.id)} className="btn-ghost">
+                          Remove
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  value={dependencySearch}
+                  onChange={(event) => setDependencySearch(event.target.value)}
+                  className="input-field flex-1"
+                  placeholder="Search tasks to link as dependencies"
+                />
+                <select value={dependencyType} onChange={(event) => setDependencyType(event.target.value)} className="input-field">
+                  <option value="blocks">Blocks</option>
+                  <option value="related_to">Related</option>
+                </select>
+              </div>
+              <div className="mt-4 grid gap-2">
+                {dependencyLoading ? (
+                  <p className="text-sm text-slate-500">Searching tasks...</p>
+                ) : dependencyResults.length ? (
+                  dependencyResults.map((candidate) => (
+                    <button
+                      key={candidate.id}
+                      type="button"
+                      onClick={() => handleAddDependency(candidate.id)}
+                      className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{candidate.title}</p>
+                        <p className="text-xs text-slate-500">{candidate.team_name || team?.name || 'Team task'}</p>
+                      </div>
+                      <span className="text-xs font-semibold text-emerald-700">Link</span>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-500">Search for tasks to create a dependency link.</p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="card fade-in">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Time tracking</p>
+                <h2 className="mt-2 text-2xl font-bold text-emerald-950">Track effort in real time</h2>
+              </div>
+              <div className="stat-chip">{task.total_tracked_seconds ? `${Math.round(task.total_tracked_seconds / 60)} min` : '0 min'}</div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              {activeTimeEntry ? (
+                <button type="button" onClick={handleStopTimer} disabled={timeEntryBusy} className="btn-primary">
+                  {timeEntryBusy ? 'Stopping...' : 'Stop timer'}
+                </button>
+              ) : (
+                <button type="button" onClick={handleStartTimer} disabled={timeEntryBusy} className="btn-secondary">
+                  {timeEntryBusy ? 'Starting...' : 'Start timer'}
+                </button>
+              )}
+              {activeTimeEntry ? (
+                <span className="text-sm font-semibold text-emerald-900">
+                  Running since {formatDate(activeTimeEntry.start_time)}
+                </span>
+              ) : (
+                <span className="text-sm text-slate-500">No active timer running.</span>
+              )}
+            </div>
+
+            <form onSubmit={handleManualEntry} className="mt-5 grid gap-3 md:grid-cols-3">
+              <label className="text-sm font-semibold text-slate-900">
+                Start
+                <input
+                  type="datetime-local"
+                  value={manualStart}
+                  onChange={(event) => setManualStart(event.target.value)}
+                  className="input-field mt-2"
+                />
+              </label>
+              <label className="text-sm font-semibold text-slate-900">
+                End
+                <input
+                  type="datetime-local"
+                  value={manualEnd}
+                  onChange={(event) => setManualEnd(event.target.value)}
+                  className="input-field mt-2"
+                />
+              </label>
+              <label className="text-sm font-semibold text-slate-900 md:col-span-1">
+                Notes
+                <input
+                  value={timeEntryNote}
+                  onChange={(event) => setTimeEntryNote(event.target.value)}
+                  className="input-field mt-2"
+                  placeholder="Optional notes"
+                />
+              </label>
+              <div className="md:col-span-3">
+                <button type="submit" disabled={timeEntryBusy} className="btn-primary">
+                  {timeEntryBusy ? 'Saving...' : 'Add manual entry'}
+                </button>
+              </div>
+            </form>
+
+            <div className="mt-5 space-y-3">
+              {timeEntries.length === 0 ? (
+                <div className="rounded-[24px] bg-emerald-50/70 p-5 text-sm text-soft">No time entries logged yet.</div>
+              ) : (
+                timeEntries.map((entry) => (
+                  <div key={entry.id} className="glass-panel flex items-center justify-between gap-3 p-4">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{entry.user?.name || 'Teammate'}</p>
+                      <p className="text-xs text-slate-500">
+                        {formatDate(entry.start_time)} → {entry.end_time ? formatDate(entry.end_time) : 'In progress'}
+                      </p>
+                      {entry.notes ? <p className="mt-1 text-xs text-slate-500">{entry.notes}</p> : null}
+                    </div>
+                    <span className="text-xs font-semibold text-emerald-700">
+                      {entry.duration_seconds ? `${Math.round(entry.duration_seconds / 60)} min` : '—'}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="card fade-in">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Guest access</p>
+                <h2 className="mt-2 text-2xl font-bold text-emerald-950">Invite external reviewers</h2>
+              </div>
+              <div className="stat-chip">{guestAccess.length}</div>
+            </div>
+
+            <form onSubmit={handleGuestAccessCreate} className="mt-5 grid gap-3 md:grid-cols-[1fr,160px,140px]">
+              <input
+                value={guestEmail}
+                onChange={(event) => setGuestEmail(event.target.value)}
+                className="input-field"
+                placeholder="guest@example.com"
+              />
+              <select value={guestPermission} onChange={(event) => setGuestPermission(event.target.value)} className="input-field">
+                <option value="view">View only</option>
+                <option value="comment">Comment</option>
+              </select>
+              <button type="submit" className="btn-primary">
+                Grant access
+              </button>
+            </form>
+
+            <div className="mt-5 space-y-3">
+              {guestAccess.length === 0 ? (
+                <div className="rounded-[24px] bg-emerald-50/70 p-5 text-sm text-soft">No guest access entries yet.</div>
+              ) : (
+                guestAccess.map((entry) => (
+                  <div key={entry.id} className="glass-panel flex items-center justify-between gap-3 p-4">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{entry.email}</p>
+                      <p className="text-xs text-slate-500">Permission: {entry.permission}</p>
+                    </div>
+                    <button type="button" onClick={() => handleGuestAccessRevoke(entry.id)} className="btn-ghost">
+                      Revoke
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </section>
 
@@ -867,11 +1269,23 @@ export default function TaskDetail() {
           </section>
         </div>
       </div>
+
+      {historyComment ? (
+        <CommentHistoryModal
+          comment={historyComment}
+          historyItems={historyItems}
+          loading={historyLoading}
+          onClose={() => {
+            setHistoryComment(null)
+            setHistoryItems([])
+          }}
+        />
+      ) : null}
     </div>
   )
 }
 
-function CommentCard({ comment, currentUserId, currentRole, onReply, onUpdate, onDelete, onToggleReaction }) {
+function CommentCard({ comment, currentUserId, currentRole, onViewHistory, onReply, onUpdate, onDelete, onToggleReaction }) {
   const [replying, setReplying] = useState(false)
   const [editing, setEditing] = useState(false)
   const [replyValue, setReplyValue] = useState('')
@@ -935,7 +1349,21 @@ function CommentCard({ comment, currentUserId, currentRole, onReply, onUpdate, o
           </div>
         </form>
       ) : (
-        <p className="mt-3 text-sm leading-6 text-soft">{comment.content}</p>
+        <div className="mt-3">
+          <p className="text-sm leading-6 text-soft">{comment.content}</p>
+          {comment.is_edited ? (
+            <div className="mt-2 flex items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Edited
+              </span>
+              {comment.edit_history_count ? (
+                <button type="button" onClick={() => onViewHistory(comment)} className="text-xs font-semibold text-emerald-700">
+                  View history
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       )}
 
       {comment.mentioned_users?.length ? (
@@ -1002,6 +1430,7 @@ function CommentCard({ comment, currentUserId, currentRole, onReply, onUpdate, o
               currentUserId={currentUserId}
               currentRole={currentRole}
               onReply={onReply}
+              onViewHistory={onViewHistory}
               onUpdate={onUpdate}
               onDelete={onDelete}
               onToggleReaction={onToggleReaction}
@@ -1018,6 +1447,41 @@ function DetailRow({ label, value }) {
     <div className="glass-panel flex items-center justify-between gap-4 px-4 py-3">
       <span className="font-semibold text-emerald-950">{label}</span>
       <span className="text-right text-soft">{value}</span>
+    </div>
+  )
+}
+
+function CommentHistoryModal({ comment, historyItems, loading, onClose }) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 px-4 py-10 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-2xl rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_32px_120px_rgba(15,23,42,0.22)]" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Comment history</p>
+            <h3 className="mt-2 text-2xl font-bold text-emerald-950">{comment.author_data?.name || 'Comment author'}</h3>
+          </div>
+          <button type="button" onClick={onClose} className="btn-secondary">
+            Close
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-3">
+          {loading ? (
+            <LoadingState label="Loading comment history" />
+          ) : historyItems.length === 0 ? (
+            <EmptyState title="No edit history" description="This comment has no earlier saved revisions." />
+          ) : (
+            historyItems.map((item) => (
+              <div key={item.id} className="feature-tile">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  {formatDate(item.edited_at || item.created_at)}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-soft">{item.content}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   )
 }

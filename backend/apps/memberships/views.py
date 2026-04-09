@@ -11,6 +11,7 @@ from apps.memberships.serializers import MembershipSerializer, TeamInvitationDet
 from apps.memberships.services import (
     accept_team_invitation,
     decline_team_invitation,
+    refresh_team_invitation_state,
     resend_team_invitation,
     revoke_team_invitation,
 )
@@ -25,6 +26,7 @@ class TeamInvitationDetailView(APIView):
         invitation = get_invitation_by_token(token=token)
         if not invitation:
             raise NotFound("Invitation not found.")
+        invitation = refresh_team_invitation_state(invitation=invitation)
 
         invitation_data = TeamInvitationDetailSerializer(invitation).data
         viewer_email = request.user.email if request.user.is_authenticated else ""

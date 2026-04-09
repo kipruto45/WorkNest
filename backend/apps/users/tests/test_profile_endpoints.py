@@ -89,3 +89,26 @@ class UserProfileEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["data"]["count"], 1)
         self.assertEqual(response.data["data"]["results"][0]["email"], "learner@example.com")
+
+    def test_patch_notification_preferences_persists_channel_matrix_and_sms_rules(self) -> None:
+        response = self.client.patch(
+            reverse("api_v1:users:me-notification-preferences"),
+            {
+                "channels": {
+                    "in_app": {"task_assigned": False},
+                    "email": {"mentioned_in_comment": False, "team_invite": False},
+                },
+                "task_assignment_sms": False,
+                "invite_sms": False,
+            },
+            format="json",
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(self.user.notification_preferences["channels"]["in_app"]["task_assigned"])
+        self.assertFalse(self.user.notification_preferences["channels"]["email"]["mentioned_in_comment"])
+        self.assertFalse(self.user.notification_preferences["channels"]["email"]["team_invite"])
+        self.assertFalse(self.user.sms_preferences["task_assignment_sms"])
+        self.assertFalse(self.user.sms_preferences["invite_sms"])

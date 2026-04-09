@@ -84,6 +84,20 @@ Recommended extra settings for Supabase:
 - `EMAIL_FROM_NAME=WorkNest`
 - `SENDGRID_API_KEY`
 
+### If Using Africa's Talking SMS Testing
+
+- `SMS_ENABLED=true`
+- `SMS_PROVIDER=africas_talking`
+- `AFRICAS_TALKING_USERNAME=sandbox`
+- `AFRICAS_TALKING_API_KEY=<your sandbox API key>`
+- `AFRICAS_TALKING_ENVIRONMENT=sandbox`
+- `AFRICAS_TALKING_USE_SANDBOX=true`
+
+Optional:
+
+- `AFRICAS_TALKING_SENDER_ID`
+- `AFRICAS_TALKING_BASE_URL`
+
 ### Google OAuth
 
 - `GOOGLE_OAUTH_CLIENT_ID`

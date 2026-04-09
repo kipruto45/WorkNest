@@ -33,6 +33,7 @@ export default function TeamOverview() {
   const [announcements, setAnnouncements] = useState([])
   const [members, setMembers] = useState([])
   const [taskBuckets, setTaskBuckets] = useState(emptyBuckets)
+  const [milestones, setMilestones] = useState([])
   const [announcementDraft, setAnnouncementDraft] = useState({ title: '', content: '' })
   const [savingAnnouncement, setSavingAnnouncement] = useState(false)
   const [pinningTeam, setPinningTeam] = useState(false)
@@ -68,6 +69,7 @@ export default function TeamOverview() {
           kanbanResult,
           timelineResult,
           auditLogsResult,
+          milestoneResult,
         ] = await Promise.allSettled([
           dashboardAPI.getTeamSummary(teamId),
           dashboardAPI.getTeamProgress(teamId),
@@ -81,6 +83,7 @@ export default function TeamOverview() {
           tasksAPI.getKanban(teamId),
           teamsAPI.getTimeline(teamId, { page_size: 12 }),
           auditLogsAPI.getForTeam(teamId, { page_size: 12 }),
+          tasksAPI.getMilestones(teamId, { page_size: 5 }),
         ])
 
         const summaryPayload = readPayload(summaryResult) || {}
@@ -94,6 +97,7 @@ export default function TeamOverview() {
         setCalendarItems(readCollection(readPayload(calendarResult), ['results', 'events', 'calendar']))
         setAnnouncements(readCollection(readPayload(announcementsResult)))
         setMembers(readCollection(readPayload(membersResult)))
+        setMilestones(readCollection(readPayload(milestoneResult)))
 
         const kanbanPayload = readPayload(kanbanResult) || {}
         setTaskBuckets({
@@ -430,6 +434,42 @@ export default function TeamOverview() {
         <SummaryCard title="Active Members" value={activeMembers} note="Contributors with current load" accent="bg-sky-50 text-sky-700" />
         <SummaryCard title="Completion Rate" value={`${completionRate}%`} note="Overall team delivery rate" accent="bg-slate-100 text-slate-700" />
       </div>
+
+      <section className={`${dashboardSurface} p-6 lg:p-7`}>
+        <SectionHeader
+          eyebrow="Milestones"
+          title="Upcoming delivery checkpoints"
+          action={<Link to={`/teams/${teamId}/milestones`} className="text-sm font-semibold text-emerald-700">View all</Link>}
+        />
+        <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {milestones.length === 0 ? (
+            <EmptyState
+              eyebrow="Milestones"
+              title="No milestones yet"
+              description="Create a milestone to track high-impact outcomes."
+            />
+          ) : (
+            milestones.map((milestone) => (
+              <div key={milestone.id} className={`${compactSurface} p-4`}>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">{milestone.status}</p>
+                <p className="mt-2 text-lg font-semibold text-slate-950">{milestone.title}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Due {milestone.due_date ? formatDate(milestone.due_date) : 'TBD'}
+                </p>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-emerald-600"
+                    style={{ width: `${milestone.progress?.percentage || 0}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  {milestone.progress?.completed || 0}/{milestone.progress?.total || 0} tasks complete
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.02fr,0.98fr]">
         <section className={`${dashboardSurface} p-6 lg:p-7`}>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import LoadingState from '../components/LoadingState'
@@ -106,17 +106,14 @@ export default function AdminDashboard() {
         ? `This message will be delivered to ${selectedUsers.length} selected user${selectedUsers.length === 1 ? '' : 's'}.`
         : 'Search for a student, then add them as a recipient.'
 
-  const overviewCards = useMemo(
-    () => [
-      { label: 'Total Users', value: overview.total_users ?? 0, note: 'Registered accounts' },
-      { label: 'Total Teams', value: overview.total_teams ?? 0, note: 'Active workspaces' },
-      { label: 'Total Tasks', value: overview.total_tasks ?? 0, note: 'Tracked work items' },
-      { label: 'Active Users', value: overview.active_users ?? 0, note: 'Seen in the last 7 days' },
-      { label: 'Pending Invites', value: overview.pending_invites ?? 0, note: 'Awaiting response' },
-      { label: 'Activity Today', value: overview.system_activity_today ?? 0, note: 'Audit events recorded' },
-    ],
-    [overview]
-  )
+  const overviewCards = [
+    { label: 'Total Users', value: overview.total_users ?? 0, note: 'Registered accounts' },
+    { label: 'Total Teams', value: overview.total_teams ?? 0, note: 'Active workspaces' },
+    { label: 'Total Tasks', value: overview.total_tasks ?? 0, note: 'Tracked work items' },
+    { label: 'Active Users', value: overview.active_users ?? 0, note: 'Seen in the last 7 days' },
+    { label: 'Pending Invites', value: overview.pending_invites ?? 0, note: 'Awaiting response' },
+    { label: 'Activity Today', value: overview.system_activity_today ?? 0, note: 'Audit events recorded' },
+  ]
 
   const addSelectedUser = (candidate) => {
     if (selectedUsers.some((user) => user.id === candidate.id)) return

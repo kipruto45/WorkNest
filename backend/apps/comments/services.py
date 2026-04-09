@@ -7,7 +7,7 @@ from apps.audit_logs.services import build_audit_metadata, log_comment_action
 from rest_framework.exceptions import ValidationError
 
 from apps.comments.constants import COMMENT_MAX_LENGTH, DELETED_COMMENT_PLACEHOLDER
-from apps.comments.models import Comment, CommentReaction
+from apps.comments.models import Comment, CommentReaction, CommentVersion
 from apps.comments.parsers import resolve_mentions_for_team
 from apps.realtime.constants import COMMENT_CREATED_EVENT, COMMENT_DELETED_EVENT, COMMENT_UPDATED_EVENT
 from apps.realtime.services import send_comment_event
@@ -64,11 +64,20 @@ def create_comment(*, task, author, content: str, parent: Comment | None = None)
 
 
 @transaction.atomic
-def update_comment(*, comment: Comment, content: str) -> tuple[Comment, list]:
+def update_comment(*, comment: Comment, content: str, actor=None) -> tuple[Comment, list]:
     if comment.is_deleted:
         raise ValidationError({"comment": ["Deleted comments cannot be edited."]})
 
     normalized_content = _normalize_content(content)
+    if normalized_content == comment.content:
+        return comment, extract_mentions_from_comment(content=normalized_content, team=comment.task.team)
+
+    CommentVersion.objects.create(
+        comment=comment,
+        content=comment.content,
+        edited_by=actor or comment.author,
+        edited_at=timezone.now(),
+    )
     comment.content = normalized_content
     comment.is_edited = True
     comment.edited_at = timezone.now()
@@ -79,10 +88,14 @@ def update_comment(*, comment: Comment, content: str) -> tuple[Comment, list]:
     transaction.on_commit(lambda: notify_comment_mentions(comment=comment, mentions=mentions))
     transaction.on_commit(lambda: send_comment_event(comment=comment, event_name=COMMENT_UPDATED_EVENT))
     log_comment_action(
-        actor=comment.author,
+        actor=actor or comment.author,
         action=AuditAction.COMMENT_UPDATED,
         comment=comment,
-        metadata=build_audit_metadata(mentioned_user_ids=[user.id for user in mentions], is_edited=comment.is_edited),
+        metadata=build_audit_metadata(
+            mentioned_user_ids=[user.id for user in mentions],
+            is_edited=comment.is_edited,
+            history_count=comment.versions.count(),
+        ),
     )
     return comment, mentions
 

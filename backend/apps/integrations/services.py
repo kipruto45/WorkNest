@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from django.conf import settings
+
 from apps.integrations.constants import (
     EMAIL_PROVIDER_SENDGRID,
     EMAIL_PROVIDER_SMTP,
+    SMS_PROVIDER_AFRICAS_TALKING,
     STORAGE_PROVIDER_LOCAL,
     STORAGE_PROVIDER_SUPABASE,
 )
@@ -14,6 +17,7 @@ from apps.integrations.email.services import (
     send_system_email,
     send_team_invite_email,
 )
+from apps.integrations.sms.services import get_sms_provider
 from apps.integrations.oauth.services import (
     get_google_oauth_config,
     get_google_oauth_service,
@@ -34,6 +38,7 @@ from apps.integrations.validators import ensure_required_settings
 
 def validate_integrations_configuration() -> dict:
     email_provider = get_email_provider().provider_name
+    sms_provider = get_sms_provider().provider_name if getattr(settings, "SMS_ENABLED", False) else ""
     storage_provider = get_storage_provider().provider_name
     google_service = get_google_oauth_service()
     google_enabled = google_service.is_enabled()
@@ -43,8 +48,15 @@ def validate_integrations_configuration() -> dict:
     elif email_provider == EMAIL_PROVIDER_SMTP:
         ensure_required_settings(setting_names=["DEFAULT_FROM_EMAIL"])
 
+    if sms_provider == SMS_PROVIDER_AFRICAS_TALKING:
+        ensure_required_settings(setting_names=["AFRICAS_TALKING_USERNAME", "AFRICAS_TALKING_API_KEY"])
+
     if storage_provider == STORAGE_PROVIDER_SUPABASE:
-        ensure_required_settings(setting_names=["SUPABASE_URL", "SUPABASE_KEY", "ATTACHMENTS_SUPABASE_BUCKET"])
+        ensure_required_settings(setting_names=["SUPABASE_URL", "ATTACHMENTS_SUPABASE_BUCKET"])
+        if not getattr(settings, "SUPABASE_KEY", "") and not getattr(settings, "SUPABASE_SERVICE_ROLE_KEY", ""):
+            raise IntegrationConfigurationError(
+                "Supabase storage requires SUPABASE_KEY or SUPABASE_SERVICE_ROLE_KEY."
+            )
     elif storage_provider == STORAGE_PROVIDER_LOCAL:
         ensure_required_settings(setting_names=["MEDIA_URL"])
 
@@ -56,6 +68,7 @@ def validate_integrations_configuration() -> dict:
 
     return {
         "email_provider": email_provider,
+        "sms_provider": sms_provider,
         "storage_provider": storage_provider,
         "google_oauth_enabled": google_enabled,
     }

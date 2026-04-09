@@ -19,11 +19,13 @@ EMAIL_TYPE_DEADLINE_APPROACHING = "deadline_approaching"
 EMAIL_TYPE_COMMENT_POSTED = "comment_posted"
 EMAIL_TYPE_MENTIONED_IN_COMMENT = "mentioned_in_comment"
 EMAIL_TYPE_WELCOME = "welcome"
+EMAIL_TYPE_EMAIL_VERIFICATION = "email_verification"
 EMAIL_TYPE_INVITATION_ACCEPTED = "invitation_accepted"
 EMAIL_TYPE_ROLE_CHANGED = "role_changed"
 EMAIL_TYPE_TASK_STATUS_CHANGED = "task_status_changed"
 EMAIL_TYPE_ATTACHMENT_UPLOADED = "attachment_uploaded"
 EMAIL_TYPE_NOTIFICATION = "notification"
+EMAIL_TYPE_ADMIN_COMMUNICATION = "admin_communication"
 DEFAULT_PUBLIC_WEBAPP_URL = "https://worknested.netlify.app"
 
 
@@ -159,6 +161,15 @@ def _dashboard_url() -> str:
     return _frontend_path("/dashboard")
 
 
+def _safe_cta_link(link: str) -> str:
+    link = (link or "").strip()
+    if not link:
+        return ""
+    if _is_public_absolute_url(link):
+        return link
+    return _frontend_path(link)
+
+
 def _base_context(**overrides) -> dict[str, Any]:
     context = {
         "app_name": _get_app_name(),
@@ -222,6 +233,45 @@ def _build_job(
     )
 
 
+def build_admin_communication_email_payload(*, communication, recipient, actor=None) -> QueuedEmailPayload:
+    sender_name = _display_name(actor, "WorkNest Admin")
+    button_text = communication.cta_label.strip() if communication.cta_label else "Open Workspace"
+    button_url = _safe_cta_link(communication.cta_link) or _dashboard_url()
+    context = _base_context(
+        eyebrow="Admin communication",
+        title=communication.title,
+        greeting=f"Hello {_display_name(recipient, 'there')},",
+        intro=communication.message,
+        preheader_text=_shorten_text(communication.message, limit=120),
+        button_text=button_text,
+        button_url=button_url,
+        button_hint="You can review this update in your workspace.",
+        reason_text=f"You received this email from {sender_name} in {_get_app_name()}.",
+        accent_color="#0f766e",
+        accent_soft="#f0fdfa",
+        accent_border="#99f6e4",
+        accent_text="#0f766e",
+    )
+    return _build_job(
+        email_type=EMAIL_TYPE_ADMIN_COMMUNICATION,
+        template_name="admin_communication",
+        recipient_email=recipient.email,
+        subject=communication.title,
+        context=context,
+        metadata={
+            "communication_id": str(communication.id),
+            "audience_type": communication.audience_type,
+            "channel_type": communication.channel_type,
+            "cta_label": communication.cta_label,
+            "cta_link": communication.cta_link,
+        },
+        dedupe_key=f"admin-communication:{communication.id}:{recipient.id}",
+        source="admin_communication",
+        related_object_type="admin_communication",
+        related_object_id=str(communication.id),
+    )
+
+
 def build_password_reset_email_payload(*, user, reset_url: str, expires_in_minutes: int = 30) -> QueuedEmailPayload:
     context = _base_context(
         eyebrow="Security",
@@ -253,6 +303,40 @@ def build_password_reset_email_payload(*, user, reset_url: str, expires_in_minut
         related_object_type="user",
         related_object_id=str(user.id),
         provider_metadata={"categories": [EMAIL_TYPE_PASSWORD_RESET]},
+    )
+
+
+def build_email_verification_email_payload(*, user, verification_url: str) -> QueuedEmailPayload:
+    context = _base_context(
+        eyebrow="Verify your email",
+        title="Confirm your email address",
+        greeting=f"Hi {_display_name(user, 'there')},",
+        intro="Confirm your email address to secure your account and enable trusted workspace notifications.",
+        preheader_text="Confirm your email address to finish setting up your account.",
+        button_text="Verify Email",
+        button_url=verification_url,
+        button_hint="If the button does not open, use the verification link below.",
+        detail_title="Verification details",
+        detail_items=[
+            {"label": "Account", "value": user.email},
+            {"label": "Status", "value": "Verification pending"},
+        ],
+        footer_note="For your safety, this verification link expires automatically.",
+        help_text="If you did not create this account, you can ignore this email.",
+        reason_text=f"You received this email because an account was created for this address in {_get_app_name()}.",
+    )
+    return _build_job(
+        email_type=EMAIL_TYPE_EMAIL_VERIFICATION,
+        template_name="email_verification",
+        recipient_email=user.email,
+        subject="Verify your email address",
+        context=context,
+        metadata={"user_id": str(user.id)},
+        dedupe_key=f"email-verification:{user.id}",
+        source="authentication.email_verification",
+        related_object_type="user",
+        related_object_id=str(user.id),
+        provider_metadata={"categories": [EMAIL_TYPE_EMAIL_VERIFICATION]},
     )
 
 
@@ -732,9 +816,14 @@ def _get_task_from_notification(*, notification):
     if not task_id:
         return None
 
+    try:
+        normalized_task_id = str(UUID(str(task_id)))
+    except (TypeError, ValueError, AttributeError):
+        return None
+
     from apps.tasks.models import Task
 
-    return Task.objects.select_related("team", "assigned_to", "created_by").filter(id=task_id).first()
+    return Task.objects.select_related("team", "assigned_to", "created_by").filter(id=normalized_task_id).first()
 
 
 def _get_comment_from_notification(*, notification):
@@ -761,3 +850,4 @@ def _get_invitation_from_notification(*, notification):
     if invitation_id:
         return queryset.filter(id=invitation_id).first()
     return None
+from uuid import UUID

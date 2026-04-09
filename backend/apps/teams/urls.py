@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.teams.views import (
+    AdminTeamSearchView,
     TeamArchiveView,
     TeamAnnouncementDetailView,
     TeamAnnouncementListCreateView,
@@ -21,6 +22,7 @@ app_name = "teams"
 
 urlpatterns = [
     path("", TeamListCreateView.as_view(), name="list-create"),
+    path("admin/search/", AdminTeamSearchView.as_view(), name="admin-search"),
     path("pinned/", PinnedTeamListView.as_view(), name="pinned"),
     path("recent/", RecentTeamListView.as_view(), name="recent"),
     path("<uuid:pk>/", TeamDetailView.as_view(), name="detail"),

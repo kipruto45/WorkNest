@@ -13,6 +13,7 @@ from apps.comments.serializers import (
     CommentReplySerializer,
     CommentThreadSerializer,
     CommentUpdateSerializer,
+    CommentVersionSerializer,
 )
 from apps.comments.services import create_comment, delete_comment, reply_to_comment, toggle_comment_reaction, update_comment
 from apps.common.api.mixins import PaginatedAPIViewMixin, PermissionEnforcerMixin
@@ -105,7 +106,7 @@ class CommentDetailView(PermissionEnforcerMixin, APIView):
         self.enforce_permission(request=request, permission_class=CanEditOwnComment, obj=comment)
         serializer = CommentUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        comment, _mentions = update_comment(comment=comment, content=serializer.validated_data["content"])
+        comment, _mentions = update_comment(comment=comment, content=serializer.validated_data["content"], actor=request.user)
         return success_response(
             request=request,
             message="Comment updated successfully.",
@@ -190,4 +191,27 @@ class CommentReactionToggleView(PermissionEnforcerMixin, APIView):
                 "active": active,
                 "comment": CommentDetailSerializer(refreshed_comment, context={"request": request}).data,
             },
+        )
+
+
+class CommentHistoryView(PermissionEnforcerMixin, PaginatedAPIViewMixin, APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):  # type: ignore[override]
+        comment = get_comment_for_user(comment_id=pk, user=request.user)
+        if not comment:
+            return success_response(
+                request=request,
+                message="Comment not found.",
+                data=None,
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        self.enforce_permission(request=request, permission_class=IsTaskTeamMember, obj=comment)
+        queryset = comment.versions.select_related("edited_by").order_by("-edited_at", "-created_at")
+        return self.paginate_success_response(
+            request=request,
+            queryset=queryset,
+            serializer_class=CommentVersionSerializer,
+            message="Comment edit history retrieved successfully.",
         )

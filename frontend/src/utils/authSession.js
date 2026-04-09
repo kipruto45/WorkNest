@@ -33,6 +33,8 @@ export function persistAuthSession(session) {
 
   if (session.refreshToken) {
     localStorage.setItem(CLIENT_STORAGE_KEYS.sessionRefresh, session.refreshToken)
+  } else {
+    localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionRefresh)
   }
 
   if (session.user) {

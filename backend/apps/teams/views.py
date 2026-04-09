@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.db.models import Q
 from drf_spectacular.utils import extend_schema
-from rest_framework import permissions, status
+from rest_framework import permissions, serializers, status
 from rest_framework.exceptions import NotFound
 from rest_framework.views import APIView
 
@@ -21,6 +21,7 @@ from apps.memberships.serializers import (
 from apps.memberships.selectors import get_team_invitations, get_team_invitation_by_id, get_team_member_by_id
 from apps.memberships.services import (
     change_member_role,
+    expire_team_invitations,
     invite_member_to_team,
     remove_member_from_team,
     update_team_invitation_role,
@@ -54,7 +55,7 @@ from apps.teams.services import (
     update_team,
     update_team_announcement,
 )
-from apps.teams.models import TeamAnnouncement
+from apps.teams.models import Team, TeamAnnouncement
 
 
 class TeamListCreateView(PaginatedAPIViewMixin, APIView):
@@ -93,6 +94,39 @@ class TeamListCreateView(PaginatedAPIViewMixin, APIView):
             message="Team created successfully.",
             data=TeamDetailSerializer(response_team, context={"request": request}).data,
             status_code=status.HTTP_201_CREATED,
+        )
+
+
+class AdminTeamSearchQuerySerializer(serializers.Serializer):
+    q = serializers.CharField(required=False, allow_blank=True)
+    is_archived = serializers.BooleanField(required=False)
+
+
+class AdminTeamSearchView(PaginatedAPIViewMixin, APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    @extend_schema(parameters=[AdminTeamSearchQuerySerializer], responses=TeamListSerializer(many=True))
+    def get(self, request, *args, **kwargs):  # type: ignore[override]
+        query = str(request.query_params.get("q", "")).strip()
+        queryset = Team.objects.all().select_related("created_by").order_by("-created_at")
+
+        is_archived = request.query_params.get("is_archived")
+        if is_archived is not None:
+            queryset = queryset.filter(is_archived=is_archived.lower() == "true")
+
+        if query:
+            queryset = queryset.filter(
+                Q(name__icontains=query)
+                | Q(description__icontains=query)
+                | Q(slug__icontains=query)
+            )
+
+        return self.paginate_success_response(
+            request=request,
+            queryset=queryset,
+            serializer_class=TeamListSerializer,
+            message="Teams retrieved successfully.",
+            serializer_context={"request": request},
         )
 
 
@@ -194,6 +228,7 @@ class TeamInvitationListCreateView(PaginatedAPIViewMixin, APIView):
             raise NotFound("Team not found.")
         require_team_inviter(team=team, user=request.user)
 
+        expire_team_invitations(team=team)
         queryset = get_team_invitations(team=team)
         return self.paginate_success_response(
             request=request,
@@ -314,7 +349,10 @@ class TeamAnnouncementListCreateView(PaginatedAPIViewMixin, APIView):
         if not team:
             raise NotFound("Team not found.")
         require_team_member(team=team, user=request.user)
-        queryset = get_team_announcements(team=team)
+        queryset = get_team_announcements(
+            team=team,
+            include_inactive=request.query_params.get("include_inactive", "").lower() == "true",
+        )
         return self.paginate_success_response(
             request=request,
             queryset=queryset,
@@ -336,6 +374,7 @@ class TeamAnnouncementListCreateView(PaginatedAPIViewMixin, APIView):
             title=serializer.validated_data["title"],
             content=serializer.validated_data["content"],
             pinned_until=serializer.validated_data.get("pinned_until"),
+            expires_at=serializer.validated_data.get("expires_at"),
         )
         return success_response(
             request=request,
@@ -365,6 +404,8 @@ class TeamAnnouncementDetailView(APIView):
             title=serializer.validated_data.get("title"),
             content=serializer.validated_data.get("content"),
             pinned_until=serializer.validated_data["pinned_until"] if "pinned_until" in serializer.validated_data else ...,
+            expires_at=serializer.validated_data["expires_at"] if "expires_at" in serializer.validated_data else ...,
+            is_active=serializer.validated_data["is_active"] if "is_active" in serializer.validated_data else ...,
         )
         return success_response(
             request=request,

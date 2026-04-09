@@ -44,3 +44,39 @@ class IntegrationChecksTests(SimpleTestCase):
 
         self.assertEqual(len(integration_errors), 1)
         self.assertIn("Google OAuth configuration is incomplete", integration_errors[0].msg)
+
+    @override_settings(
+        EMAIL_PROVIDER="smtp",
+        DEFAULT_FROM_EMAIL="no-reply@example.com",
+        ATTACHMENTS_STORAGE_BACKEND="local",
+        MEDIA_URL="/media/",
+        SMS_ENABLED=True,
+        AFRICAS_TALKING_USERNAME="",
+        AFRICAS_TALKING_API_KEY="",
+        GOOGLE_OAUTH_CLIENT_ID="",
+        GOOGLE_OAUTH_CLIENT_SECRET="",
+    )
+    def test_system_checks_report_invalid_sms_configuration(self) -> None:
+        integration_errors = [error for error in run_checks() if error.id == "integrations.E001"]
+
+        self.assertEqual(len(integration_errors), 1)
+        self.assertIn("Missing required Africa's Talking settings", integration_errors[0].msg)
+
+    @override_settings(
+        EMAIL_PROVIDER="smtp",
+        DEFAULT_FROM_EMAIL="no-reply@example.com",
+        ATTACHMENTS_STORAGE_BACKEND="local",
+        MEDIA_URL="/media/",
+        SMS_ENABLED=True,
+        AFRICAS_TALKING_USERNAME="sandbox",
+        AFRICAS_TALKING_API_KEY="test-key",
+        AFRICAS_TALKING_ENVIRONMENT="live",
+        AFRICAS_TALKING_USE_SANDBOX=True,
+        GOOGLE_OAUTH_CLIENT_ID="",
+        GOOGLE_OAUTH_CLIENT_SECRET="",
+    )
+    def test_system_checks_report_mismatched_africas_talking_mode(self) -> None:
+        integration_errors = [error for error in run_checks() if error.id == "integrations.E001"]
+
+        self.assertEqual(len(integration_errors), 1)
+        self.assertIn("AFRICAS_TALKING_ENVIRONMENT and sandbox flags disagree", integration_errors[0].msg)

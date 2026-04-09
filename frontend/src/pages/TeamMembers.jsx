@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import PageHero from '../components/PageHero'
@@ -16,7 +16,7 @@ export default function TeamMembers() {
   const [team, setTeam] = useState(null)
   const [members, setMembers] = useState([])
 
-  const loadMembers = async () => {
+  const loadMembers = useCallback(async () => {
     setLoading(true)
     try {
       const [teamResponse, membersResponse] = await Promise.all([
@@ -28,11 +28,11 @@ export default function TeamMembers() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [teamId])
 
   useEffect(() => {
     loadMembers()
-  }, [teamId])
+  }, [loadMembers])
 
   const handleRoleChange = async (memberId, role) => {
     try {

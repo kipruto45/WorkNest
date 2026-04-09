@@ -5,6 +5,8 @@ from django.http import HttpResponseRedirect, JsonResponse
 from django.urls import include, path
 from django.views.generic import RedirectView
 from urllib.parse import urlencode
+
+from apps.common.views import HealthCheckView
 from apps.integrations.email.builders import _get_frontend_url
 
 
@@ -12,44 +14,6 @@ def _json_payload_response(payload: dict, status_code: int = 200) -> JsonRespons
     response = JsonResponse(payload, status=status_code)
     response.data = payload
     return response
-
-
-def _render_probe_response(*, request, message: str, services: dict, status_code: int = 200) -> JsonResponse:
-    return _json_payload_response(
-        {
-            "success": True,
-            "message": message,
-            "request_id": getattr(request, "request_id", None),
-            "data": {
-                "status": "ok" if status_code < 400 else "degraded",
-                "environment": getattr(settings, "ENVIRONMENT", "production"),
-                "services": services,
-            },
-        },
-        status_code=status_code,
-    )
-
-
-def render_live_probe(request):
-    return _render_probe_response(
-        request=request,
-        message="Liveness probe completed.",
-        services={"application": "ok"},
-    )
-
-
-def render_ready_probe(request):
-    return _render_probe_response(
-        request=request,
-        message="Readiness probe completed.",
-        services={
-            "application": "ok",
-            "database": "ok",
-            "redis": "optional",
-            "channels": "configured",
-            "celery": "configured",
-        },
-    )
 
 
 def _build_google_callback_url(request) -> str:
@@ -136,8 +100,8 @@ def render_google_callback(request):
 urlpatterns = [
     path("", RedirectView.as_view(url="/api/v1/docs/swagger/", permanent=False), name="root"),
     path("admin/", admin.site.urls),
-    path("api/v1/health/live/", render_live_probe, name="render-health-live"),
-    path("api/v1/health/ready/", render_ready_probe, name="render-health-ready"),
+    path("api/v1/health/live/", HealthCheckView.as_view(), {"probe": "live"}, name="render-health-live"),
+    path("api/v1/health/ready/", HealthCheckView.as_view(), {"probe": "ready"}, name="render-health-ready"),
     path("api/v1/auth/google/config/", render_google_config, name="render-google-config"),
     path("api/v1/auth/google/login/", render_google_login, name="render-google-login"),
     path("api/v1/auth/google/callback/", render_google_callback, name="render-google-callback"),

@@ -1,6 +1,8 @@
 from django.urls import path
 
 from apps.authentication.views import (
+    EmailVerificationResendView,
+    EmailVerificationView,
     GoogleAuthView,
     GoogleOAuthCallbackView,
     GoogleOAuthConfigView,
@@ -12,6 +14,8 @@ from apps.authentication.views import (
     PasswordResetRequestView,
     RefreshTokenView,
     RegisterView,
+    SessionDetailView,
+    SessionListView,
 )
 
 app_name = "authentication"
@@ -24,7 +28,11 @@ urlpatterns = [
     path("refresh/", RefreshTokenView.as_view(), name="refresh"),
     path("password-reset/", PasswordResetRequestView.as_view(), name="password-reset-request"),
     path("password-reset/confirm/", PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
+    path("email-verification/verify/", EmailVerificationView.as_view(), name="email-verification-verify"),
+    path("email-verification/resend/", EmailVerificationResendView.as_view(), name="email-verification-resend"),
     path("me/", MeView.as_view(), name="me"),
+    path("sessions/", SessionListView.as_view(), name="sessions"),
+    path("sessions/<uuid:pk>/", SessionDetailView.as_view(), name="session-detail"),
     path("google/config/", GoogleOAuthConfigView.as_view(), name="google-config"),
     path("google/login/", GoogleLoginView.as_view(), name="google-login"),
     path("google/auth/", GoogleAuthView.as_view(), name="google-auth"),

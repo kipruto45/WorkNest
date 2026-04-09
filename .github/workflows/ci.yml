@@ -59,9 +59,9 @@ jobs:
 
       - name: Run backend tests
         working-directory: backend
-        run: python manage.py test --settings=config.settings.test
+        run: python -m pytest
 
-  frontend-build:
+  frontend-quality:
     runs-on: ubuntu-latest
     needs: lint-and-checks
 
@@ -79,6 +79,14 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Run frontend lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test
+
       - name: Build frontend
         working-directory: frontend
         env:
@@ -87,7 +95,7 @@ jobs:
 
   build-images:
     runs-on: ubuntu-latest
-    needs: [backend-tests, frontend-build]
+    needs: [backend-tests, frontend-quality]
 
     steps:
       - uses: actions/checkout@v4

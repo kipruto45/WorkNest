@@ -29,12 +29,20 @@ def generate_unique_team_slug(*, name: str) -> str:
 
 
 @transaction.atomic
-def create_team_with_owner(*, created_by, name: str, description: str = "", allow_manager_invites: bool = False) -> Team:
+def create_team_with_owner(
+    *,
+    created_by,
+    name: str,
+    description: str = "",
+    allow_manager_invites: bool = False,
+    is_personal: bool = False,
+) -> Team:
     team = Team.objects.create(
         name=name.strip(),
         slug=generate_unique_team_slug(name=name),
         description=description.strip(),
         allow_manager_invites=allow_manager_invites,
+        is_personal=is_personal,
         created_by=created_by,
     )
     Membership.objects.create(
@@ -115,12 +123,13 @@ def delete_team_if_allowed(*, team: Team, actor) -> None:
 
 
 @transaction.atomic
-def create_team_announcement(*, team: Team, actor, title: str, content: str, pinned_until=None) -> TeamAnnouncement:
+def create_team_announcement(*, team: Team, actor, title: str, content: str, pinned_until=None, expires_at=None) -> TeamAnnouncement:
     announcement = TeamAnnouncement.objects.create(
         team=team,
         title=title.strip(),
         content=content.strip(),
         pinned_until=pinned_until,
+        expires_at=expires_at,
         published_by=actor,
     )
     log_team_action(
@@ -128,7 +137,11 @@ def create_team_announcement(*, team: Team, actor, title: str, content: str, pin
         action=AuditAction.TEAM_ANNOUNCEMENT_CREATED,
         team=team,
         target=announcement,
-        metadata=build_audit_metadata(title=announcement.title, pinned_until=announcement.pinned_until),
+        metadata=build_audit_metadata(
+            title=announcement.title,
+            pinned_until=announcement.pinned_until,
+            expires_at=announcement.expires_at,
+        ),
     )
 
     recipients = [
@@ -152,7 +165,16 @@ def create_team_announcement(*, team: Team, actor, title: str, content: str, pin
 
 
 @transaction.atomic
-def update_team_announcement(*, announcement: TeamAnnouncement, actor, title: str | None = None, content: str | None = None, pinned_until=...):
+def update_team_announcement(
+    *,
+    announcement: TeamAnnouncement,
+    actor,
+    title: str | None = None,
+    content: str | None = None,
+    pinned_until=...,
+    expires_at=...,
+    is_active=...,
+):
     changes = {}
     if title is not None:
         changes["title"] = {"old": announcement.title, "new": title.strip()}
@@ -163,6 +185,18 @@ def update_team_announcement(*, announcement: TeamAnnouncement, actor, title: st
     if pinned_until is not ...:
         changes["pinned_until"] = {"old": announcement.pinned_until, "new": pinned_until}
         announcement.pinned_until = pinned_until
+    if expires_at is not ...:
+        changes["expires_at"] = {"old": announcement.expires_at, "new": expires_at}
+        announcement.expires_at = expires_at
+    if is_active is not ...:
+        changes["is_active"] = {"old": announcement.is_active, "new": is_active}
+        announcement.is_active = bool(is_active)
+        if announcement.is_active:
+            announcement.archived_at = None
+            announcement.archived_by = None
+        else:
+            announcement.archived_at = timezone.now()
+            announcement.archived_by = actor
     if changes:
         announcement.save()
         log_team_action(

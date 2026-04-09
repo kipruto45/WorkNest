@@ -10,6 +10,11 @@ primary_region = "nbo"
   APP_SERVER = "gunicorn"
   RUN_MIGRATIONS = "1"
   RUN_COLLECTSTATIC = "1"
+  SMS_ENABLED = "false"
+  SMS_PROVIDER = "africas_talking"
+  AFRICAS_TALKING_USE_SANDBOX = "true"
+  AFRICAS_TALKING_USERNAME = "sandbox"
+  AFRICAS_TALKING_ENVIRONMENT = "sandbox"
   PORT = "8000"
 
 [http_service]

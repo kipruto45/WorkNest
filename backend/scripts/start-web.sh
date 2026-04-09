@@ -11,10 +11,14 @@ if [ "${RUN_MIGRATIONS:-1}" = "1" ]; then
 fi
 
 if [ "${ADMIN_BOOTSTRAP_ENABLED:-0}" = "1" ]; then
+  if [ -z "${ADMIN_EMAIL:-}" ] || [ -z "${ADMIN_PASSWORD:-}" ]; then
+    echo "ADMIN_EMAIL and ADMIN_PASSWORD must be set when ADMIN_BOOTSTRAP_ENABLED=1." >&2
+    exit 1
+  fi
   python manage.py ensure_admin_user \
-    --email "${ADMIN_EMAIL:-kiprutovictor39@gmail.com}" \
+    --email "${ADMIN_EMAIL}" \
     --name "${ADMIN_NAME:-WorkNest Admin}" \
-    --password "${ADMIN_PASSWORD:-WorkNest123!}"
+    --password "${ADMIN_PASSWORD}"
 fi
 
 if [ "${RUN_COLLECTSTATIC:-1}" = "1" ]; then

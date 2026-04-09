@@ -4,68 +4,68 @@ import AppLogo from '../components/AppLogo'
 
 const navItems = [
   { label: 'Features', href: '#features' },
-  { label: 'Teams', href: '#teams' },
-  { label: 'Tasks', href: '#workflow' },
-  { label: 'Demo', href: '#demo' },
+  { label: 'Workflow', href: '#workflow' },
+  { label: 'Collaboration', href: '#collaboration' },
+  { label: 'Insights', href: '#insights' },
   { label: 'Contact', to: '/contact' },
 ]
 
-const trustMetrics = [
-  { value: '2,400+', label: 'teams running daily work in WorkNest' },
-  { value: '480k+', label: 'tasks planned and completed each month' },
+const trustStats = [
+  { value: '2,400+', label: 'teams launched into structured delivery' },
+  { value: '1.8M', label: 'tasks planned, assigned, and completed' },
   { value: '99.9%', label: 'platform uptime for active workspaces' },
-  { value: '<2 min', label: 'average time to create and assign work' },
+  { value: '< 10 min', label: 'to set up a new workspace with roles' },
 ]
 
-const features = [
+const featureCards = [
   {
-    title: 'Create and assign work clearly',
-    description: 'Capture tasks in seconds, assign owners, set due dates, and keep scope visible from the start.',
-    icon: PlusIcon,
+    title: 'Task capture that stays crisp under pressure',
+    description: 'Create work with ownership, due dates, priorities, and context before anything slips into chat or private notes.',
+    icon: TaskIcon,
   },
   {
-    title: 'Track priorities and deadlines',
-    description: 'Separate what is urgent from what is important with clear due dates, statuses, and priority markers.',
-    icon: CalendarIcon,
+    title: 'Assignments teams can actually trust',
+    description: 'Every task carries a clear owner, delivery state, and next step so handoffs do not create ambiguity.',
+    icon: PeopleIcon,
   },
   {
-    title: 'Collaborate where the work lives',
-    description: 'Use comments, mentions, and task history so conversations stay attached to the exact item being discussed.',
-    icon: ChatIcon,
+    title: 'Deadlines that stay visible',
+    description: 'Calendar views, milestone context, and overdue alerts keep timing visible without turning the workspace into noise.',
+    icon: DeadlineIcon,
   },
   {
-    title: 'Stay aligned with notifications',
-    description: 'Assignments, mentions, and deadline reminders surface in one clean activity stream.',
-    icon: BellIcon,
+    title: 'Comments where decisions happen',
+    description: 'Mentions, replies, and task history live inside the work item, keeping collaboration tied to execution.',
+    icon: CommentIcon,
   },
   {
-    title: 'Give teams the right level of control',
-    description: 'Manage workspace roles, member access, invitations, and visibility without extra admin overhead.',
+    title: 'Permission controls for real teams',
+    description: 'Set roles, manage invitations, and keep each workspace organized without a heavy admin layer.',
     icon: ShieldIcon,
   },
   {
-    title: 'Measure progress with clarity',
-    description: 'Review workload, overdue items, completed work, and delivery trends from a focused dashboard.',
-    icon: ChartIcon,
+    title: 'Operational visibility for managers',
+    description: 'See workload, overdue items, completion trends, and blocked work in one focused operating view.',
+    icon: InsightIcon,
   },
 ]
 
-const workflowSteps = [
-  {
-    number: '01',
-    title: 'Create work',
-    description: 'Add tasks with clear scope, due dates, priority, and ownership before work gets lost in chat.',
-  },
-  {
-    number: '02',
-    title: 'Collaborate in context',
-    description: 'Discuss tasks, mention teammates, and update statuses directly inside the workspace.',
-  },
-  {
-    number: '03',
-    title: 'Track progress in real time',
-    description: 'Use boards, summaries, and activity views to see what is moving, blocked, or overdue.',
-  },
+const workflowPoints = [
+  'Create tasks with enough structure to move immediately.',
+  'Assign work, share context, and confirm due dates in one step.',
+  'Track execution across boards, milestones, and personal views.',
+]
+
+const collaborationPoints = [
+  'Shared updates and mentions live on the task itself.',
+  'Managers can rebalance ownership before deadlines slip.',
+  'Invites, permissions, and team progress stay in one system.',
+]
+
+const analyticsPoints = [
+  'Overdue work is visible without digging through reports.',
+  'Completion pace and team capacity stay readable week to week.',
+  'Leads can spot concentration risk before it becomes delay.',
 ]
 
 const footerColumns = [
@@ -73,18 +73,18 @@ const footerColumns = [
     title: 'Product',
     links: [
       { label: 'Features', href: '#features' },
-      { label: 'Task Boards', href: '#workflow' },
-      { label: 'Notifications', href: '#demo' },
-      { label: 'Dashboards', href: '#demo' },
+      { label: 'Workflow', href: '#workflow' },
+      { label: 'Collaboration', href: '#collaboration' },
+      { label: 'Insights', href: '#insights' },
     ],
   },
   {
     title: 'Company',
     links: [
       { label: 'About', to: '/about' },
-      { label: 'Demo', href: '#demo' },
       { label: 'Contact', to: '/contact' },
       { label: 'Support', to: '/support' },
+      { label: 'Status', to: '/status' },
     ],
   },
   {
@@ -92,20 +92,19 @@ const footerColumns = [
     links: [
       { label: 'Help Center', to: '/help-center' },
       { label: 'API Docs', to: '/api-docs' },
-      { label: 'Status', to: '/status' },
       { label: 'Security', to: '/security' },
+      { label: 'Support Desk', to: '/support' },
     ],
   },
 ]
 
+const containerClass = 'mx-auto w-full max-w-[1240px] px-6 lg:px-8'
 const primaryButtonClass =
-  'inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-colors duration-200 hover:bg-emerald-700'
-
+  'inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-[#315efb] px-5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(49,94,251,0.2)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#244ee6] hover:shadow-[0_18px_34px_rgba(49,94,251,0.24)]'
 const secondaryButtonClass =
-  'inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition-colors duration-200 hover:border-slate-400 hover:bg-slate-50'
-
-const sectionClass = 'mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'
-const surfaceClass = 'rounded-3xl border border-slate-200 bg-white shadow-[0_12px_36px_rgba(15,23,42,0.06)]'
+  'inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-900 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-50'
+const panelClass =
+  'rounded-[28px] border border-slate-200/80 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.07)]'
 
 export default function Landing() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -120,21 +119,21 @@ export default function Landing() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#fafaf8] text-slate-950">
+    <div className="relative isolate min-h-screen overflow-x-clip bg-[#f5f6f8] text-slate-950">
+      <div className="absolute inset-x-0 top-0 -z-10 h-[720px] bg-[radial-gradient(circle_at_top,rgba(49,94,251,0.08),transparent_32%),linear-gradient(180deg,#f8f8fa_0%,#f5f6f8_100%)]" />
+
       <header
-        className={`sticky top-0 z-40 border-b transition-all duration-300 ${
-          isScrolled
-            ? 'border-slate-200/80 bg-[rgba(250,250,248,0.92)] backdrop-blur-xl'
-            : 'border-transparent bg-transparent'
+        className={`sticky top-0 z-50 border-b transition-all duration-300 ${
+          isScrolled ? 'border-slate-200/80 bg-[rgba(245,246,248,0.86)] backdrop-blur-xl' : 'border-transparent bg-transparent'
         }`}
       >
-        <div className={`${sectionClass}`}>
-          <div className="flex h-20 items-center justify-between">
+        <div className={containerClass}>
+          <div className="flex h-20 items-center justify-between gap-6">
             <AppLogo
               to="/"
-              subtitle="Task management for focused teams"
-              imageClassName="h-11 w-11"
-              titleClassName="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-700"
+              subtitle="Structured task operations"
+              imageClassName="h-10 w-10"
+              titleClassName="text-[13px] font-semibold uppercase tracking-[0.22em] text-slate-950"
               subtitleClassName="text-sm text-slate-500"
             />
 
@@ -144,7 +143,7 @@ export default function Landing() {
                   <Link
                     key={item.label}
                     to={item.to}
-                    className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-950"
+                    className="text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-slate-950"
                   >
                     {item.label}
                   </Link>
@@ -152,7 +151,7 @@ export default function Landing() {
                   <a
                     key={item.href}
                     href={item.href}
-                    className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-950"
+                    className="text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-slate-950"
                   >
                     {item.label}
                   </a>
@@ -162,10 +161,10 @@ export default function Landing() {
 
             <div className="flex items-center gap-3">
               <Link to="/login" className="hidden text-sm font-semibold text-slate-700 transition-colors hover:text-slate-950 sm:inline-flex">
-                Sign In
+                Sign in
               </Link>
               <Link to="/register" className={primaryButtonClass}>
-                Get Started
+                Start free
               </Link>
             </div>
           </div>
@@ -173,149 +172,80 @@ export default function Landing() {
       </header>
 
       <main>
-        <section className={`${sectionClass} pb-20 pt-10 md:pb-24 md:pt-16`}>
-          <div className="grid items-center gap-14 lg:grid-cols-[0.9fr,1.1fr] xl:grid-cols-[0.86fr,1.14fr]">
-            <div className="fade-in">
-              <div className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                Built for modern product, operations, and delivery teams
-              </div>
-              <h1 className="mt-6 max-w-3xl text-balance font-display text-5xl font-bold tracking-tight text-slate-950 md:text-6xl">
-                Organize work. Align teams. Deliver faster.
-              </h1>
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-                WorkNest gives teams a cleaner way to plan tasks, assign ownership, track deadlines, and stay in sync
-                without relying on scattered tools or noisy workflows.
-              </p>
-
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link to="/register" className={primaryButtonClass}>
-                  Get Started
-                </Link>
-                <a href="#workflow" className={secondaryButtonClass}>
-                  View Workflow
-                </a>
-              </div>
-
-              <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-slate-500">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  No setup friction
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  Role-based team workspaces
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  Real-time visibility
-                </div>
-              </div>
-            </div>
-
-            <div className="fade-in-delayed">
-              <HeroProductPreview surfaceClass={surfaceClass} />
-            </div>
-          </div>
-        </section>
-
-        <section className="border-y border-slate-200 bg-white">
-          <div className={`${sectionClass} py-8`}>
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-              {trustMetrics.map((metric) => (
-                <div key={metric.label} className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-2xl font-bold tracking-tight text-slate-950">{metric.value}</p>
-                    <p className="mt-2 max-w-[20ch] text-sm leading-6 text-slate-600">{metric.label}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="features" className={`${sectionClass} scroll-mt-28 py-20 md:py-24`}>
-          <SectionHeading
-            eyebrow="Features"
-            title="Everything teams need to keep work structured and visible"
-            description="WorkNest focuses on the essentials that make team execution smoother: clear ownership, dependable deadlines, collaboration in context, and cleaner progress tracking."
-          />
-
-          <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {features.map((feature) => {
-              const Icon = feature.icon
-              return (
-                <article
-                  key={feature.title}
-                  className="fade-in rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.04)] transition-transform duration-200 hover:-translate-y-1"
-                >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="mt-5 text-xl font-semibold text-slate-950">{feature.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">{feature.description}</p>
-                </article>
-              )
-            })}
-          </div>
-        </section>
-
-        <section id="workflow" className="border-y border-slate-200 bg-white">
-          <div className={`${sectionClass} scroll-mt-28 py-20 md:py-24`}>
-            <div className="grid items-start gap-14 lg:grid-cols-[0.9fr,1.1fr]">
+        <section className="relative overflow-hidden pb-24 pt-10 md:pb-28 md:pt-16">
+          <div className={containerClass}>
+            <div className="grid items-center gap-16 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
               <div className="fade-in">
-                <SectionHeading
-                  eyebrow="Workflow"
-                  title="A product-led workflow that matches how teams actually operate"
-                  description="The workflow is simple on purpose: create work clearly, collaborate inside the task, and keep progress visible across the whole team."
-                  align="left"
-                />
+                <div className="inline-flex items-center rounded-full border border-[#cad6ff] bg-[#eef2ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#244ee6]">
+                  Built for product, operations, and delivery teams
+                </div>
+                <h1 className="mt-7 max-w-[11ch] text-balance font-display text-[3.35rem] font-bold leading-[0.95] tracking-[-0.05em] text-slate-950 md:text-[4.6rem]">
+                  Work that moves with clarity.
+                </h1>
+                <p className="mt-6 max-w-[34rem] text-lg leading-8 text-slate-600">
+                  WorkNest gives modern teams one calm, structured place to plan tasks, assign ownership, track deadlines,
+                  and keep delivery visible from kickoff to completion.
+                </p>
 
-                <div className="mt-10 space-y-5">
-                  {workflowSteps.map((step) => (
-                    <div key={step.number} className="flex gap-4 rounded-3xl border border-slate-200 bg-[#fcfcfb] p-5">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">
-                        {step.number}
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-950">{step.title}</h3>
-                        <p className="mt-2 text-sm leading-7 text-slate-600">{step.description}</p>
-                      </div>
+                <div className="mt-9 flex flex-wrap gap-3">
+                  <Link to="/register" className={primaryButtonClass}>
+                    Start your workspace
+                    <ArrowRightIcon className="h-4 w-4" />
+                  </Link>
+                  <a href="#workflow" className={secondaryButtonClass}>
+                    View product tour
+                    <PlayIcon className="h-4 w-4" />
+                  </a>
+                </div>
+
+                <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm text-slate-500">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-[#315efb]" />
+                    No credit card required
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-[#315efb]" />
+                    Roles, permissions, and notifications included
+                  </div>
+                </div>
+
+                <div className="mt-10 rounded-2xl border border-slate-200/80 bg-white/90 px-5 py-4 shadow-[0_16px_42px_rgba(15,23,42,0.05)]">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eef2ff] text-[#244ee6]">
+                      <SparkIcon className="h-5 w-5" />
                     </div>
-                  ))}
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950">Trusted by teams that need a steadier operating rhythm</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">
+                        Setup stays lightweight, while the workspace feels robust enough for real deadlines, ownership, and cross-team coordination.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="fade-in-delayed">
-                <WorkflowPreview surfaceClass={surfaceClass} />
+                <HeroWorkspacePreview />
               </div>
             </div>
           </div>
         </section>
 
-        <section id="teams" className={`${sectionClass} scroll-mt-28 py-20 md:py-24`}>
-          <div className="grid items-center gap-14 lg:grid-cols-[1.02fr,0.98fr]">
-            <div className="fade-in">
-              <TeamCollaborationPreview surfaceClass={surfaceClass} />
-            </div>
+        <section className="border-y border-slate-200/80 bg-white">
+          <div className={containerClass}>
+            <div className="flex flex-col gap-8 py-7 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-[28rem]">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Operational proof</p>
+                <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
+                  Designed for teams that need cleaner execution, not louder software.
+                </p>
+              </div>
 
-            <div className="fade-in-delayed">
-              <SectionHeading
-                eyebrow="Team Collaboration"
-                title="Built for teams that need clarity, not noise"
-                description="Assign responsibilities, comment in context, mention teammates, manage invites, and keep roles organized without breaking flow."
-                align="left"
-              />
-
-              <div className="mt-8 space-y-4">
-                {[
-                  'Assign work to the right owner without ambiguity.',
-                  'Keep updates, decisions, and mentions attached to each task.',
-                  'Manage invitations and roles from the same workspace.',
-                  'Give every teammate a clearer view of what is moving and what needs attention.',
-                ].map((item) => (
-                  <div key={item} className="flex gap-3 text-sm leading-7 text-slate-600">
-                    <span className="mt-2 h-2.5 w-2.5 rounded-full bg-emerald-600" />
-                    <span>{item}</span>
+              <div className="grid flex-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                {trustStats.map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-slate-200/70 bg-slate-50/80 px-4 py-4">
+                    <div className="text-2xl font-semibold tracking-tight text-slate-950">{item.value}</div>
+                    <div className="mt-1 text-sm leading-6 text-slate-600">{item.label}</div>
                   </div>
                 ))}
               </div>
@@ -323,74 +253,176 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="demo" className="border-y border-slate-200 bg-white">
-          <div className={`${sectionClass} scroll-mt-28 py-20 md:py-24`}>
-            <div className="grid items-center gap-14 lg:grid-cols-[0.92fr,1.08fr]">
+        <section id="features" className="scroll-mt-28 py-24 md:py-28">
+          <div className={containerClass}>
+            <SectionIntro
+              eyebrow="Features"
+              title="A serious workspace for teams that want execution to stay readable."
+              description="Every part of WorkNest is designed to reduce ambiguity: clearer task intake, visible deadlines, stronger accountability, and collaboration that stays attached to the work."
+            />
+
+            <div className="mt-14 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {featureCards.map((feature) => {
+                const Icon = feature.icon
+                return (
+                  <article
+                    key={feature.title}
+                    className="group rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_14px_42px_rgba(15,23,42,0.05)] transition-all duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-[0_20px_50px_rgba(15,23,42,0.08)]"
+                  >
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef2ff] text-[#244ee6] transition-transform duration-300 group-hover:-translate-y-0.5">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h3 className="mt-5 max-w-[18ch] text-xl font-semibold tracking-tight text-slate-950">{feature.title}</h3>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">{feature.description}</p>
+                  </article>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section id="workflow" className="scroll-mt-28 border-y border-slate-200/80 bg-white py-24 md:py-28">
+          <div className={containerClass}>
+            <div className="grid items-start gap-14 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
               <div className="fade-in">
-                <SectionHeading
-                  eyebrow="Dashboards & Analytics"
-                  title="A cleaner way to see workload, deadlines, and delivery health"
-                  description="Track overdue items, completed work, active projects, and team progress from a dashboard that stays readable under real use."
+                <SectionIntro
+                  eyebrow="Product Showcase"
+                  title="From intake to delivery, the workflow stays intentional."
+                  description="Capture new work, assign the right owner, keep deadlines visible, and maintain context in the task itself. The interface stays calm even when the work queue grows."
                   align="left"
                 />
 
-                <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                  <MiniMetric title="Overdue tasks" value="12" />
-                  <MiniMetric title="Completed this week" value="184" />
-                  <MiniMetric title="Active projects" value="28" />
-                  <MiniMetric title="Team progress" value="76%" />
+                <div className="mt-9 space-y-4">
+                  {workflowPoints.map((point, index) => (
+                    <div key={point} className="flex gap-4 rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-4">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-semibold text-white">
+                        {index + 1}
+                      </div>
+                      <p className="pt-0.5 text-sm leading-7 text-slate-600">{point}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               <div className="fade-in-delayed">
-                <AnalyticsPreview surfaceClass={surfaceClass} />
+                <WorkflowShowcase />
               </div>
             </div>
           </div>
         </section>
 
-        <section className={`${sectionClass} py-20 md:py-24`}>
-          <div className="rounded-[36px] border border-slate-200 bg-slate-950 px-6 py-10 text-white shadow-[0_16px_50px_rgba(2,6,23,0.16)] md:px-10 md:py-12">
-            <div className="grid gap-8 lg:grid-cols-[1.1fr,0.9fr] lg:items-center">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-300">Start with a cleaner workflow</p>
-                <h2 className="mt-4 max-w-2xl text-balance font-display text-4xl font-bold tracking-tight">
-                  Give your team a modern workspace for tasks, deadlines, and collaboration.
-                </h2>
-                <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
-                  WorkNest helps teams move from planning to delivery with better visibility, clearer ownership, and less operational noise.
-                </p>
+        <section id="collaboration" className="scroll-mt-28 py-24 md:py-28">
+          <div className={containerClass}>
+            <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+              <div className="fade-in">
+                <CollaborationShowcase />
               </div>
 
-              <div className="flex flex-wrap gap-3 lg:justify-end">
-                <Link to="/register" className="inline-flex items-center justify-center rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-emerald-400">
-                  Get Started
-                </Link>
+              <div className="fade-in-delayed">
+                <SectionIntro
+                  eyebrow="Team Collaboration"
+                  title="Shared context keeps work moving without extra meetings."
+                  description="Managers, contributors, and stakeholders can see the same decisions, ownership, and progress without chasing updates across tools."
+                  align="left"
+                />
+
+                <div className="mt-9 space-y-4">
+                  {collaborationPoints.map((point) => (
+                    <div key={point} className="flex items-start gap-3">
+                      <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#eef2ff] text-[#244ee6]">
+                        <CheckIcon className="h-3.5 w-3.5" />
+                      </span>
+                      <p className="text-sm leading-7 text-slate-600">{point}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                  <MiniStat label="Shared updates" value="100%" />
+                  <MiniStat label="Pending invites" value="03" />
+                  <MiniStat label="Owners confirmed" value="94%" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="insights" className="scroll-mt-28 border-y border-slate-200/80 bg-white py-24 md:py-28">
+          <div className={containerClass}>
+            <div className="grid items-start gap-14 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+              <div className="fade-in">
+                <SectionIntro
+                  eyebrow="Dashboard & Analytics"
+                  title="The operating view leaders need, without analytics overload."
+                  description="WorkNest surfaces overdue tasks, completion pace, capacity pressure, and delivery trends in a format that stays clear at a glance."
+                  align="left"
+                />
+
+                <div className="mt-9 space-y-4">
+                  {analyticsPoints.map((point) => (
+                    <div key={point} className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-4 text-sm leading-7 text-slate-600">
+                      {point}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="fade-in-delayed">
+                <AnalyticsShowcase />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-24 md:py-28">
+          <div className={containerClass}>
+            <div className="overflow-hidden rounded-[34px] border border-slate-200 bg-slate-950 px-6 py-12 text-white shadow-[0_26px_64px_rgba(2,6,23,0.18)] md:px-10">
+              <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#9bb2ff]">Final CTA</p>
+                  <h2 className="mt-4 max-w-[12ch] text-balance font-display text-4xl font-bold tracking-[-0.04em] md:text-[3.4rem]">
+                    Give your team a calmer way to run work.
+                  </h2>
+                  <p className="mt-4 max-w-[36rem] text-base leading-8 text-slate-300">
+                    Launch a structured workspace for tasks, deadlines, and collaboration without the overhead of a bloated enterprise rollout.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3 lg:justify-end">
+                  <Link to="/register" className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-slate-950 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-100">
+                    Create your workspace
+                    <ArrowRightIcon className="h-4 w-4" />
+                  </Link>
+                  <Link to="/contact" className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-white/20 px-5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-white/6">
+                    Talk to us
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
         </section>
       </main>
 
-      <footer id="contact" className="border-t border-slate-200 bg-white">
-        <div className={`${sectionClass} py-14`}>
-          <div className="grid gap-10 lg:grid-cols-[1.15fr,0.85fr]">
+      <footer className="border-t border-slate-200/80 bg-white">
+        <div className={containerClass}>
+          <div className="grid gap-12 py-14 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
             <div>
               <AppLogo
-                subtitle="Task management & team collaboration"
-                imageClassName="h-11 w-11"
-                titleClassName="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-700"
+                subtitle="Task operations for modern teams"
+                imageClassName="h-10 w-10"
+                titleClassName="text-[13px] font-semibold uppercase tracking-[0.22em] text-slate-950"
                 subtitleClassName="text-sm text-slate-500"
               />
-              <p className="mt-5 max-w-md text-sm leading-7 text-slate-600">
-                A refined workspace for teams that need structure, visibility, and a more dependable way to manage work together.
+              <p className="mt-5 max-w-[34rem] text-sm leading-7 text-slate-600">
+                WorkNest helps teams plan work, confirm ownership, keep deadlines visible, and collaborate in context with a more polished operating rhythm.
               </p>
-              <div className="mt-6 flex flex-wrap gap-4 text-sm font-medium text-slate-500">
-                <a href="mailto:kiprutovictor39@gmail.com" className="transition-colors hover:text-slate-950">
-                  kiprutovictor39@gmail.com
+
+              <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm font-medium text-slate-500">
+                <a href="mailto:support@worknest.example" className="transition-colors hover:text-slate-950">
+                  support@worknest.example
                 </a>
                 <Link to="/status" className="transition-colors hover:text-slate-950">
-                  Status
+                  System status
                 </Link>
                 <Link to="/security" className="transition-colors hover:text-slate-950">
                   Security
@@ -403,14 +435,14 @@ export default function Landing() {
                 <div key={column.title}>
                   <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-950">{column.title}</h3>
                   <div className="mt-4 space-y-3">
-                    {column.links.map((link) =>
-                      link.to ? (
-                        <Link key={link.label} to={link.to} className="block text-sm text-slate-600 transition-colors hover:text-slate-950">
-                          {link.label}
+                    {column.links.map((item) =>
+                      item.to ? (
+                        <Link key={item.label} to={item.to} className="block text-sm text-slate-600 transition-colors hover:text-slate-950">
+                          {item.label}
                         </Link>
                       ) : (
-                        <a key={link.label} href={link.href} className="block text-sm text-slate-600 transition-colors hover:text-slate-950">
-                          {link.label}
+                        <a key={item.label} href={item.href} className="block text-sm text-slate-600 transition-colors hover:text-slate-950">
+                          {item.label}
                         </a>
                       )
                     )}
@@ -420,7 +452,7 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="mt-12 flex flex-col gap-3 border-t border-slate-200 pt-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-t border-slate-200/80 py-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
             <p>© 2026 WorkNest. All rights reserved.</p>
             <div className="flex items-center gap-5">
               <Link to="/about" className="transition-colors hover:text-slate-950">
@@ -429,15 +461,8 @@ export default function Landing() {
               <Link to="/support" className="transition-colors hover:text-slate-950">
                 Support
               </Link>
-              <a
-                href="https://github.com/kipruto45"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 transition-colors hover:text-slate-950"
-                aria-label="WorkNest GitHub"
-              >
-                <GitHubIcon className="h-5 w-5" />
-                <span>GitHub</span>
+              <a href="https://github.com/kipruto45" target="_blank" rel="noreferrer" className="transition-colors hover:text-slate-950">
+                GitHub
               </a>
             </div>
           </div>
@@ -447,201 +472,137 @@ export default function Landing() {
   )
 }
 
-function SectionHeading({ eyebrow, title, description, align = 'center' }) {
-  const alignment = align === 'left' ? 'text-left' : 'mx-auto max-w-3xl text-center'
+function SectionIntro({ eyebrow, title, description, align = 'center' }) {
+  const wrapperClass = align === 'left' ? 'max-w-[34rem]' : 'mx-auto max-w-[46rem] text-center'
+  const titleClass = align === 'left' ? '' : 'mx-auto'
 
   return (
-    <div className={alignment}>
-      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p>
-      <h2 className="mt-4 text-balance font-display text-4xl font-bold tracking-tight text-slate-950">{title}</h2>
+    <div className={wrapperClass}>
+      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#315efb]">{eyebrow}</p>
+      <h2 className={`mt-4 text-balance font-display text-4xl font-bold tracking-[-0.04em] text-slate-950 md:text-[3rem] ${titleClass}`}>
+        {title}
+      </h2>
       <p className="mt-4 text-base leading-8 text-slate-600">{description}</p>
     </div>
   )
 }
 
-function MiniMetric({ title, value }) {
+function MiniStat({ label, value }) {
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-[#fcfcfb] p-5">
-      <p className="text-sm text-slate-500">{title}</p>
-      <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">{value}</p>
+    <div className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
     </div>
   )
 }
 
-function HeroProductPreview({ surfaceClass }) {
+function HeroWorkspacePreview() {
   return (
-    <div className={`${surfaceClass} mx-auto w-full max-w-[820px] overflow-hidden bg-[#f4f5f3] xl:max-w-[920px]`}>
-      <div className="flex items-center justify-between border-b border-slate-200 bg-[#eef1ee] px-4 py-3.5">
-        <div className="flex items-center gap-2.5">
-          <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-          <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
-          <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-        </div>
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="hidden rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-500 sm:block">
-            worknest.app/workspace
-          </div>
-          <div className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">WorkNest Workspace</div>
-        </div>
-      </div>
+    <div className={`${panelClass} mx-auto w-full max-w-[860px] overflow-hidden`}>
+      <WindowHeader title="WorkNest workspace" path="app.worknest.com/releases" />
 
-      <div className="border-b border-slate-200 bg-white/80 px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
-            Team board
-          </span>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
-            Sprint 12
-          </span>
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
-            Live workspace
-          </span>
-        </div>
-      </div>
-
-      <div className="grid gap-4 p-4 lg:grid-cols-[170px,1fr]">
-        <aside className="rounded-[20px] border border-white/80 bg-[#eef2ef] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-          <div className="rounded-2xl bg-white p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Overview</p>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">184</p>
-            <p className="mt-1 text-sm text-slate-500">tasks in progress</p>
+      <div className="grid gap-5 bg-[linear-gradient(180deg,#fafbff_0%,#f7f8fc_100%)] p-5 lg:grid-cols-[188px_minmax(0,1fr)]">
+        <aside className="rounded-[24px] border border-slate-200/80 bg-white p-4">
+          <div className="rounded-2xl bg-slate-950 px-4 py-4 text-white">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">June release</div>
+            <div className="mt-2 text-3xl font-semibold tracking-tight">42</div>
+            <div className="mt-1 text-sm text-slate-300">active items across the launch plan</div>
           </div>
-          <div className="mt-3 space-y-2">
-            <SidebarItem label="Team Board" active />
-            <SidebarItem label="My Tasks" />
-            <SidebarItem label="Notifications" />
-            <SidebarItem label="Reports" />
+
+          <div className="mt-4 space-y-2">
+            <SidebarPill label="Overview" active />
+            <SidebarPill label="Team board" />
+            <SidebarPill label="Milestones" />
+            <SidebarPill label="Activity" />
           </div>
         </aside>
 
-        <div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <StatusColumn
-              title="To do"
-              count="16"
-              items={[
-                ['Onboarding refresh', 'High priority'],
-                ['Client handoff notes', 'Due tomorrow'],
-              ]}
-            />
-            <StatusColumn
-              title="In progress"
-              count="09"
-              items={[
-                ['Mobile QA review', 'Assigned to Maya'],
-                ['Pricing updates', 'In review'],
-              ]}
-            />
-            <StatusColumn
-              title="Done"
-              count="24"
-              items={[
-                ['Weekly planning', 'Completed'],
-                ['Dashboard cleanup', 'Closed'],
-              ]}
-            />
-          </div>
-
-          <div className="mt-4 rounded-[20px] border border-slate-200 bg-[#fcfcfb] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-950">Upcoming deadlines</p>
-                <p className="mt-1 text-sm text-slate-500">A cleaner view of what needs attention this week.</p>
+        <div className="space-y-4">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+            <div className="rounded-[24px] border border-slate-200/80 bg-white p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#315efb]">Weekly board</div>
+                  <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">Launch readiness</h3>
+                </div>
+                <div className="rounded-full border border-[#cad6ff] bg-[#eef2ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#244ee6]">
+                  On track
+                </div>
               </div>
-              <div className="text-sm font-medium text-emerald-700">View calendar</div>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <DeadlineRow name="Customer launch checklist" date="Today" />
-              <DeadlineRow name="Design QA handoff" date="Thu" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
-function WorkflowPreview({ surfaceClass }) {
-  return (
-    <div className={`${surfaceClass} overflow-hidden`}>
-      <div className="border-b border-slate-200 px-6 py-5">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Product workflow</p>
-        <h3 className="mt-2 text-2xl font-semibold text-slate-950">Create, discuss, and move work forward</h3>
-      </div>
-      <div className="space-y-4 p-6">
-        <div className="rounded-[24px] border border-slate-200 bg-[#fcfcfb] p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">New task</p>
-              <h4 className="mt-2 text-lg font-semibold text-slate-950">Launch account migration</h4>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Owner, due date, and delivery scope are clear before work begins.
-              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <PreviewColumn
+                  title="Ready"
+                  count="14"
+                  items={[
+                    { title: 'Launch QA checklist', meta: 'Amina · Due today' },
+                    { title: 'Comms review', meta: 'Sara · Approved' },
+                  ]}
+                />
+                <PreviewColumn
+                  title="In progress"
+                  count="09"
+                  items={[
+                    { title: 'Migration dry run', meta: 'Daniel · 3 blockers cleared' },
+                    { title: 'Support macros', meta: 'Ivy · In review' },
+                  ]}
+                />
+                <PreviewColumn
+                  title="Next"
+                  count="19"
+                  items={[
+                    { title: 'Ops sign-off', meta: 'Pending owner review' },
+                    { title: 'Final release notes', meta: 'Drafting window' },
+                  ]}
+                />
+              </div>
             </div>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-              Assigned
-            </span>
-          </div>
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-[1.1fr,0.9fr]">
-          <div className="rounded-[24px] border border-slate-200 bg-white p-4">
-            <p className="text-sm font-semibold text-slate-950">Contextual discussion</p>
-            <div className="mt-4 space-y-4">
-              <CommentBubble author="Maya" message="The updated flow is ready for review. I’ve tagged design for sign-off." />
-              <CommentBubble author="Noah" message="Looks good. I’ll confirm the deadline and move it into review." muted />
-            </div>
-          </div>
-
-          <div className="rounded-[24px] border border-slate-200 bg-[#f6f8f7] p-4">
-            <p className="text-sm font-semibold text-slate-950">Live status</p>
-            <div className="mt-4 space-y-3">
-              <ProgressRow label="Planning" value="100%" />
-              <ProgressRow label="Execution" value="76%" />
-              <ProgressRow label="Review" value="42%" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function TeamCollaborationPreview({ surfaceClass }) {
-  return (
-    <div className={`${surfaceClass} overflow-hidden`}>
-      <div className="grid gap-4 p-6">
-        <div className="rounded-[28px] border border-slate-200 bg-[#fcfcfb] p-5">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Shared workspace</p>
-              <h3 className="mt-2 text-2xl font-semibold text-slate-950">Delivery team</h3>
-            </div>
-            <AvatarGroup />
-          </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <SimpleStat label="Members" value="14" />
-            <SimpleStat label="Open tasks" value="38" />
-            <SimpleStat label="Invites pending" value="3" />
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-[0.92fr,1.08fr]">
-          <div className="rounded-[24px] border border-slate-200 bg-white p-5">
-            <p className="text-sm font-semibold text-slate-950">Team roles</p>
-            <div className="mt-4 space-y-3">
-              <MemberRow name="Amina J." role="Admin" />
-              <MemberRow name="Maya K." role="Manager" />
-              <MemberRow name="Noah T." role="Member" />
+            <div className="rounded-[24px] border border-slate-200/80 bg-white p-4">
+              <div className="text-sm font-semibold text-slate-950">Today&apos;s execution view</div>
+              <div className="mt-4 space-y-3">
+                <ExecutionItem title="High priority" value="07" tone="red" />
+                <ExecutionItem title="Due this week" value="13" tone="blue" />
+                <ExecutionItem title="Awaiting review" value="05" tone="slate" />
+              </div>
+              <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-4">
+                <div className="flex items-center justify-between text-sm text-slate-500">
+                  <span>Delivery confidence</span>
+                  <span className="font-semibold text-slate-950">82%</span>
+                </div>
+                <div className="mt-3 h-2 rounded-full bg-slate-200">
+                  <div className="h-full w-[82%] rounded-full bg-[#315efb]" />
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-slate-200 bg-white p-5">
-            <p className="text-sm font-semibold text-slate-950">Activity and mentions</p>
-            <div className="mt-4 space-y-4">
-              <NotificationRow title="Mentioned in launch checklist" time="2 min ago" />
-              <NotificationRow title="Task assigned: Mobile QA review" time="9 min ago" />
-              <NotificationRow title="Invitation accepted by Alex" time="18 min ago" />
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
+            <div className="rounded-[24px] border border-slate-200/80 bg-white p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm font-semibold text-slate-950">Upcoming deadlines</div>
+                  <div className="mt-1 text-sm text-slate-500">Nothing gets buried under status noise.</div>
+                </div>
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#315efb]">Calendar sync</div>
+              </div>
+              <div className="mt-4 space-y-3">
+                <DeadlineRow title="Customer migration handoff" due="Today" owner="Amina" />
+                <DeadlineRow title="Support enablement review" due="Thu" owner="Ivy" />
+                <DeadlineRow title="Release memo" due="Fri" owner="Daniel" />
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200/80 bg-white p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-950">Team activity</div>
+                <AvatarStack />
+              </div>
+              <div className="mt-4 space-y-3">
+                <ActivityRow person="Maya" message="Moved migration dry run into review and tagged support." />
+                <ActivityRow person="Amina" message="Updated launch checklist with final approval steps." />
+                <ActivityRow person="Ivy" message="Confirmed macro rollout plan for day-one tickets." />
+              </div>
             </div>
           </div>
         </div>
@@ -650,43 +611,236 @@ function TeamCollaborationPreview({ surfaceClass }) {
   )
 }
 
-function AnalyticsPreview({ surfaceClass }) {
+function WorkflowShowcase() {
   return (
-    <div className={`${surfaceClass} overflow-hidden`}>
-      <div className="grid gap-4 p-6">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <MetricCard title="Completed" value="184" />
-          <MetricCard title="Overdue" value="12" />
-          <MetricCard title="Active teams" value="9" />
-        </div>
+    <div className="space-y-4">
+      <div className={`${panelClass} overflow-hidden`}>
+        <WindowHeader title="New task intake" path="workspace/intake" />
+        <div className="grid gap-4 bg-[linear-gradient(180deg,#ffffff_0%,#f8f9fd_100%)] p-5 lg:grid-cols-[minmax(0,0.98fr)_minmax(0,1.02fr)]">
+          <div className="rounded-[24px] border border-slate-200/80 bg-white p-5">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#315efb]">Create task</div>
+            <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">Prepare onboarding launch notes</h3>
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              A clean task form makes the owner, timing, and expected output obvious from the start.
+            </p>
 
-        <div className="grid gap-4 md:grid-cols-[1fr,320px]">
-          <div className="rounded-[24px] border border-slate-200 bg-white p-5">
+            <div className="mt-5 space-y-3">
+              <Field label="Owner" value="Maya Chen" />
+              <Field label="Due date" value="June 18" />
+              <Field label="Priority" value="High" />
+              <Field label="Milestone" value="June release" />
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-slate-200/80 bg-white p-5">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-950">Weekly progress</p>
-              <p className="text-sm text-slate-500">Last 7 days</p>
+              <div>
+                <div className="text-sm font-semibold text-slate-950">Assignment confirmation</div>
+                <div className="mt-1 text-sm text-slate-500">The handoff is explicit before work starts.</div>
+              </div>
+              <div className="rounded-full bg-[#eef2ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#244ee6]">
+                Ready
+              </div>
             </div>
-            <div className="mt-6 flex h-56 items-end gap-3">
-              {[44, 56, 72, 60, 84, 68, 92].map((height, index) => (
+
+            <div className="mt-5 space-y-4">
+              <AssignmentRow label="Design review" owner="Taylor" state="Confirmed" />
+              <AssignmentRow label="QA checklist" owner="Amina" state="Confirmed" />
+              <AssignmentRow label="Release note draft" owner="Maya" state="In progress" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">
+        <div className={`${panelClass} overflow-hidden`}>
+          <div className="border-b border-slate-200/80 bg-slate-50/80 px-5 py-4">
+            <div className="text-sm font-semibold text-slate-950">Task board</div>
+          </div>
+          <div className="grid gap-3 p-5 md:grid-cols-3">
+            <WorkflowColumn
+              title="Plan"
+              items={[
+                'Confirm rollout owner',
+                'Review support macros',
+              ]}
+            />
+            <WorkflowColumn
+              title="Execute"
+              items={[
+                'Finalize migration runbook',
+                'Ship customer comms',
+              ]}
+            />
+            <WorkflowColumn
+              title="Review"
+              items={[
+                'Collect QA sign-off',
+                'Approve final notes',
+              ]}
+            />
+          </div>
+        </div>
+
+        <div className={`${panelClass} overflow-hidden`}>
+          <div className="border-b border-slate-200/80 bg-slate-50/80 px-5 py-4">
+            <div className="text-sm font-semibold text-slate-950">Deadline focus</div>
+          </div>
+          <div className="space-y-3 p-5">
+            <TimelineRow title="Dry run rehearsal" date="Today" completion={92} />
+            <TimelineRow title="Support handoff" date="Thu" completion={68} />
+            <TimelineRow title="Launch readiness review" date="Fri" completion={48} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CollaborationShowcase() {
+  return (
+    <div className="space-y-4">
+      <div className={`${panelClass} overflow-hidden`}>
+        <WindowHeader title="Team workspace" path="workspace/collaboration" />
+        <div className="grid gap-4 bg-[linear-gradient(180deg,#fafbff_0%,#f6f7fb_100%)] p-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="rounded-[24px] border border-slate-200/80 bg-white p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#315efb]">Delivery team</div>
+                <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Launch squad</h3>
+              </div>
+              <AvatarStack />
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <TeamMiniCard label="Members" value="14" />
+              <TeamMiniCard label="Open tasks" value="38" />
+              <TeamMiniCard label="In review" value="06" />
+            </div>
+
+            <div className="mt-5 rounded-[22px] bg-slate-50 px-4 py-4">
+              <div className="text-sm font-semibold text-slate-950">Role coverage</div>
+              <div className="mt-3 space-y-3">
+                <RoleRow role="Project lead" person="Amina" />
+                <RoleRow role="Support enablement" person="Ivy" />
+                <RoleRow role="Product comms" person="Maya" />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-slate-200/80 bg-white p-5">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-slate-950">Discussion in context</div>
+              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                3 mentions
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <CommentBubble
+                author="Maya"
+                role="Product"
+                message="Copy is final. I tagged support so they can confirm the escalation macro before launch."
+              />
+              <CommentBubble
+                author="Ivy"
+                role="Support"
+                message="Confirmed. The handoff article is attached and the macro is ready for the Friday deployment."
+                subtle
+              />
+              <CommentBubble
+                author="Amina"
+                role="Ops"
+                message="Perfect. I moved the release memo into review and attached the final checklist to the milestone."
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={`${panelClass} overflow-hidden`}>
+        <div className="border-b border-slate-200/80 bg-slate-50/80 px-5 py-4">
+          <div className="text-sm font-semibold text-slate-950">Shared progress</div>
+        </div>
+        <div className="grid gap-4 p-5 md:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+          <div className="rounded-[22px] border border-slate-200/80 bg-white p-4">
+            <div className="text-sm font-semibold text-slate-950">Assignment health</div>
+            <div className="mt-4 space-y-4">
+              <CapacityRow name="Amina" load="Balanced" percentage={74} />
+              <CapacityRow name="Maya" load="Focused" percentage={61} />
+              <CapacityRow name="Ivy" load="High attention" percentage={88} />
+            </div>
+          </div>
+
+          <div className="rounded-[22px] border border-slate-200/80 bg-white p-4">
+            <div className="text-sm font-semibold text-slate-950">Progress by lane</div>
+            <div className="mt-4 space-y-4">
+              <LaneRow lane="Planning" value="100%" />
+              <LaneRow lane="Execution" value="78%" />
+              <LaneRow lane="Review" value="51%" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AnalyticsShowcase() {
+  return (
+    <div className={`${panelClass} overflow-hidden`}>
+      <WindowHeader title="Insights dashboard" path="workspace/insights" />
+      <div className="space-y-4 bg-[linear-gradient(180deg,#ffffff_0%,#f8f9fd_100%)] p-5">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <InsightCard label="Overdue tasks" value="12" tone="red" />
+          <InsightCard label="Completed this week" value="184" tone="blue" />
+          <InsightCard label="Team capacity" value="76%" tone="slate" />
+          <InsightCard label="Blocked items" value="03" tone="amber" />
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+          <div className="rounded-[24px] border border-slate-200/80 bg-white p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-slate-950">Completion pace</div>
+                <div className="mt-1 text-sm text-slate-500">A clean weekly signal instead of report overload.</div>
+              </div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#315efb]">Last 6 weeks</div>
+            </div>
+
+            <div className="mt-6 flex h-56 items-end justify-between gap-3">
+              {[46, 58, 71, 64, 79, 88].map((height, index) => (
                 <div key={height} className="flex flex-1 flex-col items-center gap-3">
-                  <div
-                    className={`w-full rounded-t-2xl ${index === 6 ? 'bg-emerald-600' : 'bg-slate-200'}`}
-                    style={{ height: `${height * 1.6}px` }}
-                  />
-                  <span className="text-xs font-medium text-slate-500">
-                    {['M', 'T', 'W', 'T', 'F', 'S', 'S'][index]}
-                  </span>
+                  <div className="flex w-full flex-1 items-end">
+                    <div
+                      className={`w-full rounded-t-[18px] ${
+                        index === 5 ? 'bg-[#315efb]' : 'bg-slate-200'
+                      }`}
+                      style={{ height: `${height}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-slate-500">W{index + 1}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-slate-200 bg-[#fcfcfb] p-5">
-            <p className="text-sm font-semibold text-slate-950">Deadline calendar</p>
-            <div className="mt-4 space-y-3">
-              <CalendarEvent day="14" month="May" title="Client review" />
-              <CalendarEvent day="16" month="May" title="Launch prep" />
-              <CalendarEvent day="20" month="May" title="Quarterly planning" />
+          <div className="space-y-4">
+            <div className="rounded-[24px] border border-slate-200/80 bg-white p-5">
+              <div className="text-sm font-semibold text-slate-950">Workload visibility</div>
+              <div className="mt-4 space-y-4">
+                <WorkloadRow name="Product" current="18 active" balance="Healthy" />
+                <WorkloadRow name="Operations" current="23 active" balance="Watchlist" />
+                <WorkloadRow name="Support" current="11 active" balance="Healthy" />
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200/80 bg-slate-950 p-5 text-white">
+              <div className="text-sm font-semibold text-white">Delivery summary</div>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <DarkMetric label="Milestones on track" value="08" />
+                <DarkMetric label="Escalations open" value="02" />
+              </div>
             </div>
           </div>
         </div>
@@ -695,31 +849,50 @@ function AnalyticsPreview({ surfaceClass }) {
   )
 }
 
-function SidebarItem({ label, active = false }) {
+function WindowHeader({ title, path }) {
   return (
-    <div
-      className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium ${
-        active ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600'
-      }`}
-    >
-      <span>{label}</span>
-      <span className={`h-2 w-2 rounded-full ${active ? 'bg-white' : 'bg-slate-300'}`} />
+    <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/80 px-5 py-3.5">
+      <div className="flex items-center gap-2.5">
+        <span className="h-2.5 w-2.5 rounded-full bg-[#f97066]" />
+        <span className="h-2.5 w-2.5 rounded-full bg-[#f9b548]" />
+        <span className="h-2.5 w-2.5 rounded-full bg-[#32d583]" />
+      </div>
+      <div className="min-w-0 flex-1 px-4 text-center">
+        <div className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{title}</div>
+      </div>
+      <div className="hidden rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-500 sm:block">
+        {path}
+      </div>
     </div>
   )
 }
 
-function StatusColumn({ title, count, items }) {
+function SidebarPill({ label, active = false }) {
   return (
-    <div className="rounded-[22px] border border-slate-200 bg-[#fcfcfb] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-base font-semibold leading-6 text-slate-950">{title}</p>
-        <span className="shrink-0 text-sm font-medium text-slate-500">{count}</span>
+    <div
+      className={`rounded-2xl px-4 py-3 text-sm font-medium transition-colors ${
+        active ? 'bg-[#eef2ff] text-[#244ee6]' : 'bg-slate-50 text-slate-600'
+      }`}
+    >
+      {label}
+    </div>
+  )
+}
+
+function PreviewColumn({ title, count, items }) {
+  return (
+    <div className="rounded-[20px] border border-slate-200/80 bg-slate-50/70 p-3">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-semibold text-slate-950">{title}</div>
+        <div className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          {count}
+        </div>
       </div>
-      <div className="mt-4 space-y-3">
-        {items.map(([name, meta]) => (
-          <div key={name} className="rounded-2xl border border-slate-200 bg-white p-3">
-            <p className="text-sm font-medium leading-6 text-slate-900">{name}</p>
-            <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">{meta}</p>
+      <div className="mt-3 space-y-2.5">
+        {items.map((item) => (
+          <div key={item.title} className="rounded-2xl border border-white bg-white px-3 py-3 shadow-[0_6px_18px_rgba(15,23,42,0.04)]">
+            <div className="text-sm font-medium text-slate-950">{item.title}</div>
+            <div className="mt-1 text-xs leading-5 text-slate-500">{item.meta}</div>
           </div>
         ))}
       </div>
@@ -727,171 +900,294 @@ function StatusColumn({ title, count, items }) {
   )
 }
 
-function DeadlineRow({ name, date }) {
+function ExecutionItem({ title, value, tone }) {
+  const toneClass = {
+    red: 'bg-[#fef3f2] text-[#d92d20]',
+    blue: 'bg-[#eef2ff] text-[#244ee6]',
+    slate: 'bg-slate-100 text-slate-700',
+  }[tone]
+
   return (
-    <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-      <span className="text-sm font-medium leading-6 text-slate-900">{name}</span>
-      <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
-        {date}
-      </span>
+    <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+      <div className="text-sm font-medium text-slate-600">{title}</div>
+      <div className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${toneClass}`}>{value}</div>
     </div>
   )
 }
 
-function CommentBubble({ author, message, muted = false }) {
+function DeadlineRow({ title, due, owner }) {
   return (
-    <div className={`rounded-2xl border px-4 py-3 ${muted ? 'border-slate-200 bg-[#f8faf9]' : 'border-emerald-100 bg-emerald-50'}`}>
-      <p className="text-sm font-semibold text-slate-900">{author}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{message}</p>
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 bg-white px-4 py-3">
+      <div className="min-w-0">
+        <div className="truncate text-sm font-medium text-slate-950">{title}</div>
+        <div className="mt-1 text-xs text-slate-500">{owner}</div>
+      </div>
+      <div className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+        {due}
+      </div>
     </div>
   )
 }
 
-function ProgressRow({ label, value }) {
+function ActivityRow({ person, message }) {
+  return (
+    <div className="rounded-2xl border border-slate-200/70 bg-slate-50/80 px-4 py-3">
+      <div className="text-sm font-semibold text-slate-950">{person}</div>
+      <div className="mt-1 text-sm leading-6 text-slate-600">{message}</div>
+    </div>
+  )
+}
+
+function Field({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+      <div className="mt-1 text-sm font-medium text-slate-950">{value}</div>
+    </div>
+  )
+}
+
+function AssignmentRow({ label, owner, state }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3">
+      <div>
+        <div className="text-sm font-medium text-slate-950">{label}</div>
+        <div className="mt-1 text-xs text-slate-500">{owner}</div>
+      </div>
+      <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+        {state}
+      </div>
+    </div>
+  )
+}
+
+function WorkflowColumn({ title, items }) {
+  return (
+    <div className="rounded-[22px] border border-slate-200/80 bg-slate-50/70 p-4">
+      <div className="text-sm font-semibold text-slate-950">{title}</div>
+      <div className="mt-3 space-y-2.5">
+        {items.map((item) => (
+          <div key={item} className="rounded-2xl border border-white bg-white px-3 py-3 text-sm font-medium text-slate-950 shadow-[0_6px_18px_rgba(15,23,42,0.04)]">
+            {item}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function TimelineRow({ title, date, completion }) {
+  return (
+    <div className="rounded-[22px] border border-slate-200/80 bg-white px-4 py-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="text-sm font-medium text-slate-950">{title}</div>
+          <div className="mt-1 text-xs text-slate-500">{date}</div>
+        </div>
+        <div className="text-sm font-semibold text-slate-950">{completion}%</div>
+      </div>
+      <div className="mt-3 h-2 rounded-full bg-slate-200">
+        <div className="h-full rounded-full bg-[#315efb]" style={{ width: `${completion}%` }} />
+      </div>
+    </div>
+  )
+}
+
+function TeamMiniCard({ label, value }) {
+  return (
+    <div className="rounded-[20px] border border-slate-200/80 bg-slate-50 px-4 py-4">
+      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+      <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{value}</div>
+    </div>
+  )
+}
+
+function RoleRow({ role, person }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3">
+      <div className="text-sm font-medium text-slate-950">{role}</div>
+      <div className="text-sm text-slate-500">{person}</div>
+    </div>
+  )
+}
+
+function CommentBubble({ author, role, message, subtle = false }) {
+  return (
+    <div className={`rounded-[22px] px-4 py-4 ${subtle ? 'bg-slate-50' : 'bg-[#f8f9ff]'}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-slate-950">{author}</span>
+        <span className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">{role}</span>
+      </div>
+      <div className="mt-2 text-sm leading-7 text-slate-600">{message}</div>
+    </div>
+  )
+}
+
+function CapacityRow({ name, load, percentage }) {
   return (
     <div>
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-slate-700">{label}</span>
-        <span className="text-slate-500">{value}</span>
+      <div className="flex items-center justify-between gap-4 text-sm">
+        <span className="font-medium text-slate-950">{name}</span>
+        <span className="text-slate-500">{load}</span>
       </div>
       <div className="mt-2 h-2 rounded-full bg-slate-200">
-        <div className="h-2 rounded-full bg-emerald-600" style={{ width: value }} />
+        <div className="h-full rounded-full bg-[#315efb]" style={{ width: `${percentage}%` }} />
       </div>
     </div>
   )
 }
 
-function AvatarGroup() {
+function LaneRow({ lane, value }) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm">
+      <span className="font-medium text-slate-950">{lane}</span>
+      <span className="font-semibold text-slate-600">{value}</span>
+    </div>
+  )
+}
+
+function InsightCard({ label, value, tone }) {
+  const accent = {
+    red: 'bg-[#fef3f2] text-[#d92d20]',
+    blue: 'bg-[#eef2ff] text-[#244ee6]',
+    slate: 'bg-slate-100 text-slate-700',
+    amber: 'bg-[#fffaeb] text-[#b54708]',
+  }[tone]
+
+  return (
+    <div className="rounded-[22px] border border-slate-200/80 bg-white px-4 py-4">
+      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+      <div className="mt-3 flex items-center justify-between gap-4">
+        <div className="text-3xl font-semibold tracking-tight text-slate-950">{value}</div>
+        <div className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${accent}`}>Live</div>
+      </div>
+    </div>
+  )
+}
+
+function WorkloadRow({ name, current, balance }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3">
+      <div>
+        <div className="text-sm font-medium text-slate-950">{name}</div>
+        <div className="mt-1 text-xs text-slate-500">{current}</div>
+      </div>
+      <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+        {balance}
+      </div>
+    </div>
+  )
+}
+
+function DarkMetric({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
+      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</div>
+      <div className="mt-2 text-2xl font-semibold tracking-tight text-white">{value}</div>
+    </div>
+  )
+}
+
+function AvatarStack() {
   return (
     <div className="flex -space-x-2">
-      {['MJ', 'NT', 'AK', '+4'].map((avatar, index) => (
+      {['AM', 'MC', 'IV'].map((person, index) => (
         <div
-          key={avatar}
-          className={`flex h-10 w-10 items-center justify-center rounded-full border-2 border-white text-xs font-semibold ${
-            index === 3 ? 'bg-slate-900 text-white' : 'bg-emerald-100 text-emerald-700'
+          key={person}
+          className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-white text-[11px] font-semibold text-white ${
+            index === 0 ? 'bg-slate-900' : index === 1 ? 'bg-[#315efb]' : 'bg-[#0f766e]'
           }`}
         >
-          {avatar}
+          {person}
         </div>
       ))}
     </div>
   )
 }
 
-function SimpleStat({ label, value }) {
+function ArrowRightIcon(props) {
   return (
-    <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{value}</p>
-    </div>
-  )
-}
-
-function MemberRow({ name, role }) {
-  return (
-    <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-[#fcfcfb] px-4 py-3">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-xs font-semibold text-emerald-700">
-          {name
-            .split(' ')
-            .map((part) => part[0])
-            .join('')}
-        </div>
-        <span className="text-sm font-medium text-slate-900">{name}</span>
-      </div>
-      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{role}</span>
-    </div>
-  )
-}
-
-function NotificationRow({ title, time }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-[#fcfcfb] px-4 py-3">
-      <div className="flex items-center gap-3">
-        <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
-        <span className="text-sm font-medium text-slate-900">{title}</span>
-      </div>
-      <span className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">{time}</span>
-    </div>
-  )
-}
-
-function MetricCard({ title, value }) {
-  return (
-    <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-      <p className="text-sm text-slate-500">{title}</p>
-      <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">{value}</p>
-    </div>
-  )
-}
-
-function CalendarEvent({ day, month, title }) {
-  return (
-    <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-      <div className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-emerald-50">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">{month}</span>
-        <span className="text-lg font-bold text-slate-950">{day}</span>
-      </div>
-      <div>
-        <p className="text-sm font-medium text-slate-900">{title}</p>
-        <p className="mt-1 text-sm text-slate-500">Calendar deadline view</p>
-      </div>
-    </div>
-  )
-}
-
-function PlusIcon(props) {
-  return (
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 5v14M5 12h14" />
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M4 10h11" strokeLinecap="round" />
+      <path d="m10.5 4.5 5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
 
-function CalendarIcon(props) {
+function PlayIcon(props) {
   return (
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1Z" />
+    <svg viewBox="0 0 20 20" fill="currentColor" {...props}>
+      <path d="M6.5 4.8c0-.7.8-1.13 1.4-.76l8.2 4.95a.9.9 0 0 1 0 1.54L7.9 15.48c-.62.37-1.4-.07-1.4-.78V4.8Z" />
     </svg>
   )
 }
 
-function ChatIcon(props) {
+function SparkIcon(props) {
   return (
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 10h8M8 14h5M5 19V6a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 3Z" />
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="m10 2 1.8 4.7L16.5 8l-4.7 1.3L10 14l-1.8-4.7L3.5 8l4.7-1.3L10 2Z" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
 
-function BellIcon(props) {
+function CheckIcon(props) {
   return (
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.44V11a6 6 0 1 0-12 0v3.16c0 .54-.21 1.05-.6 1.44L4 17h5m6 0v1a3 3 0 1 1-6 0v-1m6 0H9" />
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+      <path d="m5 10 3.2 3.2L15 6.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function TaskIcon(props) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M5 6.5h10M5 10h10M5 13.5h6" strokeLinecap="round" />
+      <path d="M3.5 4.5h13a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Z" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function PeopleIcon(props) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M6.7 9a2.2 2.2 0 1 0 0-4.4A2.2 2.2 0 0 0 6.7 9Zm6.6 0a2.2 2.2 0 1 0 0-4.4A2.2 2.2 0 0 0 13.3 9Z" />
+      <path d="M3.8 15.2a3.4 3.4 0 0 1 5.8-2.4m1.1 2.4a3.4 3.4 0 0 1 5.8-2.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function DeadlineIcon(props) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <circle cx="10" cy="10" r="7" />
+      <path d="M10 6.5v4l2.7 1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function CommentIcon(props) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M5 15.5 3.5 17V5a1.5 1.5 0 0 1 1.5-1.5h10A1.5 1.5 0 0 1 16.5 5v8A1.5 1.5 0 0 1 15 14.5H5Z" strokeLinejoin="round" />
+      <path d="M6.5 7.5h7M6.5 10.5h5" strokeLinecap="round" />
     </svg>
   )
 }
 
 function ShieldIcon(props) {
   return (
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="m12 3 7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z" />
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M10 2.8 15.8 5v4.4c0 3.1-2 5.8-5.8 7.8C6.2 15.2 4.2 12.5 4.2 9.4V5L10 2.8Z" strokeLinejoin="round" />
+      <path d="m7.7 10.2 1.5 1.5 3.1-3.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
 
-function ChartIcon(props) {
+function InsightIcon(props) {
   return (
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 19V9M12 19V5M19 19v-7" />
-    </svg>
-  )
-}
-
-function GitHubIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.9.58.1.79-.25.79-.56 0-.28-.01-1.19-.02-2.15-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.69.08-.69 1.16.08 1.76 1.18 1.76 1.18 1.02 1.76 2.68 1.25 3.33.96.1-.74.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.17 1.18a10.98 10.98 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.58.23 2.75.11 3.04.73.8 1.18 1.83 1.18 3.08 0 4.41-2.7 5.39-5.27 5.67.41.35.78 1.05.78 2.11 0 1.52-.01 2.75-.01 3.13 0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" />
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+      <path d="M4.5 14.5V10m5.5 4.5V6m5.5 8.5V8.5" strokeLinecap="round" />
+      <path d="M3.5 16.5h13" strokeLinecap="round" />
     </svg>
   )
 }

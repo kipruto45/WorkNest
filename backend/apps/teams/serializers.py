@@ -13,6 +13,15 @@ class TeamWriteSerializer(serializers.ModelSerializer):
         model = Team
         fields = ("name", "description", "allow_manager_invites")
 
+    def validate(self, attrs: dict) -> dict:
+        team = getattr(self, "instance", None)
+        allow_manager_invites = attrs.get("allow_manager_invites")
+        if team is not None and team.is_personal and allow_manager_invites:
+            raise serializers.ValidationError(
+                {"allow_manager_invites": "Personal workspaces cannot enable member invitation policies."}
+            )
+        return attrs
+
     def validate_name(self, value: str) -> str:
         value = value.strip()
         if len(value) < 2:
@@ -49,6 +58,7 @@ class TeamListSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "description",
+            "is_personal",
             "allow_manager_invites",
             "is_archived",
             "archived_at",
@@ -105,6 +115,7 @@ class TeamDetailSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "description",
+            "is_personal",
             "allow_manager_invites",
             "is_archived",
             "archived_at",
@@ -153,6 +164,9 @@ class TeamDetailSerializer(serializers.ModelSerializer):
 
 class TeamAnnouncementSerializer(serializers.ModelSerializer):
     published_by = UserPublicSerializer(read_only=True)
+    archived_by = UserPublicSerializer(read_only=True)
+    is_pinned = serializers.SerializerMethodField()
+    is_expired = serializers.SerializerMethodField()
 
     class Meta:
         model = TeamAnnouncement
@@ -162,23 +176,41 @@ class TeamAnnouncementSerializer(serializers.ModelSerializer):
             "content",
             "is_active",
             "pinned_until",
+            "expires_at",
+            "archived_at",
             "published_by",
+            "archived_by",
+            "is_pinned",
+            "is_expired",
             "created_at",
             "updated_at",
         )
         read_only_fields = fields
+
+    def get_is_pinned(self, obj) -> bool:
+        from django.utils import timezone
+
+        return bool(obj.pinned_until and obj.pinned_until >= timezone.now())
+
+    def get_is_expired(self, obj) -> bool:
+        from django.utils import timezone
+
+        return bool(obj.expires_at and obj.expires_at <= timezone.now())
 
 
 class TeamAnnouncementCreateSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=255)
     content = serializers.CharField()
     pinned_until = serializers.DateTimeField(required=False, allow_null=True)
+    expires_at = serializers.DateTimeField(required=False, allow_null=True)
 
 
 class TeamAnnouncementUpdateSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=255, required=False)
     content = serializers.CharField(required=False)
     pinned_until = serializers.DateTimeField(required=False, allow_null=True)
+    expires_at = serializers.DateTimeField(required=False, allow_null=True)
+    is_active = serializers.BooleanField(required=False)
 
 
 class RecentTeamVisitSerializer(serializers.ModelSerializer):

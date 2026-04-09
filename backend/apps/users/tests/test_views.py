@@ -41,13 +41,16 @@ class UserViewTests(APITestCase):
 
         response = self.client.patch(
             reverse("api_v1:users:me"),
-            {"notification_preferences": {"mention_emails": False, "task_assignment_emails": True}},
+            {
+                "notification_preferences": {
+                    "channels": {"in_app": {"task_assigned": True}, "email": {"task_assigned": False}},
+                    "mention_emails": False,
+                }
+            },
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         user.refresh_from_db()
-        self.assertEqual(
-            user.notification_preferences,
-            {"mention_emails": False, "task_assignment_emails": True},
-        )
+        self.assertIn("channels", user.notification_preferences)
+        self.assertFalse(user.notification_preferences.get("channels", {}).get("email", {}).get("task_assigned"))

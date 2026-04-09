@@ -27,6 +27,9 @@ class AuditAction(models.TextChoices):
     PASSWORD_RESET_CONFIRMED = "password_reset_confirmed", "Password Reset Confirmed"
     GOOGLE_LOGIN_REQUESTED = "google_login_requested", "Google Login Requested"
     ACCOUNT_LINKED = "account_linked", "Account Linked"
+    PHONE_UPDATED = "phone_updated", "Phone Updated"
+    PHONE_VERIFIED = "phone_verified", "Phone Verified"
+    SMS_PREFERENCES_UPDATED = "sms_preferences_updated", "SMS Preferences Updated"
 
     TEAM_CREATED = "team_created", "Team Created"
     TEAM_UPDATED = "team_updated", "Team Updated"
@@ -71,6 +74,11 @@ class AuditAction(models.TextChoices):
     EMAIL_SENT = "email_sent", "Email Sent"
     EMAIL_FAILED = "email_failed", "Email Failed"
     EMAIL_SKIPPED = "email_skipped", "Email Skipped"
+    SMS_QUEUED = "sms_queued", "SMS Queued"
+    SMS_SENT = "sms_sent", "SMS Sent"
+    SMS_FAILED = "sms_failed", "SMS Failed"
+    ADMIN_SMS_BROADCAST_CREATED = "admin_sms_broadcast_created", "Admin SMS Broadcast Created"
+    ADMIN_SMS_BROADCAST_SENT = "admin_sms_broadcast_sent", "Admin SMS Broadcast Sent"
 
     NOTIFICATION_MARKED_READ = "notification_marked_read", "Notification Marked Read"
     NOTIFICATION_MARKED_UNREAD = "notification_marked_unread", "Notification Marked Unread"

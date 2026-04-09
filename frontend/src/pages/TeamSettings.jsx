@@ -232,6 +232,27 @@ export default function TeamSettings() {
             )}
           </div>
         </section>
+
+        <section className="card fade-in">
+          <h2 className="text-2xl font-bold text-emerald-950">Workflow tools</h2>
+          <p className="mt-2 text-sm text-soft">Jump to automation rules and data import/export when you need deeper control.</p>
+          <div className="mt-6 grid gap-3">
+            <Link to={`/teams/${teamId}/automation`} className="feature-tile flex items-start justify-between gap-4 p-4">
+              <div>
+                <p className="font-semibold text-emerald-950">Automation rules</p>
+                <p className="mt-1 text-sm text-soft">Define triggers and actions for your workflow.</p>
+              </div>
+              <span className="text-xs font-semibold text-emerald-700">Open</span>
+            </Link>
+            <Link to={`/teams/${teamId}/import-export`} className="feature-tile flex items-start justify-between gap-4 p-4">
+              <div>
+                <p className="font-semibold text-emerald-950">Import / Export</p>
+                <p className="mt-1 text-sm text-soft">Move CSV task data in or out safely.</p>
+              </div>
+              <span className="text-xs font-semibold text-emerald-700">Open</span>
+            </Link>
+          </div>
+        </section>
       </div>
     </div>
   )

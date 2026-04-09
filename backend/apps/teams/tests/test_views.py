@@ -29,6 +29,33 @@ class TeamViewTests(APITestCase):
         self.assertTrue(team.memberships.filter(user=user, role="admin", status="active").exists())
         self.assertEqual(response.data["data"]["member_count"], 1)
         self.assertEqual(response.data["data"]["my_membership"]["role"], "admin")
+        self.assertEqual(response.data["message"], "Team created successfully.")
+
+    def test_team_create_returns_clean_validation_errors(self) -> None:
+        user = User.objects.create_user(email="owner-validation@example.com", password="StrongPass123!", name="Owner")
+        self.authenticate(user)
+
+        response = self.client.post(
+            reverse("api_v1:teams:list-create"),
+            {"name": " ", "description": "Owns validation"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(response.data["success"])
+        self.assertEqual(response.data["message"], "Validation failed.")
+        self.assertEqual(response.data["errors"]["name"], ["This field may not be blank."])
+
+    def test_team_create_requires_authenticated_user(self) -> None:
+        response = self.client.post(
+            reverse("api_v1:teams:list-create"),
+            {"name": "Secure Team", "description": "Protected"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertFalse(response.data["success"])
+        self.assertEqual(response.data["message"], "Authentication credentials were not provided.")
 
     def test_non_member_cannot_view_team(self) -> None:
         owner = User.objects.create_user(email="owner@example.com", password="StrongPass123!", name="Owner")

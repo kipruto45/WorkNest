@@ -10,6 +10,7 @@ import logging
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.utils.crypto import get_random_string
 
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_auth_action
@@ -151,7 +152,7 @@ def get_or_create_google_user(google_user_info: dict, create_if_not_exists: bool
         
         new_user = create_user_account(
             email=email,
-            password=User.objects.make_random_password(),
+            password=get_random_string(32),
             name=name or first_name or email.split('@')[0],
             first_name=first_name,
             last_name=last_name,

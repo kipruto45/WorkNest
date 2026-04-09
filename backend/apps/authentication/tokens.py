@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone as dt_timezone
+
 from django.conf import settings
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
@@ -14,6 +16,8 @@ def create_token_pair_for_user(*, user, remember_me: bool = False) -> dict:
     return {
         "access": str(refresh.access_token),
         "refresh": str(refresh),
+        "refresh_jti": str(refresh["jti"]),
+        "refresh_expires_at": datetime.fromtimestamp(refresh["exp"], tz=dt_timezone.utc),
         "refresh_expires_in": int((refresh_lifetime * 2 if remember_me else refresh_lifetime).total_seconds()),
         "token_type": "Bearer",
     }

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import logging
+import secrets
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import update_last_login
 from django.contrib.auth.tokens import default_token_generator
+from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from apps.audit_logs.constants import AuditAction
@@ -14,27 +17,51 @@ from apps.common.ip import normalize_client_ip
 from rest_framework import exceptions
 
 from apps.authentication.models import LoginActivity
+from apps.authentication.models import AuthSession, EmailVerificationToken, PhoneVerificationCode
 from apps.authentication.providers import GoogleOAuthProvider
 from apps.authentication.tokens import blacklist_token, create_token_pair_for_user, get_refresh_token_max_age
 from apps.integrations.email.builders import _get_frontend_url, _is_public_absolute_url
-from apps.integrations.email.services import queue_password_reset_email, queue_welcome_email
+from apps.integrations.email.services import queue_email_verification_email, queue_password_reset_email, queue_welcome_email
 from apps.integrations.exceptions import OAuthValidationFailedError
+from apps.integrations.sms.services import (
+    generate_phone_verification_code,
+    infer_phone_country_code,
+    normalize_phone_number,
+    queue_sms,
+)
 from apps.integrations.oauth.services import (
     get_google_oauth_config as get_google_oauth_config_payload,
     handle_google_auth_request,
 )
 from apps.users.models import User as UserModel
-from apps.users.selectors import get_user_by_email
+from apps.teams.services import create_team_with_owner
+from apps.users.selectors import get_user_by_email, get_user_by_phone
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
 def _normalize_auth_email(email: str) -> str:
-    return (email or "").strip()
+    return (email or "").strip().lower()
+
+
+def _normalize_auth_phone(phone_number: str, country_code: str | None = None) -> str:
+    return normalize_phone_number(phone_number=phone_number, country_code=country_code)
+
+
+def resolve_auth_identity(*, credential: str) -> tuple[str, str]:
+    normalized_credential = (credential or "").strip()
+    if "@" in normalized_credential:
+        return "email", _normalize_auth_email(normalized_credential)
+    try:
+        return "phone", _normalize_auth_phone(normalized_credential)
+    except ValueError:
+        raise exceptions.AuthenticationFailed("Invalid phone number or password.")
 
 
 def _safe_queue_welcome_email(*, user) -> None:
+    if not getattr(user, "email", ""):
+        return
     try:
         queue_welcome_email(user=user, actor=user)
     except Exception:
@@ -86,27 +113,51 @@ def sync_google_account_profile(
 def create_user_account(
     *,
     name: str,
-    email: str,
+    email: str = "",
+    phone_number: str = "",
+    phone_country_code: str = "",
     password: str,
     first_name: str = "",
     last_name: str = "",
     auth_provider: str = UserModel.AuthProvider.EMAIL,
+    account_type: str = UserModel.AccountType.PERSONAL,
+    team_name: str = "",
 ):
-    normalized_email = _normalize_auth_email(email)
+    normalized_email = _normalize_auth_email(email) if email else None
+    normalized_phone = _normalize_auth_phone(phone_number, phone_country_code) if phone_number else None
+    resolved_phone_country_code = phone_country_code or (infer_phone_country_code(normalized_phone) if normalized_phone else "")
+    resolved_provider = auth_provider
+    if resolved_provider == UserModel.AuthProvider.EMAIL and normalized_phone and not normalized_email:
+        resolved_provider = UserModel.AuthProvider.PHONE
+
     user = User.objects.create_user(
         email=normalized_email,
+        phone_number=normalized_phone,
+        phone_country_code=resolved_phone_country_code,
         password=password,
         name=name,
         first_name=first_name,
         last_name=last_name,
-        auth_provider=auth_provider,
+        auth_provider=resolved_provider,
         email_verified=auth_provider == UserModel.AuthProvider.GOOGLE,
+        phone_verified=False,
+        sms_opt_in=bool(normalized_phone),
+        account_type=account_type,
+        primary_mode=account_type,
+        onboarding_completed=True,
     )
+
+    if account_type == UserModel.AccountType.PERSONAL:
+        personal_team_name = team_name.strip() or f"{name.strip()}'s Personal Workspace"
+        create_team_with_owner(created_by=user, name=personal_team_name, is_personal=True)
+    elif account_type == UserModel.AccountType.TEAM:
+        team_label = team_name.strip() or f"{name.strip()}'s Team"
+        create_team_with_owner(created_by=user, name=team_label, is_personal=False)
     _safe_log_auth_action(
         actor=user,
         action=AuditAction.USER_REGISTERED,
         target=user,
-        metadata=build_audit_metadata(email=user.email, auth_provider=auth_provider),
+        metadata=build_audit_metadata(email=user.email, phone_number=user.phone_number, auth_provider=resolved_provider),
     )
     if getattr(settings, "WELCOME_EMAIL_ENABLED", False):
         _safe_queue_welcome_email(user=user)
@@ -127,27 +178,37 @@ def record_login_activity(*, email: str, request, success: bool, user=None, fail
         logger.exception("Unable to record login activity", extra={"email": email, "success": success})
 
 
-def authenticate_user(*, email: str, password: str, request):
-    normalized_email = _normalize_auth_email(email)
-    user = get_user_by_email(email=normalized_email)
+def authenticate_user(*, credential: str | None = None, password: str, request, email: str | None = None):
+    resolved_credential = credential or email
+    if not resolved_credential:
+        raise exceptions.AuthenticationFailed("A login credential is required.")
+    identifier_type, normalized_credential = resolve_auth_identity(credential=resolved_credential)
+    if identifier_type == "email":
+        user = get_user_by_email(email=normalized_credential)
+    else:
+        user = get_user_by_phone(phone_number=normalized_credential)
     if user is None or not user.check_password(password):
         user = None
     if user is None:
         record_login_activity(
-            email=normalized_email,
+            email=normalized_credential,
             request=request,
             success=False,
-            failure_reason="Invalid email or password.",
+            failure_reason="Invalid phone number, email, or password.",
         )
         _safe_log_auth_action(
             action=AuditAction.USER_LOGIN_FAILED,
-            target_repr=normalized_email.lower(),
-            metadata=build_audit_metadata(email=normalized_email.lower(), failure_reason="Invalid email or password."),
+            target_repr=normalized_credential.lower() if isinstance(normalized_credential, str) else "",
+            metadata=build_audit_metadata(
+                credential=normalized_credential,
+                identifier_type=identifier_type,
+                failure_reason="Invalid phone number, email, or password.",
+            ),
         )
-        raise exceptions.AuthenticationFailed("Invalid email or password.")
+        raise exceptions.AuthenticationFailed("Invalid phone number or password.")
     if not user.is_active:
         record_login_activity(
-            email=normalized_email,
+            email=normalized_credential,
             request=request,
             success=False,
             user=user,
@@ -161,7 +222,7 @@ def authenticate_user(*, email: str, password: str, request):
         )
         raise exceptions.AuthenticationFailed("This account is inactive.")
 
-    record_login_activity(email=normalized_email, request=request, success=True, user=user)
+    record_login_activity(email=normalized_credential, request=request, success=True, user=user)
     try:
         update_last_login(None, user)
     except Exception:
@@ -170,7 +231,12 @@ def authenticate_user(*, email: str, password: str, request):
         actor=user,
         action=AuditAction.USER_LOGGED_IN,
         target=user,
-        metadata=build_audit_metadata(email=user.email, auth_provider=user.auth_provider),
+        metadata=build_audit_metadata(
+            email=user.email,
+            phone_number=user.phone_number,
+            auth_provider=user.auth_provider,
+            identifier_type=identifier_type,
+        ),
     )
     return user
 
@@ -179,9 +245,11 @@ def issue_tokens_for_user(*, user, remember_me: bool = False) -> dict:
     return create_token_pair_for_user(user=user, remember_me=remember_me)
 
 
-def authenticate_user_and_issue_tokens(*, email: str, password: str, request, remember_me: bool = False) -> tuple:
-    user = authenticate_user(email=email, password=password, request=request)
-    return user, issue_tokens_for_user(user=user, remember_me=remember_me)
+def authenticate_user_and_issue_tokens(*, credential: str, password: str, request, remember_me: bool = False) -> tuple:
+    user = authenticate_user(credential=credential, password=password, request=request)
+    token_payload = issue_tokens_for_user(user=user, remember_me=remember_me)
+    register_auth_session(user=user, token_payload=token_payload, request=request)
+    return user, token_payload
 
 
 def blacklist_refresh_token(token: str) -> None:
@@ -233,6 +301,138 @@ def send_password_reset_email(*, user, request) -> None:
     queue_password_reset_email(user=user, reset_url=reset_url, actor=user)
 
 
+def _get_email_verification_link(*, token: str) -> str:
+    frontend_base_url = _get_frontend_url()
+    if frontend_base_url:
+        return f"{frontend_base_url}/verify-email?token={token}"
+    return token
+
+
+def create_email_verification_token(*, user) -> EmailVerificationToken:
+    EmailVerificationToken.objects.filter(user=user, used_at__isnull=True).delete()
+    return EmailVerificationToken.objects.create(
+        user=user,
+        token=secrets.token_urlsafe(32),
+        expires_at=timezone.now() + timedelta(days=2),
+    )
+
+
+def send_email_verification(*, user, actor=None):
+    if user.email_verified or not user.email:
+        return None
+    token = create_email_verification_token(user=user)
+    return queue_email_verification_email(
+        user=user,
+        verification_url=_get_email_verification_link(token=token.token),
+        actor=actor or user,
+    )
+
+
+def verify_email_address(*, token: str):
+    verification = EmailVerificationToken.objects.select_related("user").filter(token=token, used_at__isnull=True).first()
+    if verification is None or verification.expires_at <= timezone.now():
+        raise exceptions.ValidationError({"token": "Verification token is invalid or expired."})
+
+    verification.used_at = timezone.now()
+    verification.save(update_fields=["used_at", "updated_at"])
+    user = verification.user
+    if not user.email_verified:
+        user.email_verified = True
+        user.save(update_fields=["email_verified", "updated_at"])
+        _safe_log_auth_action(
+            actor=user,
+            action=AuditAction.ACCOUNT_LINKED,
+            target=user,
+            metadata=build_audit_metadata(email=user.email, event="email_verified"),
+        )
+    return user
+
+
+def _resolve_device_name(*, request) -> str:
+    user_agent = str(request.META.get("HTTP_USER_AGENT", "") or "").strip()
+    return user_agent[:255] if user_agent else "Unknown device"
+
+
+def register_auth_session(*, user, token_payload: dict, request) -> AuthSession:
+    return AuthSession.objects.create(
+        user=user,
+        refresh_token_jti=token_payload["refresh_jti"],
+        device_name=_resolve_device_name(request=request),
+        ip_address=get_client_ip(request),
+        user_agent=str(request.META.get("HTTP_USER_AGENT", "") or "")[:1000],
+        last_seen_at=timezone.now(),
+        expires_at=token_payload["refresh_expires_at"],
+    )
+
+
+def get_auth_session_from_token(*, token_value: str) -> AuthSession | None:
+    from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+
+    try:
+        refresh = RefreshToken(token_value)
+        return AuthSession.objects.filter(refresh_token_jti=str(refresh["jti"])).first()
+    except TokenError:
+        return None
+
+
+def ensure_auth_session_is_active(*, token_value: str) -> AuthSession:
+    session = get_auth_session_from_token(token_value=token_value)
+    if session is None:
+        raise exceptions.ValidationError({"refresh": "Session could not be found."})
+    if session.status != AuthSession.Status.ACTIVE or session.revoked_at is not None or session.expires_at <= timezone.now():
+        raise exceptions.ValidationError({"refresh": "This session has expired or been revoked."})
+    return session
+
+
+def rotate_auth_session(*, session: AuthSession, token_payload: dict, request) -> AuthSession:
+    session.refresh_token_jti = token_payload["refresh_jti"]
+    session.ip_address = get_client_ip(request)
+    session.user_agent = str(request.META.get("HTTP_USER_AGENT", "") or "")[:1000]
+    session.device_name = _resolve_device_name(request=request)
+    session.last_seen_at = timezone.now()
+    session.expires_at = token_payload["refresh_expires_at"]
+    session.status = AuthSession.Status.ACTIVE
+    session.revoked_at = None
+    session.save(
+        update_fields=[
+            "refresh_token_jti",
+            "ip_address",
+            "user_agent",
+            "device_name",
+            "last_seen_at",
+            "expires_at",
+            "status",
+            "revoked_at",
+            "updated_at",
+        ]
+    )
+    return session
+
+
+def get_user_sessions(*, user):
+    expired_ids = list(
+        AuthSession.objects.filter(user=user, status=AuthSession.Status.ACTIVE, expires_at__lte=timezone.now()).values_list("id", flat=True)
+    )
+    if expired_ids:
+        AuthSession.objects.filter(id__in=expired_ids).update(status=AuthSession.Status.EXPIRED, updated_at=timezone.now())
+    return AuthSession.objects.filter(user=user).order_by("-last_seen_at", "-created_at")
+
+
+def revoke_auth_session(*, session: AuthSession) -> AuthSession:
+    if session.status != AuthSession.Status.REVOKED:
+        session.status = AuthSession.Status.REVOKED
+        session.revoked_at = timezone.now()
+        session.save(update_fields=["status", "revoked_at", "updated_at"])
+    return session
+
+
+def revoke_auth_session_for_token(*, token_value: str) -> AuthSession | None:
+    session = get_auth_session_from_token(token_value=token_value)
+    if session is None:
+        return None
+    return revoke_auth_session(session=session)
+
+
 def request_password_reset(*, email: str, request) -> None:
     user = get_user_by_email(email=email)
     if user and user.is_active:
@@ -260,6 +460,67 @@ def confirm_password_reset(*, user, new_password: str) -> None:
         target=user,
         metadata=build_audit_metadata(email=user.email),
     )
+
+
+def create_phone_verification_code(*, user) -> PhoneVerificationCode:
+    if not user.phone_number:
+        raise exceptions.ValidationError({"phone_number": "Add a phone number before requesting verification."})
+    PhoneVerificationCode.objects.filter(user=user, used_at__isnull=True).delete()
+    return PhoneVerificationCode.objects.create(
+        user=user,
+        phone_number=user.phone_number,
+        code=generate_phone_verification_code(),
+        expires_at=timezone.now() + timedelta(minutes=10),
+    )
+
+
+def request_phone_verification(*, user, actor=None) -> PhoneVerificationCode:
+    verification = create_phone_verification_code(user=user)
+    queue_sms(
+        user=user,
+        phone_number=user.phone_number,
+        message_type="phone_verification",
+        message_body=f"{getattr(settings, 'APP_NAME', 'WorkNest')}: your verification code is {verification.code}. It expires in 10 minutes.",
+        metadata={"phone_verification_id": str(verification.id)},
+        related_object_type="phone_verification",
+        related_object_id=str(verification.id),
+        dedupe_key=f"phone-verification:{user.id}:{verification.code}",
+        actor=actor or user,
+        force=True,
+        source="authentication.phone_verification",
+    )
+    return verification
+
+
+def confirm_phone_verification(*, user, code: str):
+    verification = (
+        PhoneVerificationCode.objects.filter(
+            user=user,
+            phone_number=user.phone_number,
+            code=str(code or "").strip(),
+            used_at__isnull=True,
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    if verification is None or verification.expires_at <= timezone.now():
+        raise exceptions.ValidationError({"code": "Verification code is invalid or expired."})
+
+    verification.attempt_count += 1
+    verification.used_at = timezone.now()
+    verification.save(update_fields=["attempt_count", "used_at", "updated_at"])
+
+    if not user.phone_verified:
+        user.phone_verified = True
+        user.phone_country_code = infer_phone_country_code(user.phone_number or "")
+        user.save(update_fields=["phone_verified", "phone_country_code", "updated_at"])
+        _safe_log_auth_action(
+            actor=user,
+            action=AuditAction.PHONE_VERIFIED,
+            target=user,
+            metadata=build_audit_metadata(phone_number=user.phone_number),
+        )
+    return user
 
 
 def get_client_ip(request) -> str | None:

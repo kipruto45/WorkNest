@@ -7,6 +7,7 @@ import PageHero from '../components/PageHero'
 import EmptyState from '../components/EmptyState'
 import { fetchTeams, createTeam } from '../features/teamsSlice'
 import { teamsAPI } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
 import { toSentenceCase } from '../utils/formatters'
 
 export default function Teams() {
@@ -19,6 +20,8 @@ export default function Teams() {
     register,
     handleSubmit,
     reset,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm()
 
@@ -34,20 +37,58 @@ export default function Teams() {
   })
 
   const onSubmit = async (data) => {
+    clearErrors()
     try {
-      const team = await dispatch(createTeam(data)).unwrap()
+      const team = await dispatch(
+        createTeam({
+          name: data.name.trim(),
+          description: data.description?.trim() || '',
+        })
+      ).unwrap()
+      await dispatch(fetchTeams()).unwrap()
       toast.success('Team created. Invite your teammates by email next.')
       setShowModal(false)
       reset()
       navigate(`/teams/${team.id}/invitations?compose=1&created=1`)
     } catch (error) {
-      toast.error(
-        error?.response?.data?.message ||
-          error?.response?.data?.errors?.detail ||
-          error?.message ||
-          (typeof error === 'string' ? error : 'Failed to create team')
-      )
+      const apiError =
+        typeof error === 'string'
+          ? { message: error, fieldErrors: {} }
+          : error?.fieldErrors || error?.status
+            ? error
+            : extractApiError(error, {
+                fallbackMessage: 'Failed to create team.',
+                forbiddenMessage: 'You are not authorized to create a team.',
+                serverMessage: 'Server error while creating team.',
+              })
+
+      Object.entries(apiError.fieldErrors || {}).forEach(([field, value]) => {
+        const message = Array.isArray(value) ? value[0] : value
+        if (field === 'name' || field === 'description') {
+          setError(field, { type: 'server', message })
+        }
+      })
+
+      setError('root', { type: 'server', message: apiError.message })
+      console.error('create_team_failed', {
+        location: 'teams',
+        status: apiError.status,
+        requestId: apiError.requestId,
+        errors: apiError.errors,
+      })
+      toast.error(apiError.message)
     }
+  }
+
+  const handleOpenModal = () => {
+    clearErrors()
+    setShowModal(true)
+  }
+
+  const handleCloseModal = () => {
+    clearErrors()
+    reset()
+    setShowModal(false)
   }
 
   const handleTogglePin = async (teamId) => {
@@ -84,7 +125,7 @@ export default function Teams() {
           ],
         }}
         actions={
-          <button type="button" onClick={() => setShowModal(true)} className="btn-primary">
+          <button type="button" onClick={handleOpenModal} className="btn-primary">
             Create team
           </button>
         }
@@ -97,7 +138,7 @@ export default function Teams() {
           title="No teams yet"
           description="Create your first team to start collaborating on boards, tasks, member roles, and shared delivery metrics."
           action={
-            <button type="button" onClick={() => setShowModal(true)} className="btn-primary">
+            <button type="button" onClick={handleOpenModal} className="btn-primary">
               Start with a team
             </button>
           }
@@ -169,17 +210,31 @@ export default function Teams() {
             <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-emerald-950">Team name</label>
-                <input {...register('name', { required: 'Name is required' })} className="input-field" placeholder="Growth Squad" />
+                <input
+                  {...register('name', {
+                    required: 'Team name is required.',
+                    validate: (value) => value.trim().length > 0 || 'Team name is required.',
+                  })}
+                  className="input-field"
+                  placeholder="Growth Squad"
+                />
                 {errors.name ? <p className="mt-2 text-sm text-red-500">{errors.name.message}</p> : null}
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-emerald-950">Description</label>
                 <textarea {...register('description')} className="input-field min-h-[140px]" placeholder="What does this team own?" />
+                {errors.description ? <p className="mt-2 text-sm text-red-500">{errors.description.message}</p> : null}
               </div>
 
+              {errors.root ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {errors.root.message}
+                </div>
+              ) : null}
+
               <div className="flex flex-wrap justify-end gap-3">
-                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">
+                <button type="button" onClick={handleCloseModal} className="btn-secondary">
                   Cancel
                 </button>
                 <button type="submit" disabled={isSubmitting} className="btn-primary">

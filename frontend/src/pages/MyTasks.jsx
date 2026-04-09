@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'react-toastify'
 import PageHero from '../components/PageHero'
@@ -15,11 +15,16 @@ const initialDraft = {
   team_id: '',
   title: '',
   description: '',
+  notes: '',
   priority: 'medium',
   assigned_to: '',
   estimated_minutes: '',
   planned_for_date: '',
+  start_date: '',
+  start_time: '',
   due_date: '',
+  due_time: '',
+  reminder: '',
   blocked_reason: '',
   recurrence_pattern: 'none',
   recurrence_interval: 1,
@@ -78,6 +83,21 @@ function toDateTimeInputValue(value) {
   return local.toISOString().slice(0, 16)
 }
 
+function toTimeInputValue(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(11, 16)
+}
+
+function combineDateTime(dateValue, timeValue) {
+  if (!dateValue && !timeValue) return null
+  const datePart = dateValue || new Date().toISOString().slice(0, 10)
+  const timePart = timeValue || '09:00'
+  return `${datePart}T${timePart}`
+}
+
 function daysFromToday(value) {
   if (!value) return null
   const target = new Date(value)
@@ -105,36 +125,41 @@ export default function MyTasks() {
   const currentUser = useSelector((state) => state.auth.user)
   const dispatch = useDispatch()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const activeBuiltInView = builtInViews.find((view) => view.key === activeViewKey) || builtInViews[0]
   const activeSavedView = savedViews.find((view) => `saved:${view.id}` === activeViewKey) || null
   const activeFilters = activeSavedView?.filters || activeBuiltInView.filters
 
-  const loadTasks = async (filters = activeFilters) => {
+  const loadTasks = useCallback(async (filters = activeFilters) => {
     const response = await tasksAPI.getMyTasks(filters)
     setTasks(unwrapResults(response))
-  }
+  }, [activeFilters])
 
-  const loadTeams = async () => {
+  const isPersonalAccount = currentUser?.account_type === 'personal'
+
+  const loadTeams = useCallback(async () => {
     const response = await teamsAPI.getTeams({ page_size: 100 })
     const results = unwrapResults(response)
     setTeams(results)
 
     if (!draft.team_id && results.length) {
+      const preferredTeamId = currentUser?.default_team_id
+      const defaultTeam = preferredTeamId ? results.find((team) => String(team.id) === String(preferredTeamId)) : null
       setDraft((current) => ({
         ...current,
-        team_id: results[0].id,
+        team_id: defaultTeam?.id || results[0].id,
         assigned_to: currentUser?.id || '',
       }))
     }
-  }
+  }, [currentUser?.default_team_id, currentUser?.id, draft.team_id])
 
-  const loadTemplates = async (teamId = '') => {
+  const loadTemplates = useCallback(async (teamId = '') => {
     const response = await tasksAPI.getTemplates(teamId ? { team: teamId, page_size: 50 } : { page_size: 50 })
     setTemplates(unwrapResults(response))
-  }
+  }, [])
 
-  const loadSavedViews = async () => {
+  const loadSavedViews = useCallback(async () => {
     try {
       const response = await tasksAPI.getSavedViews({ layout: 'list', page_size: 50 })
       const results = unwrapResults(response)
@@ -146,7 +171,7 @@ export default function MyTasks() {
       setSavedViews(cachedViews)
       return cachedViews
     }
-  }
+  }, [])
 
   useEffect(() => {
     const initialize = async () => {
@@ -159,19 +184,19 @@ export default function MyTasks() {
     }
 
     initialize()
-  }, [])
+  }, [loadSavedViews, loadTeams])
 
   useEffect(() => {
     if (!loading) {
       loadTasks(activeFilters).catch(() => setTasks([]))
     }
-  }, [activeViewKey, loading])
+  }, [activeFilters, activeViewKey, loadTasks, loading])
 
   useEffect(() => {
     if (draft.team_id) {
       loadTemplates(draft.team_id).catch(() => setTemplates([]))
     }
-  }, [draft.team_id])
+  }, [draft.team_id, loadTemplates])
 
   useEffect(() => {
     const loadMembers = async () => {
@@ -213,7 +238,7 @@ export default function MyTasks() {
 
   const highlightedTemplates = useMemo(() => templates.slice(0, 4), [templates])
 
-  const handleOpenComposer = () => {
+  const handleOpenComposer = useCallback(() => {
     if (!teams.length) {
       toast.info('Create or join a team before adding tasks.')
       return
@@ -225,7 +250,15 @@ export default function MyTasks() {
       assigned_to: currentUser?.id || '',
     })
     setShowComposer(true)
-  }
+  }, [currentUser?.id, draft.team_id, teams])
+
+  useEffect(() => {
+    if (loading || searchParams.get('compose') !== '1') return
+    handleOpenComposer()
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('compose')
+    setSearchParams(nextParams, { replace: true })
+  }, [handleOpenComposer, loading, searchParams, setSearchParams])
 
   const applyTemplateToDraft = (templateId) => {
     const template = templates.find((item) => item.id === templateId)
@@ -305,6 +338,48 @@ export default function MyTasks() {
     }
   }
 
+  const handleTogglePin = async (view) => {
+    try {
+      await tasksAPI.updateSavedView(view.id, { is_pinned: !view.is_pinned })
+      await loadSavedViews()
+    } catch (_error) {
+      toast.error('Unable to update this saved view right now.')
+    }
+  }
+
+  const handleRenameSavedView = async (view) => {
+    const nextName = window.prompt('Rename this saved view', view.name)
+    if (!nextName?.trim() || nextName.trim() === view.name) return
+
+    const trimmedName = nextName.trim()
+    if (String(view.id).startsWith('local-')) {
+      const cachedViews = readSavedViewsCache().map((item) => (String(item.id) === String(view.id) ? { ...item, name: trimmedName } : item))
+      writeSavedViewsCache(cachedViews)
+      setSavedViews(cachedViews)
+      toast.success('Saved view renamed on this device.')
+      return
+    }
+
+    try {
+      await tasksAPI.updateSavedView(view.id, { name: trimmedName })
+      await loadSavedViews()
+      toast.success('Saved view renamed.')
+    } catch (_error) {
+      toast.error('Unable to rename this saved view right now.')
+    }
+  }
+
+  const handleDeleteSavedView = async (view) => {
+    if (!window.confirm(`Delete "${view.name}"?`)) return
+    try {
+      await tasksAPI.deleteSavedView(view.id)
+      await loadSavedViews()
+      toast.success('Saved view removed.')
+    } catch (_error) {
+      toast.error('Unable to delete this saved view right now.')
+    }
+  }
+
   const handleCreateTask = async (event) => {
     event.preventDefault()
     if (!draft.team_id || !draft.title.trim()) {
@@ -314,17 +389,25 @@ export default function MyTasks() {
 
     setSaving(true)
     try {
+      const combinedDescription = [
+        draft.description.trim(),
+        draft.notes.trim() ? `Notes: ${draft.notes.trim()}` : '',
+        draft.reminder.trim() ? `Reminder: ${draft.reminder.trim()}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n\n')
       const createdTask = await dispatch(
         createTask({
           team_id: draft.team_id,
           title: draft.title.trim(),
-          description: draft.description.trim(),
+          description: combinedDescription,
           priority: draft.priority,
           status: 'todo',
           assigned_to: draft.assigned_to || null,
           estimated_minutes: draft.estimated_minutes ? Number(draft.estimated_minutes) : null,
           planned_for_date: draft.planned_for_date || null,
-          due_date: draft.due_date || null,
+          start_at: combineDateTime(draft.start_date, draft.start_time),
+          due_date: combineDateTime(draft.due_date, draft.due_time),
           blocked_reason: draft.blocked_reason.trim(),
           recurrence_pattern: draft.recurrence_pattern,
           recurrence_interval: Number(draft.recurrence_interval || 1),
@@ -451,18 +534,42 @@ export default function MyTasks() {
           </button>
         ))}
         {savedViews.map((view) => (
-          <button
-            key={view.id}
-            type="button"
-            onClick={() => setActiveViewKey(`saved:${view.id}`)}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-              activeViewKey === `saved:${view.id}`
-                ? 'bg-emerald-700 text-white'
-                : 'border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-            }`}
-          >
-            {view.name}
-          </button>
+          <div key={view.id} className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveViewKey(`saved:${view.id}`)}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                activeViewKey === `saved:${view.id}`
+                  ? 'bg-emerald-700 text-white'
+                  : 'border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+              }`}
+            >
+              {view.name}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTogglePin(view)}
+              className={`rounded-full px-3 py-2 text-xs font-semibold transition-colors ${
+                view.is_pinned ? 'bg-slate-900 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {view.is_pinned ? 'Pinned' : 'Pin'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRenameSavedView(view)}
+              className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Rename
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDeleteSavedView(view)}
+              className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Delete
+            </button>
+          </div>
         ))}
       </div>
 
@@ -677,24 +784,30 @@ export default function MyTasks() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-900">Team</label>
-                  <select
-                    value={draft.team_id}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        team_id: event.target.value,
-                        assigned_to: currentUser?.id || '',
-                        source_template: '',
-                      }))
-                    }
-                    className="input-field"
-                  >
-                    {teams.map((team) => (
-                      <option key={team.id} value={team.id}>
-                        {team.name}
-                      </option>
-                    ))}
-                  </select>
+                  {isPersonalAccount ? (
+                    <div className="input-field flex items-center justify-between bg-slate-50 text-slate-700">
+                      {teams.find((team) => team.id === draft.team_id)?.name || 'Personal workspace'}
+                    </div>
+                  ) : (
+                    <select
+                      value={draft.team_id}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          team_id: event.target.value,
+                          assigned_to: currentUser?.id || '',
+                          source_template: '',
+                        }))
+                      }
+                      className="input-field"
+                    >
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -734,7 +847,7 @@ export default function MyTasks() {
                 />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-900">Priority</label>
                   <select
@@ -772,12 +885,53 @@ export default function MyTasks() {
                 </div>
 
                 <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-900">Start date</label>
+                  <input
+                    type="date"
+                    value={draft.start_date}
+                    onChange={(event) => setDraft((current) => ({ ...current, start_date: event.target.value }))}
+                    className="input-field"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-900">Start time</label>
+                  <input
+                    type="time"
+                    value={draft.start_time}
+                    onChange={(event) => setDraft((current) => ({ ...current, start_time: event.target.value }))}
+                    className="input-field"
+                  />
+                </div>
+
+                <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-900">Due date</label>
                   <input
-                    type="datetime-local"
-                    value={toDateTimeInputValue(draft.due_date)}
+                    type="date"
+                    value={draft.due_date}
                     onChange={(event) => setDraft((current) => ({ ...current, due_date: event.target.value }))}
                     className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-900">Due time</label>
+                  <input
+                    type="time"
+                    value={draft.due_time}
+                    onChange={(event) => setDraft((current) => ({ ...current, due_time: event.target.value }))}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-900">Reminder (optional)</label>
+                  <input
+                    value={draft.reminder}
+                    onChange={(event) => setDraft((current) => ({ ...current, reminder: event.target.value }))}
+                    className="input-field"
+                    placeholder="2 hours before"
                   />
                 </div>
               </div>
@@ -785,21 +939,27 @@ export default function MyTasks() {
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-900">Assign to</label>
-                  <select
-                    value={draft.assigned_to}
-                    onChange={(event) => setDraft((current) => ({ ...current, assigned_to: event.target.value }))}
-                    className="input-field"
-                  >
-                    <option value={currentUser?.id || ''}>Me</option>
-                    <option value="">Unassigned</option>
-                    {teamMembers
-                      .filter((membership) => String(membership.user?.id || '') !== String(currentUser?.id || ''))
-                      .map((membership) => (
-                        <option key={membership.id} value={membership.user?.id || ''}>
-                          {membership.user?.name || membership.user?.email || 'Team member'}
-                        </option>
-                      ))}
-                  </select>
+                  {isPersonalAccount ? (
+                    <div className="input-field flex items-center justify-between bg-slate-50 text-slate-700">
+                      {currentUser?.name || 'Me'}
+                    </div>
+                  ) : (
+                    <select
+                      value={draft.assigned_to}
+                      onChange={(event) => setDraft((current) => ({ ...current, assigned_to: event.target.value }))}
+                      className="input-field"
+                    >
+                      <option value={currentUser?.id || ''}>Me</option>
+                      <option value="">Unassigned</option>
+                      {teamMembers
+                        .filter((membership) => String(membership.user?.id || '') !== String(currentUser?.id || ''))
+                        .map((membership) => (
+                          <option key={membership.id} value={membership.user?.id || ''}>
+                            {membership.user?.name || membership.user?.email || 'Team member'}
+                          </option>
+                        ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -835,6 +995,16 @@ export default function MyTasks() {
                   onChange={(event) => setDraft((current) => ({ ...current, blocked_reason: event.target.value }))}
                   className="input-field"
                   placeholder="Waiting on design review, approval, or external dependency"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-900">Notes (optional)</label>
+                <textarea
+                  value={draft.notes}
+                  onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
+                  className="input-field min-h-[120px]"
+                  placeholder="Add any personal context, checklists, or reminders."
                 />
               </div>
 

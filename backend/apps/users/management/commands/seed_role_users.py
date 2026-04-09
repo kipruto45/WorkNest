@@ -10,7 +10,7 @@ from apps.teams.services import create_team_with_owner, generate_unique_team_slu
 from apps.users.models import User
 
 
-DEFAULT_PASSWORD = "WorkNest123!"
+DEFAULT_PASSWORD = "LocalDemo123!"
 DEFAULT_TEAM_NAME = "Role Demo Workspace"
 
 

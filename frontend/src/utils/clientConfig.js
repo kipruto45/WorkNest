@@ -7,8 +7,6 @@ const readViteEnv = (key) => {
   return import.meta.env[key]
 }
 
-const DEFAULT_PRODUCTION_API_URL = 'https://worknest-backend-t6dw.onrender.com/api/v1'
-
 const isLocalHostname = (hostname) => ['localhost', '127.0.0.1', '0.0.0.0'].includes((hostname || '').toLowerCase())
 
 const isHostedRuntime = () => {
@@ -16,23 +14,18 @@ const isHostedRuntime = () => {
   return !isLocalHostname(window.location.hostname)
 }
 
-const isLocalOrRelativeApiUrl = (value) => {
-  if (!value) return true
-  if (!/^https?:\/\//i.test(value)) return true
-  try {
-    const parsed = new URL(value)
-    return isLocalHostname(parsed.hostname)
-  } catch {
-    return true
-  }
-}
+export const resolveApiBaseUrl = ({ configuredApiUrl = readViteEnv('VITE_API_URL'), hostedRuntime = isHostedRuntime() } = {}) => {
+  const normalizedApiUrl = typeof configuredApiUrl === 'string' ? configuredApiUrl.trim() : ''
 
-const resolveApiBaseUrl = () => {
-  const configuredApiUrl = readViteEnv('VITE_API_URL')
-  if (isHostedRuntime() && isLocalOrRelativeApiUrl(configuredApiUrl)) {
-    return DEFAULT_PRODUCTION_API_URL
+  if (normalizedApiUrl) {
+    return normalizedApiUrl
   }
-  return configuredApiUrl || '/api/v1'
+
+  if (hostedRuntime) {
+    return '/api/v1'
+  }
+
+  return '/api/v1'
 }
 
 export const API_BASE_URL = resolveApiBaseUrl()
@@ -42,6 +35,7 @@ export const CLIENT_STORAGE_KEYS = Object.freeze({
   sessionRefresh: joinKey('worknest', 'session', 'r'),
   sessionUser: joinKey('worknest', 'session', 'u'),
   workspacePrefs: joinKey('worknest', 'ui', 'prefs'),
+  themePreference: joinKey('worknest', 'ui', 'theme'),
   savedViews: joinKey('worknest', 'tasks', 'saved', 'views'),
 })
 
@@ -51,6 +45,7 @@ export const PROFILE_FIELD_KEYS = Object.freeze({
 
 export const TASK_FIELD_KEYS = Object.freeze({
   dueAt: ['due', 'date'].join('_'),
+  startAt: ['start', 'at'].join('_'),
 })
 
 export const USER_PREFERENCE_KEYS = Object.freeze({

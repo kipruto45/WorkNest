@@ -106,6 +106,67 @@ class InvitationWorkflowTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_owner_cannot_invite_themselves(self) -> None:
+        self.authenticate(self.owner)
+
+        response = self.client.post(
+            reverse("api_v1:teams:invitations", args=[self.team.id]),
+            {"email": self.owner.email, "role": Membership.Role.ADMIN},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["errors"]["email"],
+            ["You are already part of this workspace. Invite another teammate instead."],
+        )
+
+    def test_personal_workspace_cannot_send_invitations(self) -> None:
+        personal_owner = User.objects.create_user(email="solo@example.com", password="StrongPass123!", name="Solo Owner")
+        personal_team = create_team_with_owner(created_by=personal_owner, name="Solo Workspace", is_personal=True)
+        self.authenticate(personal_owner)
+
+        response = self.client.post(
+            reverse("api_v1:teams:invitations", args=[personal_team.id]),
+            {"email": "teammate@example.com", "role": Membership.Role.MEMBER},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["errors"]["team"],
+            ["Personal workspaces cannot invite members. Create a shared team workspace instead."],
+        )
+
+    def test_invitation_detail_marks_expired_invitation_before_serializing(self) -> None:
+        invitation = self.create_invitation(
+            email="expired@example.com",
+            expires_at=timezone.now() - timedelta(hours=1),
+        )
+
+        response = self.client.get(reverse("api_v1:memberships:detail", args=[invitation.token]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        invitation.refresh_from_db()
+        self.assertEqual(invitation.status, TeamInvitation.Status.EXPIRED)
+        self.assertEqual(response.data["data"]["status"], TeamInvitation.Status.EXPIRED)
+        self.assertTrue(response.data["data"]["is_expired"])
+
+    def test_team_invitation_list_expires_stale_pending_records(self) -> None:
+        invitation = self.create_invitation(
+            email="queue-expired@example.com",
+            expires_at=timezone.now() - timedelta(hours=2),
+        )
+        self.authenticate(self.owner)
+
+        response = self.client.get(reverse("api_v1:teams:invitations", args=[self.team.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        invitation.refresh_from_db()
+        self.assertEqual(invitation.status, TeamInvitation.Status.EXPIRED)
+        returned = next(item for item in response.data["data"]["results"] if item["id"] == str(invitation.id))
+        self.assertEqual(returned["status"], TeamInvitation.Status.EXPIRED)
+
     def test_wrong_account_cannot_accept_invitation(self) -> None:
         invitation = self.create_invitation()
         self.authenticate(self.wrong_user)

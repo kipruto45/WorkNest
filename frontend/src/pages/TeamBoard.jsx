@@ -19,6 +19,13 @@ const columns = [
   { id: 'done', title: 'Done' },
 ]
 
+function combineDateTime(dateValue, timeValue) {
+  if (!dateValue && !timeValue) return null
+  const datePart = dateValue || new Date().toISOString().slice(0, 10)
+  const timePart = timeValue || '09:00'
+  return `${datePart}T${timePart}`
+}
+
 export default function TeamBoard() {
   const { teamId } = useParams()
   const dispatch = useDispatch()
@@ -33,7 +40,13 @@ export default function TeamBoard() {
     assigned_to: '',
     estimated_minutes: '',
     planned_for_date: '',
+    start_at: '',
+    start_date: '',
+    start_time: '',
     due_date: '',
+    due_time: '',
+    reminder: '',
+    notes: '',
     blocked_reason: '',
     recurrence_pattern: 'none',
     recurrence_interval: 1,
@@ -120,15 +133,24 @@ export default function TeamBoard() {
       return
     }
     try {
+      const combinedDescription = [
+        newTask.description.trim(),
+        newTask.notes.trim() ? `Notes: ${newTask.notes.trim()}` : '',
+        newTask.reminder.trim() ? `Reminder: ${newTask.reminder.trim()}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n\n')
       await dispatch(
         createTask({
           ...newTask,
           team_id: teamId,
+          description: combinedDescription,
           status: 'todo',
           assigned_to: newTask.assigned_to || null,
           estimated_minutes: newTask.estimated_minutes ? Number(newTask.estimated_minutes) : null,
           planned_for_date: newTask.planned_for_date || null,
-          due_date: newTask.due_date || null,
+          start_at: combineDateTime(newTask.start_date, newTask.start_time),
+          due_date: combineDateTime(newTask.due_date, newTask.due_time),
           blocked_reason: newTask.blocked_reason?.trim() || '',
           recurrence_interval: Number(newTask.recurrence_interval || 1),
         })
@@ -142,7 +164,12 @@ export default function TeamBoard() {
         assigned_to: '',
         estimated_minutes: '',
         planned_for_date: '',
+        start_date: '',
+        start_time: '',
         due_date: '',
+        due_time: '',
+        reminder: '',
+        notes: '',
         blocked_reason: '',
         recurrence_pattern: 'none',
         recurrence_interval: 1,
@@ -196,8 +223,8 @@ export default function TeamBoard() {
             <div key={column.id} className="feature-tile flex min-h-[520px] flex-col fade-in">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Stage</p>
-                  <h3 className="mt-2 text-xl font-bold text-emerald-950">{column.title}</h3>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Stage</p>
+                  <h3 className="mt-2 text-xl font-bold text-slate-950">{column.title}</h3>
                 </div>
                 <div className="stat-chip">{kanban[column.id]?.length || 0}</div>
               </div>
@@ -208,7 +235,7 @@ export default function TeamBoard() {
                     <TaskCard key={task.id} task={task} />
                   ))}
                   {kanban[column.id]?.length === 0 ? (
-                    <div className="rounded-[24px] border border-dashed border-emerald-200 bg-emerald-50/60 p-5 text-sm text-soft">
+                    <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50/80 p-5 text-sm text-soft">
                       No tasks in {toSentenceCase(column.id)} yet.
                     </div>
                   ) : null}
@@ -221,9 +248,9 @@ export default function TeamBoard() {
       </div>
 
       {showModal && canCreateTasks ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/30 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/34 px-4 backdrop-blur-sm">
           <div className="page-shell w-full max-w-xl p-6 md:p-8">
-            <h3 className="font-display text-3xl font-bold text-emerald-950">Create a new task</h3>
+            <h3 className="font-display text-3xl font-bold text-slate-950">Create a new task</h3>
             <p className="mt-2 text-sm text-soft">Add a clear piece of work and place it at the start of the board.</p>
 
             <form onSubmit={handleCreateTask} className="mt-6 space-y-4">
@@ -302,14 +329,53 @@ export default function TeamBoard() {
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-4">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-emerald-950">Start date</label>
+                  <input
+                    type="date"
+                    value={newTask.start_date}
+                    onChange={(event) => setNewTask({ ...newTask, start_date: event.target.value })}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-emerald-950">Start time</label>
+                  <input
+                    type="time"
+                    value={newTask.start_time}
+                    onChange={(event) => setNewTask({ ...newTask, start_time: event.target.value })}
+                    className="input-field"
+                  />
+                </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-emerald-950">Due date</label>
                   <input
-                    type="datetime-local"
+                    type="date"
                     value={newTask.due_date}
                     onChange={(event) => setNewTask({ ...newTask, due_date: event.target.value })}
                     className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-emerald-950">Due time</label>
+                  <input
+                    type="time"
+                    value={newTask.due_time}
+                    onChange={(event) => setNewTask({ ...newTask, due_time: event.target.value })}
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-emerald-950">Reminder (optional)</label>
+                  <input
+                    value={newTask.reminder}
+                    onChange={(event) => setNewTask({ ...newTask, reminder: event.target.value })}
+                    className="input-field"
+                    placeholder="1 day before"
                   />
                 </div>
                 <div>
@@ -325,6 +391,9 @@ export default function TeamBoard() {
                     <option value="monthly">Monthly</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-emerald-950">Repeat interval</label>
                   <input
@@ -333,6 +402,15 @@ export default function TeamBoard() {
                     value={newTask.recurrence_interval}
                     onChange={(event) => setNewTask({ ...newTask, recurrence_interval: event.target.value })}
                     className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-emerald-950">Notes (optional)</label>
+                  <input
+                    value={newTask.notes}
+                    onChange={(event) => setNewTask({ ...newTask, notes: event.target.value })}
+                    className="input-field"
+                    placeholder="Key context for the assignee"
                   />
                 </div>
               </div>

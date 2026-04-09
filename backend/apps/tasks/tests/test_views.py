@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -385,3 +386,87 @@ class TaskEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["data"]["count"], 1)
         self.assertEqual(response.data["data"]["results"][0]["id"], str(today_task.id))
+
+    def test_milestone_create_and_list(self) -> None:
+        self.authenticate(self.owner)
+        response = self.client.post(
+            reverse("api_v1:tasks:milestones", kwargs={"team_id": self.team.id}),
+            {"title": "Release readiness", "status": "planned"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        list_response = self.client.get(reverse("api_v1:tasks:milestones", kwargs={"team_id": self.team.id}))
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(list_response.data["data"]["results"]), 1)
+
+    def test_task_dependency_create_and_delete(self) -> None:
+        self.authenticate(self.owner)
+        another_task = Task.objects.create(
+            team=self.team,
+            title="Second task",
+            description="Follow up",
+            created_by=self.owner,
+            assigned_to=self.member,
+        )
+        response = self.client.post(
+            reverse("api_v1:tasks:dependencies", kwargs={"pk": self.task.id}),
+            {"to_task_id": str(another_task.id), "dependency_type": "blocks"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        dependency_id = response.data["data"]["id"]
+
+        delete_response = self.client.delete(reverse("api_v1:tasks:dependency-detail", kwargs={"dependency_id": dependency_id}))
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_time_entry_start_stop(self) -> None:
+        self.authenticate(self.member)
+        start_response = self.client.post(reverse("api_v1:tasks:time-start", kwargs={"pk": self.task.id}))
+        self.assertEqual(start_response.status_code, status.HTTP_201_CREATED)
+        entry_id = start_response.data["data"]["id"]
+
+        stop_response = self.client.post(reverse("api_v1:tasks:time-stop", kwargs={"entry_id": entry_id}))
+        self.assertEqual(stop_response.status_code, status.HTTP_200_OK)
+
+    def test_automation_rule_create(self) -> None:
+        self.authenticate(self.owner)
+        response = self.client.post(
+            reverse("api_v1:tasks:automation-rules", kwargs={"team_id": self.team.id}),
+            {
+                "name": "Notify admin on overdue",
+                "trigger_type": "task_overdue",
+                "action_type": "notify_admin",
+                "conditions": {},
+                "action_payload": {},
+                "is_active": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_guest_access_create_and_revoke(self) -> None:
+        self.authenticate(self.owner)
+        response = self.client.post(
+            reverse("api_v1:tasks:guest-access", kwargs={"pk": self.task.id}),
+            {"email": "guest@example.com", "permission": "view"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        access_id = response.data["data"]["id"]
+
+        revoke_response = self.client.post(reverse("api_v1:tasks:guest-revoke", kwargs={"access_id": access_id}))
+        self.assertEqual(revoke_response.status_code, status.HTTP_200_OK)
+
+    def test_task_import_export(self) -> None:
+        self.authenticate(self.owner)
+        csv_content = "title,description,status,priority,start_at,due_date,assigned_to,milestone\nImported task,Desc,todo,medium,,,\n"
+        upload = SimpleUploadedFile("tasks.csv", csv_content.encode("utf-8"), content_type="text/csv")
+        response = self.client.post(
+            reverse("api_v1:tasks:import"),
+            {"team_id": str(self.team.id), "file": upload},
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        export_response = self.client.get(reverse("api_v1:tasks:export"), {"team": str(self.team.id)})
+        self.assertEqual(export_response.status_code, status.HTTP_200_OK)

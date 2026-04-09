@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'react-toastify'
@@ -26,7 +26,7 @@ export default function Profile() {
     formState: { isSubmitting },
   } = useForm()
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     setLoading(true)
     try {
       const response = await usersAPI.getProfile()
@@ -49,11 +49,11 @@ export default function Profile() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [avatarPreview, currentUser, reset])
 
   useEffect(() => {
     loadProfile()
-  }, [currentUser])
+  }, [loadProfile])
 
   useEffect(() => {
     return () => {

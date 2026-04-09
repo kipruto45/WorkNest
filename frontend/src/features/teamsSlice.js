@@ -1,38 +1,33 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import { teamsAPI, unwrapData, unwrapResults } from '../services/api'
-
-const extractErrorMessage = (error, fallbackMessage) => {
-  const payload = error?.response?.data
-  if (typeof payload?.message === 'string' && payload.message.trim()) {
-    return payload.message
-  }
-
-  const errorEntries = payload?.errors
-  if (errorEntries && typeof errorEntries === 'object') {
-    for (const value of Object.values(errorEntries)) {
-      if (Array.isArray(value) && value[0]) {
-        return value[0]
-      }
-      if (typeof value === 'string' && value.trim()) {
-        return value
-      }
-    }
-  }
-
-  return fallbackMessage
-}
+import { authAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
+import { normalizeTeamEntity } from '../utils/teamEntities'
+import { setUser } from './authSlice'
 
 export const fetchTeams = createAsyncThunk('teams/fetchAll', async () => {
   const response = await teamsAPI.getTeams()
-  return unwrapResults(response)
+  return unwrapResults(response).map(normalizeTeamEntity)
 })
 
-export const createTeam = createAsyncThunk('teams/create', async (data, { rejectWithValue }) => {
+export const createTeam = createAsyncThunk('teams/create', async (data, { dispatch, rejectWithValue }) => {
   try {
     const response = await teamsAPI.createTeam(data)
-    return unwrapData(response)
+    const team = normalizeTeamEntity(unwrapData(response))
+    try {
+      const currentUserResponse = await authAPI.getCurrentUser()
+      dispatch(setUser(unwrapData(currentUserResponse)))
+    } catch (_error) {
+      // Team creation should still succeed even if the user bootstrap refresh is temporarily unavailable.
+    }
+    return team
   } catch (error) {
-    return rejectWithValue(extractErrorMessage(error, 'Failed to create team'))
+    return rejectWithValue(
+      extractApiError(error, {
+        fallbackMessage: 'Failed to create team.',
+        forbiddenMessage: 'You are not authorized to create a team.',
+        serverMessage: 'Server error while creating team.',
+      })
+    )
   }
 })
 
@@ -79,6 +74,7 @@ const teamsSlice = createSlice({
     builder
       .addCase(fetchTeams.pending, (state) => {
         state.loading = true
+        state.error = null
       })
       .addCase(fetchTeams.fulfilled, (state, action) => {
         state.loading = false
@@ -88,11 +84,17 @@ const teamsSlice = createSlice({
         state.loading = false
         state.error = action.error.message
       })
+      .addCase(createTeam.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
       .addCase(createTeam.fulfilled, (state, action) => {
+        state.loading = false
         state.teams.push(action.payload)
       })
       .addCase(createTeam.rejected, (state, action) => {
-        state.error = action.payload || action.error.message
+        state.loading = false
+        state.error = action.payload?.message || action.payload || action.error.message
       })
       .addCase(updateTeam.fulfilled, (state, action) => {
         const index = state.teams.findIndex((t) => t.id === action.payload.id)

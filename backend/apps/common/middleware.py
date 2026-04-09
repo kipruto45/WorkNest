@@ -34,6 +34,15 @@ class RequestLogMiddleware:
         response = self.get_response(request)
         duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
 
+        user = getattr(request, "user", None)
+        if user is not None and getattr(user, "is_authenticated", False):
+            try:
+                from apps.users.services import touch_user_presence
+
+                touch_user_presence(user=user, source="web")
+            except Exception:
+                logger.exception("presence_update_failed", extra={"request_id": getattr(request, "request_id", "-")})
+
         logger.info(
             "request completed",
             extra={
@@ -42,6 +51,7 @@ class RequestLogMiddleware:
                 "status_code": getattr(response, "status_code", 500),
                 "duration_ms": duration_ms,
                 "request_id": getattr(request, "request_id", "-"),
+                "user_id": str(getattr(user, "id", "")) if user is not None and getattr(user, "is_authenticated", False) else "-",
             },
         )
         return response

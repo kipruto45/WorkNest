@@ -7,18 +7,12 @@ import AuthShell from '../components/AuthShell'
 import PasswordField from '../components/PasswordField'
 import { login } from '../features/authSlice'
 import { authAPI, unwrapData } from '../services/api'
-
-const resolvePostLoginPath = ({ nextPath, user }) => {
-  const trimmedNextPath = typeof nextPath === 'string' ? nextPath.trim() : ''
-  if (trimmedNextPath && !['/', '/dashboard'].includes(trimmedNextPath)) {
-    return trimmedNextPath
-  }
-  return user?.is_staff ? '/admin' : '/dashboard'
-}
+import { resolvePostAuthPath } from '../utils/authRouting'
 
 export default function Login() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [formError, setFormError] = useState('')
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -28,11 +22,13 @@ export default function Login() {
   const registeredEmail = searchParams.get('email') || ''
   const {
     register,
+    setError,
+    clearErrors,
     handleSubmit,
     formState: { errors },
   } = useForm({
     defaultValues: {
-      email: registeredEmail,
+      credential: registeredEmail,
       password: '',
       remember_me: true,
     },
@@ -63,12 +59,38 @@ export default function Login() {
 
   const onSubmit = async (data) => {
     setLoading(true)
+    setFormError('')
+    clearErrors()
     try {
-      const session = await dispatch(login({ ...data, email: data.email.trim() })).unwrap()
+      const session = await dispatch(login({ ...data, credential: data.credential.trim() })).unwrap()
+      const destination = resolvePostAuthPath({ nextPath, user: session?.user })
+      if (destination === '/403') {
+        toast.error('You do not have admin access.')
+        navigate('/403', { replace: true })
+        return
+      }
       toast.success('Welcome back to your workspace.')
-      navigate(resolvePostLoginPath({ nextPath, user: session?.user }), { replace: true })
+      navigate(destination, { replace: true })
     } catch (error) {
-      toast.error(error || 'Sign in failed')
+      const normalizedError = typeof error === 'string' ? { message: error } : error || {}
+      const fieldErrors = normalizedError.fieldErrors || {}
+      Object.entries(fieldErrors).forEach(([field, value]) => {
+        if (!value) return
+        const message = Array.isArray(value) ? value[0] : value
+        if (typeof message === 'string' && message.trim()) {
+          setError(field, { message })
+        }
+      })
+      const message = normalizedError.message || 'Sign in failed'
+      setFormError(message)
+      toast.error(message)
+      if (normalizedError.requestId || normalizedError.status) {
+        console.error('auth_login_failed', {
+          requestId: normalizedError.requestId,
+          status: normalizedError.status,
+          errors: normalizedError.errors,
+        })
+      }
     } finally {
       setLoading(false)
     }
@@ -77,7 +99,7 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     setGoogleLoading(true)
     try {
-      const response = await authAPI.getGoogleLoginUrl()
+      const response = await authAPI.getGoogleLoginUrl(nextPath)
       const payload = unwrapData(response)
       if (payload?.login_url) {
         window.location.href = payload.login_url
@@ -137,15 +159,19 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3.5">
+          {formError ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{formError}</div>
+          ) : null}
           <div>
-            <label className="mb-2 block text-sm font-semibold text-emerald-950">Email</label>
+            <label className="mb-2 block text-sm font-semibold text-emerald-950">Email or phone number</label>
             <input
-              type="email"
-              {...register('email', { required: 'Email is required' })}
+              type="text"
+              {...register('credential', { required: 'Email or phone number is required' })}
               className="input-field"
-              placeholder="name@company.com"
+              placeholder="name@company.com or +254712345678"
             />
-            {errors.email ? <p className="mt-2 text-sm text-red-500">{errors.email.message}</p> : null}
+            <p className="mt-2 text-xs text-soft">Use the email address or phone number connected to your account.</p>
+            {errors.credential ? <p className="mt-2 text-sm text-red-500">{errors.credential.message}</p> : null}
           </div>
 
           <div>

@@ -346,7 +346,18 @@ For GitHub Actions, configure secrets such as:
 
 - `ATTACHMENTS_STORAGE_BACKEND=local` keeps attachments in Django media storage for local development.
 - `ATTACHMENTS_STORAGE_BACKEND=supabase` uses Supabase Storage with `SUPABASE_URL` and either `SUPABASE_KEY` or `SUPABASE_SERVICE_ROLE_KEY`.
+- `config.settings.production` now defaults attachment storage to `supabase`, so deployed environments use Supabase unless you explicitly override the backend.
 - Signed download URLs are generated server-side and team-scoped permissions are enforced before download links are issued.
+
+### SMS Providers
+
+- `SMS_PROVIDER=africas_talking` is the supported SMS backend in this repository.
+- Enable delivery with `SMS_ENABLED=true`.
+- For sandbox testing, set `AFRICAS_TALKING_USERNAME=sandbox`, `AFRICAS_TALKING_API_KEY=<sandbox key>`, `AFRICAS_TALKING_ENVIRONMENT=sandbox`, and `AFRICAS_TALKING_USE_SANDBOX=true`.
+- For live traffic, set your real Africa's Talking username, `AFRICAS_TALKING_ENVIRONMENT=live`, and `AFRICAS_TALKING_USE_SANDBOX=false`.
+- `AFRICAS_TALKING_SENDER_ID` and `AFRICAS_TALKING_BASE_URL` are optional. `SMS_USE_SANDBOX` is still accepted as a legacy alias, but `AFRICAS_TALKING_USE_SANDBOX` is the preferred setting.
+- Use `python manage.py check_sms_config --format=json` on the web and Celery worker processes to verify the active username, environment, masked key, and base URL without exposing the secret.
+- SMS is used for phone verification, task assignment alerts, mentions, team invites, deadline reminders, and admin broadcasts when the relevant notification types are enabled.
 
 ### Redis, Celery, and Realtime
 

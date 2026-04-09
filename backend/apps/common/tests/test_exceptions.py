@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.test import RequestFactory, SimpleTestCase, override_settings
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import AuthenticationFailed, ValidationError
 
 from apps.common.exceptions import ConflictError, ServiceUnavailableError, custom_exception_handler
 
@@ -31,7 +31,26 @@ class CommonExceptionTests(SimpleTestCase):
         response = custom_exception_handler(RuntimeError("secret failure"), {"request": self.request})
 
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.data["message"], "Server error while processing request.")
         self.assertEqual(response.data["errors"]["detail"], "Internal server error.")
+
+    def test_custom_exception_handler_maps_invalid_tokens_to_session_expired_message(self) -> None:
+        response = custom_exception_handler(
+            AuthenticationFailed({"detail": "Given token not valid for any token type"}),
+            {"request": self.request},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data["message"], "Your session expired. Please log in again.")
+
+    def test_custom_exception_handler_preserves_auth_failure_message(self) -> None:
+        response = custom_exception_handler(
+            AuthenticationFailed("Invalid email or password."),
+            {"request": self.request},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data["message"], "Invalid email or password.")
 
     def test_service_unavailable_error_exposes_status_code(self) -> None:
         response = custom_exception_handler(ServiceUnavailableError("Down"), {"request": self.request})

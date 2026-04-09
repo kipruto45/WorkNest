@@ -1,26 +1,23 @@
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand
-from django.utils.crypto import get_random_string
-
 from apps.users.services import bootstrap_admin_user
 
 
-DEFAULT_ADMIN_EMAIL = "kiprutovictor39@gmail.com"
+DEFAULT_ADMIN_EMAIL = "admin@example.com"
 DEFAULT_ADMIN_NAME = "WorkNest Admin"
-DEFAULT_ADMIN_PASSWORD = "WorkNest123!"
 
 
 class Command(BaseCommand):
-    help = "Create or update a bootstrap admin user with known credentials."
+    help = "Create or update a bootstrap admin user with explicit or generated credentials."
 
     def add_arguments(self, parser):
         parser.add_argument("--email", default=DEFAULT_ADMIN_EMAIL, help="Admin email address.")
         parser.add_argument("--name", default=DEFAULT_ADMIN_NAME, help="Admin display name.")
         parser.add_argument(
             "--password",
-            default=DEFAULT_ADMIN_PASSWORD,
-            help=f"Admin password. Defaults to {DEFAULT_ADMIN_PASSWORD}.",
+            default="",
+            help="Admin password. Leave blank to use --random-password or pass a value explicitly.",
         )
         parser.add_argument(
             "--random-password",
@@ -31,7 +28,16 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         email = str(options["email"]).strip().lower() or DEFAULT_ADMIN_EMAIL
         name = str(options["name"]).strip() or DEFAULT_ADMIN_NAME
-        password = get_random_string(20) if options["random_password"] else str(options["password"]).strip() or DEFAULT_ADMIN_PASSWORD
+        raw_password = str(options["password"]).strip()
+        if options["random_password"]:
+            from django.utils.crypto import get_random_string
+
+            password = get_random_string(20)
+        elif raw_password:
+            password = raw_password
+        else:
+            self.stderr.write("Provide --password or use --random-password.")
+            raise SystemExit(1)
 
         user, created = bootstrap_admin_user(email=email, name=name, password=password)
 

@@ -56,6 +56,8 @@ def _mark_invitation_expired_if_needed(invitation: TeamInvitation) -> TeamInvita
 def _ensure_team_accepts_invites(*, invitation: TeamInvitation) -> None:
     if invitation.team.is_archived:
         raise ValidationError({"invitation": ["This team is archived, so the invitation can no longer be accepted."]})
+    if invitation.team.is_personal:
+        raise ValidationError({"invitation": ["Personal workspaces do not support invitations or shared memberships."]})
 
 
 def _ensure_invitation_belongs_to_user(*, invitation: TeamInvitation, user) -> None:
@@ -66,6 +68,8 @@ def _ensure_invitation_belongs_to_user(*, invitation: TeamInvitation, user) -> N
 def _ensure_invitation_manageable(*, invitation: TeamInvitation, actor) -> None:
     if invitation.team.is_archived:
         raise ValidationError({"team": ["Archived teams cannot manage invitations."]})
+    if invitation.team.is_personal:
+        raise ValidationError({"team": ["Personal workspaces cannot send or manage invitations."]})
     if not can_manage_team_invites(team=invitation.team, user=actor):
         raise PermissionDenied("You do not have permission to manage invitations for this team.")
 
@@ -113,15 +117,34 @@ def _notify_inviter_of_decline(*, invitation: TeamInvitation, actor) -> None:
     notify_invitation_declined(invitation=invitation, recipient_user=invitation.invited_by)
 
 
+def refresh_team_invitation_state(*, invitation: TeamInvitation) -> TeamInvitation:
+    return _mark_invitation_expired_if_needed(invitation)
+
+
+def expire_team_invitations(*, team=None) -> int:
+    queryset = TeamInvitation.objects.filter(
+        status=TeamInvitation.Status.PENDING,
+        expires_at__lte=timezone.now(),
+    )
+    if team is not None:
+        queryset = queryset.filter(team=team)
+    return queryset.update(status=TeamInvitation.Status.EXPIRED, updated_at=timezone.now())
+
+
 @transaction.atomic
 def invite_member_to_team(*, team, invited_by, email: str, role: str, custom_message: str = "") -> TeamInvitation:
     if team.is_archived:
         raise ValidationError({"team": ["Archived teams cannot send invitations."]})
+    if team.is_personal:
+        raise ValidationError({"team": ["Personal workspaces cannot invite members. Create a shared team workspace instead."]})
     if not can_manage_team_invites(team=team, user=invited_by):
         raise PermissionDenied("You do not have permission to invite members to this team.")
 
     normalized_email = email.strip().lower()
     normalized_message = custom_message.strip()
+    inviter_email = str(getattr(invited_by, "email", "") or "").strip().lower()
+    if inviter_email and inviter_email == normalized_email:
+        raise ValidationError({"email": ["You are already part of this workspace. Invite another teammate instead."]})
     _ensure_target_is_not_active_member(team=team, email=normalized_email)
 
     pending_invitation = TeamInvitation.objects.filter(

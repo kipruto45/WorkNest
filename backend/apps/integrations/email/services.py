@@ -14,9 +14,11 @@ from apps.audit_logs.services import build_audit_metadata, create_audit_log
 from apps.integrations.constants import DEFAULT_EMAIL_PROVIDER, EMAIL_PROVIDER_SENDGRID, EMAIL_PROVIDER_SMTP
 from apps.integrations.email.base import EmailMessagePayload, QueuedEmailPayload
 from apps.integrations.email.builders import (
+    build_admin_communication_email_payload,
     build_attachment_uploaded_email_payload,
     build_comment_posted_email_payload,
     build_deadline_approaching_email_payload,
+    build_email_verification_email_payload,
     build_invitation_accepted_email_payload,
     build_invitation_reminder_email_payload,
     build_invitation_revoked_email_payload,
@@ -105,6 +107,11 @@ def _should_skip_email(*, user=None, email_type: str) -> bool:
         return True
 
     preferences = getattr(user, "email_preferences", None) or getattr(user, "notification_preferences", None) or {}
+    if isinstance(preferences, dict):
+        channel_prefs = preferences.get("channels") or {}
+        email_prefs = channel_prefs.get("email") or {}
+        if email_type in email_prefs and isinstance(email_prefs[email_type], bool):
+            return not bool(email_prefs[email_type])
     preference_map = getattr(
         settings,
         "EMAIL_TYPE_PREFERENCE_MAP",
@@ -319,6 +326,14 @@ def queue_password_reset_email(*, user, reset_url: str, actor=None, expires_in_m
     )
 
 
+def queue_email_verification_email(*, user, verification_url: str, actor=None) -> EmailDelivery:
+    return queue_email(
+        payload=build_email_verification_email_payload(user=user, verification_url=verification_url),
+        actor=actor or user,
+        user=user,
+    )
+
+
 def send_team_invite_email(*, invitation=None, team=None, recipient_email: str = "", role: str = "", invitation_link: str = "", expires_at=None, custom_message: str = "", invited_by=None) -> dict[str, Any]:
     invitation = invitation or _build_invitation_like(
         team=team,
@@ -376,6 +391,14 @@ def queue_notification_email(*, notification) -> EmailDelivery:
         payload=build_notification_email_payload(notification=notification),
         actor=notification.actor,
         user=notification.user,
+    )
+
+
+def queue_admin_communication_email(*, communication, recipient, actor=None) -> EmailDelivery:
+    return queue_email(
+        payload=build_admin_communication_email_payload(communication=communication, recipient=recipient, actor=actor),
+        actor=actor,
+        user=recipient,
     )
 
 

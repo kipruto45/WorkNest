@@ -45,8 +45,11 @@ def get_team_by_id_for_user(*, team_id, user, include_archived: bool | None = Fa
     return get_user_teams(user=user, include_archived=include_archived).filter(id=team_id).first()
 
 
-def get_team_announcements(*, team: Team):
-    return TeamAnnouncement.objects.select_related("published_by").filter(team=team, is_active=True).order_by("-created_at")
+def get_team_announcements(*, team: Team, include_inactive: bool = False):
+    queryset = TeamAnnouncement.objects.select_related("published_by", "archived_by").filter(team=team)
+    if not include_inactive:
+        queryset = queryset.filter(is_active=True)
+    return queryset.order_by("-created_at")
 
 
 def get_pinned_teams(*, user):

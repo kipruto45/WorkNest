@@ -377,7 +377,8 @@ class EmailWorkflowTests(TestCase):
     def test_email_queue_falls_back_to_inline_delivery_when_broker_is_unavailable(self, _delay_mock) -> None:
         user = User.objects.create_user(email="fallback@example.com", password="StrongPass123!", name="Fallback User")
 
-        delivery = queue_welcome_email(user=user, actor=user)
+        with self.captureOnCommitCallbacks(execute=True):
+            delivery = queue_welcome_email(user=user, actor=user)
         delivery.refresh_from_db()
 
         self.assertEqual(delivery.status, EmailDelivery.Status.SENT)

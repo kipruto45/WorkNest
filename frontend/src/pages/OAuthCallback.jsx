@@ -7,14 +7,7 @@ import { setSession } from '../features/authSlice'
 import { authAPI, unwrapData } from '../services/api'
 import { CLIENT_STORAGE_KEYS } from '../utils/clientConfig.js'
 import { hasCompleteCurrentUser, persistAuthSession, persistCurrentUser } from '../utils/authSession'
-
-const resolvePostLoginPath = ({ nextPath, user }) => {
-  const trimmedNextPath = typeof nextPath === 'string' ? nextPath.trim() : ''
-  if (trimmedNextPath && !['/', '/dashboard'].includes(trimmedNextPath)) {
-    return trimmedNextPath
-  }
-  return user?.is_staff ? '/admin' : '/dashboard'
-}
+import { resolvePostAuthPath } from '../utils/authRouting'
 
 export default function OAuthCallback() {
   const dispatch = useDispatch()
@@ -65,7 +58,7 @@ export default function OAuthCallback() {
         }
 
         toast.success('Authentication complete.')
-        window.location.replace(resolvePostLoginPath({ nextPath, user: currentUser }))
+        window.location.replace(resolvePostAuthPath({ nextPath, user: currentUser }))
       } catch (error) {
         localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionAccess)
         localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionRefresh)

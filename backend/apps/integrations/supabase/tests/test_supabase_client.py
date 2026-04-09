@@ -62,3 +62,9 @@ class SupabaseClientTests(TestCase):
 
         self.assertIn("token=test", url)
         self.assertIn("download=demo.pdf", url)
+
+    @override_settings(SUPABASE_KEY="", SUPABASE_SERVICE_ROLE_KEY="service-role-key")
+    def test_client_falls_back_to_service_role_key(self) -> None:
+        client = SupabaseClient()
+
+        self.assertEqual(client.api_key, "service-role-key")

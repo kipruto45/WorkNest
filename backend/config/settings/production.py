@@ -1,6 +1,7 @@
 from .base import *  # noqa: F403,F401
 
 DEBUG = False
+ATTACHMENTS_STORAGE_BACKEND = env("ATTACHMENTS_STORAGE_BACKEND", default="supabase")
 
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True

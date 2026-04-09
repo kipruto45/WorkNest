@@ -31,4 +31,10 @@ PASSWORD_HASHERS = [
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
-STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+MIDDLEWARE = [middleware for middleware in MIDDLEWARE if middleware != "whitenoise.middleware.WhiteNoiseMiddleware"]  # noqa: F405
+STORAGES = {
+    **STORAGES,  # noqa: F405
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}

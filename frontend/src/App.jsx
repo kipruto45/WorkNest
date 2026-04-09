@@ -5,13 +5,14 @@ import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import Layout from './components/Layout'
 import { hydrateCurrentUser } from './features/authSlice'
-import { hasCompleteCurrentUser } from './utils/authSession'
+import { applyThemePreference, readStoredThemePreference } from './utils/theme'
 
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const OAuthCallback = lazy(() => import('./pages/OAuthCallback'))
+const EmailVerificationStatus = lazy(() => import('./pages/EmailVerificationStatus'))
 const Landing = lazy(() => import('./pages/Landing'))
 const About = lazy(() => import('./pages/About'))
 const HelpCenter = lazy(() => import('./pages/HelpCenter'))
@@ -21,6 +22,7 @@ const SecurityPage = lazy(() => import('./pages/SecurityPage'))
 const ContactPage = lazy(() => import('./pages/ContactPage'))
 const SupportPage = lazy(() => import('./pages/SupportPage'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
+const PersonalDashboard = lazy(() => import('./pages/PersonalDashboard'))
 const Teams = lazy(() => import('./pages/Teams'))
 const TeamBoard = lazy(() => import('./pages/TeamBoard'))
 const TeamOverview = lazy(() => import('./pages/TeamOverview'))
@@ -29,40 +31,47 @@ const TeamInvitations = lazy(() => import('./pages/TeamInvitations'))
 const TeamAnalytics = lazy(() => import('./pages/TeamAnalytics'))
 const TeamActivity = lazy(() => import('./pages/TeamActivity'))
 const TeamSettings = lazy(() => import('./pages/TeamSettings'))
+const TeamMilestones = lazy(() => import('./pages/TeamMilestones'))
+const TeamAutomationRules = lazy(() => import('./pages/TeamAutomationRules'))
+const TeamImportExport = lazy(() => import('./pages/TeamImportExport'))
 const TaskDetail = lazy(() => import('./pages/TaskDetail'))
 const MyTasks = lazy(() => import('./pages/MyTasks'))
 const Calendar = lazy(() => import('./pages/Calendar'))
 const Notifications = lazy(() => import('./pages/Notifications'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Settings = lazy(() => import('./pages/Settings'))
+const AccountSecurity = lazy(() => import('./pages/AccountSecurity'))
 const Search = lazy(() => import('./pages/Search'))
 const Archive = lazy(() => import('./pages/Archive'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
+const AdminUsers = lazy(() => import('./pages/AdminUsers'))
+const AdminCommunications = lazy(() => import('./pages/AdminCommunications'))
+const TeamSetup = lazy(() => import('./pages/TeamSetup'))
 const InvitationResponse = lazy(() => import('./pages/InvitationResponse'))
 const Forbidden = lazy(() => import('./pages/Forbidden'))
 const ServerError = lazy(() => import('./pages/ServerError'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 function PrivateRoute({ children }) {
-  const { token, hydrating } = useSelector((state) => state.auth)
-  if (token && hydrating) {
+  const { token, hydrating, bootstrapped } = useSelector((state) => state.auth)
+  if (token && (!bootstrapped || hydrating)) {
     return <RouteFallback />
   }
   return token ? children : <Navigate to="/login" replace />
 }
 
 function AdminRoute({ children }) {
-  const { user, hydrating } = useSelector((state) => state.auth)
-  if (hydrating) {
+  const { token, user, hydrating, bootstrapped } = useSelector((state) => state.auth)
+  if (token && (!bootstrapped || hydrating)) {
     return <RouteFallback />
   }
   return user?.is_staff ? children : <Navigate to="/403" replace />
 }
 
 function DashboardRoute() {
-  const { user, hydrating } = useSelector((state) => state.auth)
+  const { token, user, hydrating, bootstrapped } = useSelector((state) => state.auth)
 
-  if (hydrating) {
+  if (token && (!bootstrapped || hydrating)) {
     return <RouteFallback />
   }
 
@@ -70,24 +79,40 @@ function DashboardRoute() {
     return <Navigate to="/admin" replace />
   }
 
-  return <Dashboard />
+  if (user?.account_type === 'team') {
+    if (user?.default_team_id) {
+      return <Navigate to={`/teams/${user.default_team_id}/overview`} replace />
+    }
+    return <Navigate to="/team-setup" replace />
+  }
+
+  return <PersonalDashboard />
 }
 
 function App() {
   const dispatch = useDispatch()
-  const { token, user } = useSelector((state) => state.auth)
+  const { token, user, hydrating, bootstrapped } = useSelector((state) => state.auth)
 
   useEffect(() => {
-    if (token && !hasCompleteCurrentUser(user)) {
+    if (token && !hydrating && !bootstrapped) {
       dispatch(hydrateCurrentUser())
     }
-  }, [dispatch, token, user])
+  }, [bootstrapped, dispatch, hydrating, token])
+
+  useEffect(() => {
+    applyThemePreference(user?.theme_preference || readStoredThemePreference())
+  }, [user?.theme_preference])
 
   return (
     <>
       <ToastContainer
         position="top-right"
-        toastClassName="!rounded-2xl !bg-white/90 !text-emerald-950 !shadow-lg !backdrop-blur-xl"
+        autoClose={3200}
+        hideProgressBar
+        newestOnTop
+        closeButton={false}
+        toastClassName="!rounded-[20px] !border !border-slate-200/90 !bg-[rgba(255,255,255,0.96)] !px-4 !py-3 !text-slate-950 !shadow-[0_18px_44px_rgba(15,23,42,0.12)] !backdrop-blur-xl"
+        bodyClassName="!m-0 !p-0 !text-sm !font-medium"
       />
 
       <Suspense fallback={<RouteFallback />}>
@@ -105,6 +130,7 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email" element={<EmailVerificationStatus />} />
           <Route path="/auth/google/callback" element={<OAuthCallback />} />
           <Route path="/invitations/:token" element={<InvitationResponse />} />
           <Route path="/accept-invitation" element={<InvitationResponse />} />
@@ -119,19 +145,45 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<DashboardRoute />} />
+            <Route path="/team-setup" element={<TeamSetup />} />
             <Route path="tasks" element={<MyTasks />} />
             <Route path="tasks/:taskId" element={<TaskDetail />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="notifications" element={<Notifications />} />
             <Route path="profile" element={<Profile />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="settings/security" element={<AccountSecurity />} />
             <Route path="search" element={<Search />} />
             <Route path="archive" element={<Archive />} />
+            <Route
+              path="admin/users"
+              element={
+                <AdminRoute>
+                  <AdminUsers />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="admin/users/:userId"
+              element={
+                <AdminRoute>
+                  <AdminUsers />
+                </AdminRoute>
+              }
+            />
             <Route
               path="admin"
               element={
                 <AdminRoute>
                   <AdminDashboard />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="admin/communications"
+              element={
+                <AdminRoute>
+                  <AdminCommunications />
                 </AdminRoute>
               }
             />
@@ -150,6 +202,9 @@ function App() {
             <Route path="teams/:teamId/invitations" element={<TeamInvitations />} />
             <Route path="teams/:teamId/analytics" element={<TeamAnalytics />} />
             <Route path="teams/:teamId/activity" element={<TeamActivity />} />
+            <Route path="teams/:teamId/milestones" element={<TeamMilestones />} />
+            <Route path="teams/:teamId/automation" element={<TeamAutomationRules />} />
+            <Route path="teams/:teamId/import-export" element={<TeamImportExport />} />
             <Route path="teams/:teamId/settings" element={<TeamSettings />} />
           </Route>
 

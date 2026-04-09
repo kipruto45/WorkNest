@@ -14,6 +14,7 @@ class Team(models.Model):
     name = models.CharField(max_length=160)
     slug = models.SlugField(max_length=180, unique=True)
     description = models.TextField(blank=True)
+    is_personal = models.BooleanField(default=False)
     allow_manager_invites = models.BooleanField(default=False)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -45,12 +46,21 @@ class TeamAnnouncement(TimeStampedUUIDModel):
     content = models.TextField()
     is_active = models.BooleanField(default=True)
     pinned_until = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
     published_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="published_announcements",
+    )
+    archived_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="archived_announcements",
     )
 
     class Meta:
@@ -59,6 +69,7 @@ class TeamAnnouncement(TimeStampedUUIDModel):
         indexes = [
             models.Index(fields=["team", "is_active"]),
             models.Index(fields=["team", "created_at"]),
+            models.Index(fields=["team", "expires_at"]),
         ]
 
     def __str__(self) -> str:

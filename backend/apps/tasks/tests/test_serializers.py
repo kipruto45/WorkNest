@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -96,3 +98,46 @@ class TaskSerializerTests(TestCase):
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertIsNone(serializer.validated_data["assigned_to_user"])
+
+    def test_create_serializer_rejects_due_before_start(self) -> None:
+        request = self.factory.post("/api/v1/tasks/")
+        request.user = self.owner
+        serializer = TaskCreateSerializer(
+            data={
+                "team_id": str(self.team.id),
+                "title": "Bad timeline",
+                "start_at": timezone.now() + timedelta(days=1),
+                "due_date": timezone.now(),
+            },
+            context={"request": request},
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("due_date", serializer.errors)
+
+    def test_assign_serializer_rejects_personal_team_assignment(self) -> None:
+        personal_team = Team.objects.create(
+            name="Owner Personal",
+            slug="owner-personal",
+            description="Personal",
+            created_by=self.owner,
+            is_personal=True,
+        )
+        Membership.objects.create(
+            user=self.owner,
+            team=personal_team,
+            role=Membership.Role.ADMIN,
+            status=Membership.Status.ACTIVE,
+            invited_by=self.owner,
+            joined_at=timezone.now(),
+        )
+        task = Task.objects.create(
+            team=personal_team,
+            title="Personal task",
+            created_by=self.owner,
+        )
+
+        serializer = TaskAssignSerializer(data={"assigned_to": str(self.owner.id)}, context={"task": task})
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("assigned_to", serializer.errors)

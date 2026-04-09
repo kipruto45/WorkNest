@@ -9,12 +9,14 @@ from apps.users.serializers import UserPublicSerializer
 class MembershipSerializer(serializers.ModelSerializer):
     user = UserPublicSerializer(read_only=True)
     invited_by = UserPublicSerializer(read_only=True)
+    presence = serializers.SerializerMethodField()
 
     class Meta:
         model = Membership
         fields = (
             "id",
             "user",
+            "presence",
             "role",
             "status",
             "invited_by",
@@ -23,6 +25,9 @@ class MembershipSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = fields
+
+    def get_presence(self, obj):
+        return obj.user.presence if hasattr(obj.user, "presence") else UserPublicSerializer(obj.user).data.get("presence")
 
 
 class InviteMemberSerializer(serializers.Serializer):
@@ -99,4 +104,5 @@ class TeamInvitationDetailSerializer(serializers.ModelSerializer):
             "slug": obj.team.slug,
             "description": obj.team.description,
             "is_archived": obj.team.is_archived,
+            "is_personal": obj.team.is_personal,
         }

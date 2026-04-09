@@ -1,17 +1,78 @@
 import axios from 'axios'
-import { extractAuthSession, persistAuthSession } from '../utils/authSession'
+import { clearAuthSession, extractAuthSession, persistAuthSession } from '../utils/authSession'
 import { API_BASE_URL, CLIENT_STORAGE_KEYS } from '../utils/clientConfig.js'
 
 const API_URL = API_BASE_URL
+const PUBLIC_AUTH_PATH_PREFIXES = ['/auth/login/', '/auth/register/', '/auth/password-reset/', '/auth/google/']
+let refreshRequest = null
+
+const normalizeBaseUrl = (value) => {
+  if (!value) return ''
+  return value.replace(/\/+$/, '')
+}
+
+const buildApiUrl = (url, baseUrl) => {
+  if (!url) return url
+  const trimmed = String(url)
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed
+  }
+  const base = normalizeBaseUrl(baseUrl)
+  if (!base) return trimmed
+  if (trimmed.startsWith('/')) {
+    return `${base}${trimmed}`
+  }
+  return `${base}/${trimmed}`
+}
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: '',
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
+const normalizeRequestPath = (url) => {
+  const resolvedUrl = buildApiUrl(url, API_URL)
+  if (!resolvedUrl) return ''
+
+  try {
+    const parsed = new URL(resolvedUrl, window.location.origin)
+    return parsed.pathname
+  } catch (_error) {
+    return String(resolvedUrl)
+  }
+}
+
+const shouldSkipAuthRefresh = (config) => {
+  const requestPath = normalizeRequestPath(config?.url)
+  return PUBLIC_AUTH_PATH_PREFIXES.some((prefix) => requestPath.includes(prefix))
+}
+
+const redirectToLogin = () => {
+  const currentPath = `${window.location.pathname || ''}${window.location.search || ''}`
+  const next = currentPath && !currentPath.startsWith('/login') ? `?next=${encodeURIComponent(currentPath)}` : ''
+  window.location.replace(`/login${next}`)
+}
+
+const refreshSession = async () => {
+  const refreshToken = localStorage.getItem(CLIENT_STORAGE_KEYS.sessionRefresh)
+  const refreshUrl = buildApiUrl('/auth/refresh/', API_URL)
+  const response = await axios.post(refreshUrl, refreshToken ? { refresh: refreshToken } : {}, { withCredentials: true })
+  const session = extractAuthSession(unwrapData(response))
+  if (!session.isValid) {
+    throw new Error('Invalid refresh response')
+  }
+  persistAuthSession(session)
+  return session
+}
+
 api.interceptors.request.use((config) => {
+  const normalizedUrl = buildApiUrl(config.url, API_URL)
+  if (normalizedUrl) {
+    config.url = normalizedUrl
+  }
   const token = localStorage.getItem(CLIENT_STORAGE_KEYS.sessionAccess)
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -23,25 +84,21 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !shouldSkipAuthRefresh(originalRequest)) {
       originalRequest._retry = true
       try {
-        const refreshToken = localStorage.getItem(CLIENT_STORAGE_KEYS.sessionRefresh)
-        const response = await axios.post(`${API_URL}/auth/refresh/`, {
-          refresh: refreshToken,
-        })
-        const session = extractAuthSession(unwrapData(response))
-        if (!session.isValid) {
-          throw new Error('Invalid refresh response')
+        if (!refreshRequest) {
+          refreshRequest = refreshSession().finally(() => {
+            refreshRequest = null
+          })
         }
-        persistAuthSession(session)
+        const session = await refreshRequest
+        originalRequest.headers = originalRequest.headers ?? {}
         originalRequest.headers.Authorization = `Bearer ${session.accessToken}`
         return api(originalRequest)
       } catch (refreshError) {
-        localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionAccess)
-        localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionRefresh)
-        localStorage.removeItem(CLIENT_STORAGE_KEYS.sessionUser)
-        window.location.href = '/login'
+        clearAuthSession()
+        redirectToLogin()
       }
     }
     return Promise.reject(error)
@@ -75,10 +132,14 @@ export const authAPI = {
   register: (data) => api.post('/auth/register/', data),
   logout: (data) => api.post('/auth/logout/', data),
   getCurrentUser: () => api.get('/auth/me/'),
+  verifyEmail: (data) => api.post('/auth/email-verification/verify/', data),
+  resendVerification: () => api.post('/auth/email-verification/resend/'),
+  getSessions: () => api.get('/auth/sessions/'),
+  revokeSession: (id) => api.delete(`/auth/sessions/${id}/`),
   requestPasswordReset: (data) => api.post('/auth/password-reset/', data),
   confirmPasswordReset: (data) => api.post('/auth/password-reset/confirm/', data),
   getGoogleConfig: () => api.get('/auth/google/config/'),
-  getGoogleLoginUrl: () => api.get('/auth/google/login/', { params: { redirect: 'false' } }),
+  getGoogleLoginUrl: (nextPath) => api.get('/auth/google/login/', { params: { redirect: 'false', next: nextPath } }),
   authenticateGoogle: (credential) => api.post('/auth/google/auth/', { credential }),
 }
 
@@ -88,6 +149,7 @@ export const teamsAPI = {
   getTeam: (id) => api.get(`/teams/${id}/`),
   updateTeam: (id, data) => api.patch(`/teams/${id}/`, data),
   deleteTeam: (id) => api.delete(`/teams/${id}/`),
+  searchAdminTeams: (params) => api.get('/teams/admin/search/', { params }),
   getPinnedTeams: (params) => api.get('/teams/pinned/', { params }),
   getRecentTeams: (params) => api.get('/teams/recent/', { params }),
   togglePin: (id) => api.post(`/teams/${id}/pin/`),
@@ -135,6 +197,33 @@ export const tasksAPI = {
   createFromTemplate: (id, data) => api.post(`/tasks/templates/${id}/create-task/`, data),
   getSavedViews: (params) => api.get('/tasks/views/saved/', { params }),
   createSavedView: (data) => api.post('/tasks/views/saved/', data),
+  updateSavedView: (id, data) => api.patch(`/tasks/views/saved/${id}/`, data),
+  deleteSavedView: (id) => api.delete(`/tasks/views/saved/${id}/`),
+  getDependencies: (id) => api.get(`/tasks/${id}/dependencies/`),
+  createDependency: (id, data) => api.post(`/tasks/${id}/dependencies/`, data),
+  deleteDependency: (dependencyId) => api.delete(`/tasks/dependencies/${dependencyId}/`),
+  getTimeEntries: (id, params) => api.get(`/tasks/${id}/time-entries/`, { params }),
+  createTimeEntry: (id, data) => api.post(`/tasks/${id}/time-entries/`, data),
+  startTimeEntry: (id) => api.post(`/tasks/${id}/time-entries/start/`),
+  stopTimeEntry: (entryId) => api.post(`/tasks/time-entries/${entryId}/stop/`),
+  getTimeSummary: (params) => api.get('/tasks/time-entries/summary/', { params }),
+  getMilestones: (teamId, params) => api.get(`/tasks/teams/${teamId}/milestones/`, { params }),
+  createMilestone: (teamId, data) => api.post(`/tasks/teams/${teamId}/milestones/`, data),
+  updateMilestone: (teamId, milestoneId, data) => api.patch(`/tasks/teams/${teamId}/milestones/${milestoneId}/`, data),
+  deleteMilestone: (teamId, milestoneId) => api.delete(`/tasks/teams/${teamId}/milestones/${milestoneId}/`),
+  getAutomationRules: (teamId, params) => api.get(`/tasks/teams/${teamId}/automation-rules/`, { params }),
+  createAutomationRule: (teamId, data) => api.post(`/tasks/teams/${teamId}/automation-rules/`, data),
+  updateAutomationRule: (teamId, ruleId, data) => api.patch(`/tasks/teams/${teamId}/automation-rules/${ruleId}/`, data),
+  deleteAutomationRule: (teamId, ruleId) => api.delete(`/tasks/teams/${teamId}/automation-rules/${ruleId}/`),
+  getGuestAccess: (taskId) => api.get(`/tasks/${taskId}/guest-access/`),
+  createGuestAccess: (taskId, data) => api.post(`/tasks/${taskId}/guest-access/`, data),
+  revokeGuestAccess: (accessId) => api.post(`/tasks/guest-access/${accessId}/revoke/`),
+  importTasks: (formData, params) =>
+    api.post('/tasks/import/', formData, {
+      params,
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  exportTasks: (params) => api.get('/tasks/export/', { params }),
 }
 
 export const commentsAPI = {
@@ -142,6 +231,7 @@ export const commentsAPI = {
   createComment: (taskId, data) => api.post(`/tasks/${taskId}/comments/`, data),
   updateComment: (id, data) => api.patch(`/comments/${id}/`, data),
   deleteComment: (id) => api.delete(`/comments/${id}/`),
+  getHistory: (id, params) => api.get(`/comments/${id}/history/`, { params }),
   replyToComment: (id, data) => api.post(`/comments/${id}/reply/`, data),
   toggleReaction: (id, data) => api.post(`/comments/${id}/reactions/`, data),
 }
@@ -155,13 +245,29 @@ export const notificationsAPI = {
   deleteNotification: (id) => api.delete(`/notifications/${id}/`),
   getUnreadCount: () => api.get('/notifications/unread-count/'),
   sendAdminNotification: (data) => api.post('/notifications/admin/send/', data),
+  getAdminCommunications: (params) => api.get('/notifications/admin/communications/', { params }),
+  getAdminCommunication: (id) => api.get(`/notifications/admin/communications/${id}/`),
+  createAdminCommunication: (data) => api.post('/notifications/admin/communications/', data),
+  getSmsLogs: (params) => api.get('/notifications/admin/sms-logs/', { params }),
+  getSmsLog: (id) => api.get(`/notifications/admin/sms-logs/${id}/`),
 }
 
 export const usersAPI = {
   getProfile: () => api.get('/users/me/'),
   updateProfile: (data) =>
     api.patch('/users/me/', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined),
+  savePhoneSettings: (data) => api.post('/users/me/phone/', data),
+  updatePhoneSettings: (data) => api.patch('/users/me/phone/', data),
+  requestPhoneVerification: () => api.post('/users/me/phone/verify/request/'),
+  confirmPhoneVerification: (data) => api.post('/users/me/phone/verify/confirm/', data),
+  getNotificationPreferences: () => api.get('/users/me/notification-preferences/'),
+  updateNotificationPreferences: (data) => api.patch('/users/me/notification-preferences/', data),
   searchAdminUsers: (params) => api.get('/users/admin/search/', { params }),
+  getAdminUser: (id) => api.get(`/users/admin/${id}/`),
+  updateAdminUser: (id, data) => api.patch(`/users/admin/${id}/`, data),
+  getPushDevices: (params) => api.get('/users/me/devices/', { params }),
+  registerPushDevice: (data) => api.post('/users/me/devices/', data),
+  removePushDevice: (id) => api.delete(`/users/me/devices/${id}/`),
 }
 
 export const dashboardAPI = {
@@ -195,6 +301,7 @@ export const auditLogsAPI = {
 
 export const commonAPI = {
   getHealth: () => api.get('/health/'),
+  search: (params) => api.get('/search/', { params }),
   getSystemInfo: () => api.get('/system/info/'),
 }
 

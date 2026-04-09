@@ -109,6 +109,26 @@ If you deploy only the backend web service and do not run the Celery worker,
 set `EMAIL_DELIVERY_MODE=sync` so welcome emails, password resets, invites,
 and notification emails are sent directly from the web process.
 
+## SMS Provider
+
+Set on `worknest-backend` and `worknest-celery-worker`. Set the same values on
+`worknest-celery-beat` too if scheduled reminders should send SMS.
+
+- `SMS_ENABLED=true`
+- `SMS_PROVIDER=africas_talking`
+- `AFRICAS_TALKING_USERNAME=sandbox`
+- `AFRICAS_TALKING_API_KEY=<your sandbox API key>`
+- `AFRICAS_TALKING_ENVIRONMENT=sandbox`
+- `AFRICAS_TALKING_USE_SANDBOX=true`
+
+Optional:
+
+- `AFRICAS_TALKING_SENDER_ID`
+- `AFRICAS_TALKING_BASE_URL`
+
+Do not mix sandbox and live values. For sandbox testing, the username must stay
+exactly `sandbox`.
+
 ## Google OAuth
 
 Set on `worknest-backend`:
@@ -189,6 +209,9 @@ After the first deploy:
 - `SUPABASE_SERVICE_ROLE_KEY` missing on worker while attachment or email jobs need it
 - `FRONTEND_URL` / `BACKEND_URL` still pointing to localhost
 - SMTP credentials valid locally but blocked by the provider in production
+- Africa's Talking variables updated on the web service but not on Celery worker/beat
+- sandbox credentials used with `AFRICAS_TALKING_ENVIRONMENT=live`
+- runtime services not restarted after changing Africa's Talking env vars
 
 ## Frontend
 

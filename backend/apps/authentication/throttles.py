@@ -1,4 +1,4 @@
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
 
 class RegisterThrottle(AnonRateThrottle):
@@ -14,3 +14,11 @@ class LoginThrottle(AnonRateThrottle):
 class PasswordResetThrottle(AnonRateThrottle):
     scope = "auth_password_reset"
     rate = "5/hour"
+
+
+class PhoneVerificationThrottle(UserRateThrottle):
+    scope = "auth_phone_verification"
+
+
+class AdminSMSBroadcastThrottle(UserRateThrottle):
+    scope = "admin_sms_broadcast"

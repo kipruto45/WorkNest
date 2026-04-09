@@ -8,6 +8,8 @@ from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 
 from apps.users.serializers import CurrentUserSerializer
+from apps.authentication.models import AuthSession
+from apps.integrations.sms.services import infer_phone_country_code, normalize_phone_number
 
 User = get_user_model()
 
@@ -15,15 +17,44 @@ User = get_user_model()
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8, style={"input_type": "password"})
     password_confirm = serializers.CharField(write_only=True, style={"input_type": "password"})
+    account_type = serializers.ChoiceField(choices=User.AccountType.choices, default=User.AccountType.PERSONAL)
+    team_name = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    phone_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    phone_country_code = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = User
-        fields = ("name", "first_name", "last_name", "email", "password", "password_confirm")
+        fields = (
+            "name",
+            "first_name",
+            "last_name",
+            "email",
+            "phone_number",
+            "phone_country_code",
+            "password",
+            "password_confirm",
+            "account_type",
+            "team_name",
+        )
 
     def validate_email(self, value: str) -> str:
+        if not value:
+            return ""
         normalized = User.objects.normalize_email(value)
         if User.objects.filter(email__iexact=normalized).exists():
             raise serializers.ValidationError("A user with this email already exists.")
+        return normalized
+
+    def validate_phone_number(self, value: str) -> str:
+        if not value:
+            return ""
+        try:
+            normalized = normalize_phone_number(value, self.initial_data.get("phone_country_code"))
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+        if User.objects.filter(phone_number=normalized).exists():
+            raise serializers.ValidationError("Phone number is already registered.")
         return normalized
 
     def validate(self, attrs: dict) -> dict:
@@ -34,7 +65,19 @@ class RegisterSerializer(serializers.ModelSerializer):
         if len(name) < 2:
             raise serializers.ValidationError({"name": "Name must be at least 2 characters long."})
 
-        candidate = User(email=attrs["email"], name=attrs["name"])
+        account_type = attrs.get("account_type", User.AccountType.PERSONAL)
+        team_name = (attrs.get("team_name") or "").strip()
+        if account_type == User.AccountType.TEAM and not team_name:
+            raise serializers.ValidationError({"team_name": "Team name is required for team accounts."})
+
+        email = (attrs.get("email") or "").strip()
+        phone_number = (attrs.get("phone_number") or "").strip()
+        if not email and not phone_number:
+            raise serializers.ValidationError({"email": "Enter an email or phone number to register."})
+        if phone_number and not attrs.get("phone_country_code"):
+            attrs["phone_country_code"] = infer_phone_country_code(phone_number)
+
+        candidate = User(email=email or None, phone_number=phone_number or None, name=attrs["name"])
         try:
             password_validation.validate_password(attrs["password"], candidate)
         except DjangoValidationError as exc:
@@ -43,9 +86,26 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    credential = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.CharField(required=False, allow_blank=True)
+    phone_number = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
     remember_me = serializers.BooleanField(default=False, required=False)
+
+    def validate(self, attrs: dict) -> dict:
+        credential = (attrs.get("credential") or "").strip()
+        email = (attrs.get("email") or "").strip()
+        phone_number = (attrs.get("phone_number") or "").strip()
+        resolved = credential or email or phone_number
+        if not resolved:
+            raise serializers.ValidationError({"credential": "Enter your email or phone number."})
+        if phone_number and not credential:
+            try:
+                resolved = normalize_phone_number(phone_number)
+            except ValueError as exc:
+                raise serializers.ValidationError({"phone_number": str(exc)}) from exc
+        attrs["credential"] = resolved
+        return attrs
 
 
 class RefreshTokenSerializer(serializers.Serializer):
@@ -103,6 +163,29 @@ class AuthTokensSerializer(serializers.Serializer):
 class AuthTokenResponseSerializer(serializers.Serializer):
     user = CurrentUserSerializer()
     tokens = AuthTokensSerializer()
+
+
+class EmailVerificationRequestSerializer(serializers.Serializer):
+    token = serializers.CharField(allow_blank=False)
+
+
+class AuthSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuthSession
+        fields = (
+            "id",
+            "session_key",
+            "device_name",
+            "ip_address",
+            "user_agent",
+            "last_seen_at",
+            "expires_at",
+            "revoked_at",
+            "status",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
 
 
 class GoogleAuthRequestSerializer(serializers.Serializer):

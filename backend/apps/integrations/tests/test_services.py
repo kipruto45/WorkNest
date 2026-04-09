@@ -43,3 +43,67 @@ class IntegrationServiceTests(TestCase):
     def test_validate_integrations_configuration_raises_for_incomplete_google_config(self) -> None:
         with self.assertRaises(IntegrationConfigurationError):
             validate_integrations_configuration()
+
+    @override_settings(
+        EMAIL_PROVIDER="smtp",
+        DEFAULT_FROM_EMAIL="no-reply@example.com",
+        ATTACHMENTS_STORAGE_BACKEND="supabase",
+        SUPABASE_URL="https://example.supabase.co",
+        SUPABASE_KEY="",
+        SUPABASE_SERVICE_ROLE_KEY="service-role-key",
+        ATTACHMENTS_SUPABASE_BUCKET="attachments",
+        GOOGLE_OAUTH_CLIENT_ID="",
+        GOOGLE_OAUTH_CLIENT_SECRET="",
+    )
+    def test_validate_integrations_configuration_allows_supabase_service_role_key_alias(self) -> None:
+        result = validate_integrations_configuration()
+
+        self.assertEqual(result["storage_provider"], "supabase")
+
+    @override_settings(
+        EMAIL_PROVIDER="smtp",
+        DEFAULT_FROM_EMAIL="no-reply@example.com",
+        ATTACHMENTS_STORAGE_BACKEND="local",
+        MEDIA_URL="/media/",
+        SMS_ENABLED=True,
+        AFRICAS_TALKING_USERNAME="sandbox",
+        AFRICAS_TALKING_API_KEY="test-key",
+        GOOGLE_OAUTH_CLIENT_ID="",
+        GOOGLE_OAUTH_CLIENT_SECRET="",
+    )
+    def test_validate_integrations_configuration_returns_sms_provider_when_enabled(self) -> None:
+        result = validate_integrations_configuration()
+
+        self.assertEqual(result["sms_provider"], "africas_talking")
+
+    @override_settings(
+        EMAIL_PROVIDER="smtp",
+        DEFAULT_FROM_EMAIL="no-reply@example.com",
+        ATTACHMENTS_STORAGE_BACKEND="local",
+        MEDIA_URL="/media/",
+        SMS_ENABLED=True,
+        AFRICAS_TALKING_USERNAME="",
+        AFRICAS_TALKING_API_KEY="",
+        GOOGLE_OAUTH_CLIENT_ID="",
+        GOOGLE_OAUTH_CLIENT_SECRET="",
+    )
+    def test_validate_integrations_configuration_raises_for_missing_sms_credentials(self) -> None:
+        with self.assertRaises(IntegrationConfigurationError):
+            validate_integrations_configuration()
+
+    @override_settings(
+        EMAIL_PROVIDER="smtp",
+        DEFAULT_FROM_EMAIL="no-reply@example.com",
+        ATTACHMENTS_STORAGE_BACKEND="local",
+        MEDIA_URL="/media/",
+        SMS_ENABLED=True,
+        AFRICAS_TALKING_USERNAME="worknest",
+        AFRICAS_TALKING_API_KEY="test-key",
+        AFRICAS_TALKING_ENVIRONMENT="sandbox",
+        AFRICAS_TALKING_USE_SANDBOX=True,
+        GOOGLE_OAUTH_CLIENT_ID="",
+        GOOGLE_OAUTH_CLIENT_SECRET="",
+    )
+    def test_validate_integrations_configuration_rejects_non_sandbox_username_in_sandbox_mode(self) -> None:
+        with self.assertRaisesMessage(IntegrationConfigurationError, "Sandbox mode requires AFRICAS_TALKING_USERNAME=sandbox."):
+            validate_integrations_configuration()

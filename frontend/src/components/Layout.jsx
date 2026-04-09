@@ -5,13 +5,12 @@ import { logout } from '../features/authSlice'
 import { fetchUnreadCount } from '../features/notificationsSlice'
 import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications'
 import { getInitials } from '../utils/formatters'
-import { tasksAPI, teamsAPI, unwrapResults } from '../services/api'
+import { commonAPI, unwrapData } from '../services/api'
 import AppLogo from './AppLogo'
 
-const primaryNav = [
+const personalNav = [
   { label: 'Dashboard', to: '/dashboard', icon: HomeIcon },
-  { label: 'Tasks', to: '/tasks', icon: QueueIcon },
-  { label: 'Teams', to: '/teams', icon: PeopleIcon },
+  { label: 'My Tasks', to: '/tasks', icon: QueueIcon },
   { label: 'Calendar', to: '/calendar', icon: CalendarIcon },
   { label: 'Notifications', to: '/notifications', icon: BellIcon },
 ]
@@ -19,6 +18,7 @@ const primaryNav = [
 const secondaryNav = [
   { label: 'Profile', to: '/profile', icon: ProfileIcon },
   { label: 'Account', to: '/settings', icon: SettingsIcon },
+  { label: 'Security', to: '/settings/security', icon: AuditIcon },
 ]
 
 const adminPrimaryNav = [
@@ -27,37 +27,86 @@ const adminPrimaryNav = [
   { label: 'Teams', to: '/admin/teams', icon: PeopleIcon },
   { label: 'Tasks', to: '/admin/tasks', icon: QueueIcon },
   { label: 'Notifications', to: '/admin/notifications', icon: BellIcon },
-  { label: 'Messaging', to: '/admin/messaging', icon: MegaphoneIcon },
+  { label: 'Communication', to: '/admin/communications', icon: MegaphoneIcon },
   { label: 'Audit Logs', to: '/admin/audit-logs', icon: AuditIcon },
   { label: 'Settings', to: '/admin/settings', icon: SettingsIcon },
 ]
 
 const routeMeta = [
   { match: /^\/dashboard$/, title: 'Dashboard', description: 'Your personal productivity workspace.' },
-  { match: /^\/tasks/, title: 'Tasks', description: 'Track assigned work, deadlines, and status.' },
+  { match: /^\/team-setup/, title: 'Team Setup', description: 'Create the first workspace for your team.' },
+  { match: /^\/tasks$/, title: 'My Tasks', description: 'Track personal work, start times, and due dates.' },
+  { match: /^\/tasks\/.+/, title: 'Task Detail', description: 'Review the task details and timeline.' },
+  { match: /^\/teams\/[^/]+$/, title: 'Team Tasks', description: 'Board view of active team work.' },
+  { match: /^\/teams\/[^/]+\/overview/, title: 'Team Dashboard', description: 'Team progress, workload, and priorities.' },
+  { match: /^\/teams\/[^/]+\/members/, title: 'Team Members', description: 'Manage roles, access, and collaboration.' },
+  { match: /^\/teams\/[^/]+\/invitations/, title: 'Invitations', description: 'Invite teammates and track responses.' },
+  { match: /^\/teams\/[^/]+\/milestones/, title: 'Milestones', description: 'Delivery checkpoints and progress tracking.' },
+  { match: /^\/teams\/[^/]+\/automation/, title: 'Automation', description: 'Workflow rules that keep delivery moving.' },
+  { match: /^\/teams\/[^/]+\/import-export/, title: 'Import / Export', description: 'Move task data in and out safely.' },
   { match: /^\/teams/, title: 'Teams', description: 'Manage collaboration across team workspaces.' },
   { match: /^\/calendar/, title: 'Calendar', description: 'See what is coming next and when it is due.' },
   { match: /^\/notifications/, title: 'Notifications', description: 'Review mentions, assignments, and reminders.' },
   { match: /^\/profile/, title: 'Profile', description: 'Keep your identity and details up to date.' },
+  { match: /^\/settings\/security/, title: 'Security', description: 'Review verification status, sessions, and devices.' },
   { match: /^\/settings/, title: 'Account', description: 'Adjust workspace preferences and controls.' },
   { match: /^\/search/, title: 'Search', description: 'Find tasks and teams quickly.' },
   { match: /^\/archive/, title: 'Archive', description: 'Review archived work and spaces.' },
+  { match: /^\/admin\/users(?:\/.*)?$/, title: 'User Management', description: 'Review accounts, membership footprint, and account health.' },
+  { match: /^\/admin\/communications/, title: 'Admin Communication', description: 'Broadcast updates to users, teams, or the full platform.' },
   { match: /^\/admin(?:\/.*)?$/, title: 'Admin Dashboard', description: 'High-level platform visibility across usage, activity, and system health.' },
 ]
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchResults, setSearchResults] = useState({
+    tasks: [],
+    teams: [],
+    people: [],
+    comments: [],
+    announcements: [],
+    milestones: [],
+  })
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [paletteQuery, setPaletteQuery] = useState('')
   const [paletteLoading, setPaletteLoading] = useState(false)
-  const [paletteResults, setPaletteResults] = useState({ tasks: [], teams: [] })
+  const [paletteResults, setPaletteResults] = useState({
+    tasks: [],
+    teams: [],
+    people: [],
+    comments: [],
+    announcements: [],
+    milestones: [],
+  })
   const { user } = useSelector((state) => state.auth)
   const { unreadCount } = useSelector((state) => state.notifications)
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const location = useLocation()
   const isAdminRoute = location.pathname.startsWith('/admin')
+  const isTeamAccount = user?.account_type === 'team'
+  const defaultTeamId = user?.default_team_id
+  const teamBasePath = defaultTeamId ? `/teams/${defaultTeamId}` : '/team-setup'
+  const teamNav = defaultTeamId
+    ? [
+        { label: 'Dashboard', to: `${teamBasePath}/overview`, icon: HomeIcon },
+        { label: 'Tasks', to: teamBasePath, icon: QueueIcon },
+        { label: 'Milestones', to: `${teamBasePath}/milestones`, icon: FlagIcon },
+        { label: 'Members', to: `${teamBasePath}/members`, icon: PeopleIcon },
+        { label: 'Invitations', to: `${teamBasePath}/invitations`, icon: MailIcon },
+        { label: 'Automation', to: `${teamBasePath}/automation`, icon: AutomateIcon },
+        { label: 'Calendar', to: '/calendar', icon: CalendarIcon },
+        { label: 'Notifications', to: '/notifications', icon: BellIcon },
+        { label: 'Settings', to: `${teamBasePath}/settings`, icon: SettingsIcon },
+      ]
+    : [
+        { label: 'Team Setup', to: '/team-setup', icon: HomeIcon },
+        { label: 'Calendar', to: '/calendar', icon: CalendarIcon },
+        { label: 'Notifications', to: '/notifications', icon: BellIcon },
+      ]
 
   useRealtimeNotifications()
 
@@ -71,15 +120,15 @@ export default function Layout() {
     () => routeMeta.find((entry) => entry.match.test(location.pathname)) || routeMeta[0],
     [location.pathname]
   )
-  const visiblePrimaryNav = isAdminRoute ? adminPrimaryNav : primaryNav
+  const visiblePrimaryNav = isAdminRoute ? adminPrimaryNav : isTeamAccount ? teamNav : personalNav
   const visibleSecondaryNav = useMemo(() => {
     if (isAdminRoute) return []
-    const items = [...secondaryNav]
+    const items = isTeamAccount ? [] : [...secondaryNav]
     if (user?.is_staff) {
       items.unshift({ label: 'Admin', to: '/admin', icon: AuditIcon })
     }
     return items
-  }, [isAdminRoute, user?.is_staff])
+  }, [isAdminRoute, isTeamAccount, user?.is_staff])
 
   const handleLogout = () => {
     dispatch(logout())
@@ -89,19 +138,46 @@ export default function Layout() {
   const handleSearchSubmit = (event) => {
     event.preventDefault()
     const query = searchQuery.trim()
+    setSearchFocused(false)
     navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search')
   }
 
-  const quickActions = useMemo(
+  const quickActions = useMemo(() => {
+    const base = isTeamAccount
+      ? [
+          { id: 'dashboard', label: 'Open team dashboard', hint: 'Review team progress', to: `${teamBasePath}/overview` },
+          { id: 'tasks', label: 'Open team tasks', hint: 'Track team delivery', to: teamBasePath },
+          { id: 'create-task', label: 'Create task', hint: 'Capture a new work item fast', to: '/tasks?compose=1' },
+          { id: 'milestones', label: 'Review milestones', hint: 'Check delivery checkpoints', to: `${teamBasePath}/milestones` },
+          { id: 'members', label: 'Review members', hint: 'See team roster', to: `${teamBasePath}/members` },
+          { id: 'invitations', label: 'Invite teammates', hint: 'Manage invitations', to: `${teamBasePath}/invitations` },
+          { id: 'calendar', label: 'Open calendar', hint: 'Review team deadlines', to: '/calendar' },
+          { id: 'settings', label: 'Open settings', hint: 'Adjust account and notification preferences', to: '/settings' },
+        ]
+      : [
+          { id: 'dashboard', label: 'Go to dashboard', hint: 'Open your personal workspace', to: '/dashboard' },
+          { id: 'tasks', label: 'Open my tasks', hint: 'Jump into your execution center', to: '/tasks' },
+          { id: 'create-task', label: 'Create task', hint: 'Open the task composer instantly', to: '/tasks?compose=1' },
+          { id: 'search', label: 'Search workspace', hint: 'Find tasks, teams, and updates', to: '/search' },
+          { id: 'notifications', label: 'Check notifications', hint: 'Review mentions and reminders', to: '/notifications' },
+          { id: 'calendar', label: 'Open calendar', hint: 'Review planned work and deadlines', to: '/calendar' },
+          { id: 'settings', label: 'Open settings', hint: 'Adjust profile, theme, and notification controls', to: '/settings' },
+          { id: 'security', label: 'Open security', hint: 'Review sessions and devices', to: '/settings/security' },
+        ]
+    return base.concat(
+      user?.is_staff ? [{ id: 'admin', label: 'Open admin dashboard', hint: 'Platform-wide visibility', to: '/admin' }] : []
+    )
+  }, [isTeamAccount, teamBasePath, user?.is_staff])
+
+  const headerSearchGroups = useMemo(
     () =>
       [
-        { id: 'dashboard', label: 'Go to dashboard', hint: 'Open your personal workspace', to: '/dashboard' },
-        { id: 'tasks', label: 'Open my tasks', hint: 'Jump into your execution center', to: '/tasks' },
-        { id: 'notifications', label: 'Check notifications', hint: 'Review mentions and reminders', to: '/notifications' },
-        { id: 'calendar', label: 'Open calendar', hint: 'Review planned work and deadlines', to: '/calendar' },
-        { id: 'teams', label: 'Browse teams', hint: 'Move between workspaces quickly', to: '/teams' },
-      ].concat(user?.is_staff ? [{ id: 'admin', label: 'Open admin dashboard', hint: 'Platform-wide visibility', to: '/admin' }] : []),
-    [user?.is_staff]
+        { key: 'tasks', label: 'Tasks', items: searchResults.tasks },
+        { key: 'teams', label: 'Teams', items: searchResults.teams },
+        { key: 'milestones', label: 'Milestones', items: searchResults.milestones },
+        { key: 'people', label: 'People', items: searchResults.people },
+      ].filter((group) => group.items.length > 0),
+    [searchResults]
   )
 
   useEffect(() => {
@@ -119,6 +195,47 @@ export default function Layout() {
   }, [])
 
   useEffect(() => {
+    const query = searchQuery.trim()
+    if (!query) {
+      setSearchLoading(false)
+      setSearchResults({ tasks: [], teams: [], people: [], comments: [], announcements: [], milestones: [] })
+      return undefined
+    }
+
+    let isCancelled = false
+    const timeoutId = window.setTimeout(async () => {
+      setSearchLoading(true)
+      try {
+        const response = await commonAPI.search({ q: query, limit: 4, types: 'tasks,teams,people,milestones' })
+        const sections = unwrapData(response)?.sections || {}
+        if (!isCancelled) {
+          setSearchResults({
+            tasks: sections.tasks || [],
+            teams: sections.teams || [],
+            people: sections.people || [],
+            comments: [],
+            announcements: [],
+            milestones: sections.milestones || [],
+          })
+        }
+      } catch (_error) {
+        if (!isCancelled) {
+          setSearchResults({ tasks: [], teams: [], people: [], comments: [], announcements: [], milestones: [] })
+        }
+      } finally {
+        if (!isCancelled) {
+          setSearchLoading(false)
+        }
+      }
+    }, 160)
+
+    return () => {
+      isCancelled = true
+      window.clearTimeout(timeoutId)
+    }
+  }, [searchQuery])
+
+  useEffect(() => {
     if (!paletteOpen) return undefined
 
     let isCancelled = false
@@ -126,17 +243,21 @@ export default function Layout() {
       setPaletteLoading(true)
       try {
         const query = paletteQuery.trim()
-        const params = query ? { search: query, page_size: 5 } : { page_size: 5 }
-        const [tasksResponse, teamsResponse] = await Promise.all([tasksAPI.getTasks(params), teamsAPI.getTeams(params)])
+        const response = await commonAPI.search({ q: query, limit: 5 })
+        const sections = unwrapData(response)?.sections || {}
         if (!isCancelled) {
           setPaletteResults({
-            tasks: unwrapResults(tasksResponse),
-            teams: unwrapResults(teamsResponse),
+            tasks: sections.tasks || [],
+            teams: sections.teams || [],
+            people: sections.people || [],
+            comments: sections.comments || [],
+            announcements: sections.announcements || [],
+            milestones: sections.milestones || [],
           })
         }
       } catch (error) {
         if (!isCancelled) {
-          setPaletteResults({ tasks: [], teams: [] })
+          setPaletteResults({ tasks: [], teams: [], people: [], comments: [], announcements: [], milestones: [] })
         }
       } finally {
         if (!isCancelled) {
@@ -157,24 +278,30 @@ export default function Layout() {
     navigate(to)
   }
 
+  const handleHeaderSearchNavigate = (to) => {
+    setSearchFocused(false)
+    setSearchQuery('')
+    navigate(to)
+  }
+
   return (
-    <div className="app-shell bg-[#f7f8f6] px-3 py-3 md:px-5 md:py-5">
-      <div className="relative flex min-h-[calc(100vh-24px)] overflow-hidden rounded-[30px] border border-slate-200 bg-[#fbfbfa] shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+    <div className="app-shell px-3 py-3 md:px-5 md:py-5">
+      <div className="relative flex min-h-[calc(100vh-24px)] overflow-hidden rounded-[32px] border border-slate-200/90 bg-[rgba(255,255,255,0.72)] shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-xl">
 
         <aside
-          className={`relative z-10 border-r border-slate-200 bg-white transition-all duration-300 ${
+          className={`relative z-10 border-r border-slate-200/80 bg-[rgba(250,250,247,0.86)] transition-all duration-300 ${
             sidebarOpen ? 'w-72' : 'w-[92px]'
           }`}
         >
           <div className="flex h-full flex-col p-4">
-            <div className="flex items-center justify-between rounded-[22px] border border-slate-200 bg-[#fcfcfb] px-4 py-4">
+            <div className="flex items-center justify-between rounded-[24px] border border-slate-200/80 bg-white/90 px-4 py-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
               <div className={`${sidebarOpen ? 'block' : 'hidden'}`}>
                 <AppLogo
                   to="/dashboard"
                   subtitle="Workspace"
                   imageClassName="h-11 w-11"
                   titleClassName="mt-1 font-display text-2xl font-bold text-slate-950"
-                  subtitleClassName="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700"
+                  subtitleClassName="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
                 />
               </div>
               <div className={`${sidebarOpen ? 'hidden' : 'block'}`}>
@@ -193,7 +320,7 @@ export default function Layout() {
 
             <div className="mt-6 flex-1 space-y-8">
               <div>
-                <p className={`px-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 ${sidebarOpen ? 'block' : 'hidden'}`}>
+                <p className={`px-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 ${sidebarOpen ? 'block' : 'hidden'}`}>
                   Navigation
                 </p>
                 <nav className="mt-3 space-y-2">
@@ -205,7 +332,7 @@ export default function Layout() {
 
               {visibleSecondaryNav.length ? (
                 <div>
-                  <p className={`px-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 ${sidebarOpen ? 'block' : 'hidden'}`}>
+                  <p className={`px-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 ${sidebarOpen ? 'block' : 'hidden'}`}>
                     Account
                   </p>
                   <nav className="mt-3 space-y-2">
@@ -217,7 +344,7 @@ export default function Layout() {
               ) : null}
             </div>
 
-            <div className="mt-6 rounded-[22px] border border-slate-200 bg-[#fcfcfb] px-4 py-4">
+            <div className="mt-6 rounded-[24px] border border-slate-200/80 bg-white/88 px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
               <div className="flex items-center gap-3">
                 <UserAvatar user={user} fallback={userInitials} className="h-11 w-11 rounded-2xl" />
                 {sidebarOpen ? (
@@ -239,10 +366,10 @@ export default function Layout() {
         </aside>
 
         <div className="relative z-10 flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 border-b border-slate-200 bg-[#fbfbfa]/95 px-5 py-4 backdrop-blur md:px-8">
+          <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-[rgba(246,246,242,0.8)] px-5 py-4 backdrop-blur-xl md:px-8">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">{currentRouteMeta.title}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{currentRouteMeta.title}</p>
                 <h1 className="mt-1 font-display text-2xl font-bold text-slate-950">{currentRouteMeta.title}</h1>
                 <p className="mt-2 text-sm text-slate-500">
                   {location.pathname === '/dashboard' ? `Welcome back, ${firstName}. ${currentRouteMeta.description}` : currentRouteMeta.description}
@@ -252,12 +379,14 @@ export default function Layout() {
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                 <form
                   onSubmit={handleSearchSubmit}
-                  className="flex w-full items-center gap-3 rounded-[18px] border border-slate-200 bg-white px-4 py-3 lg:w-[320px]"
+                  className="relative flex w-full items-center gap-3 rounded-[20px] border border-slate-200/90 bg-white/94 px-4 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)] lg:w-[360px]"
                 >
                   <SearchIcon className="h-5 w-5 text-slate-400" />
                   <input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)}
                     className="w-full border-none bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                     placeholder="Search tasks, teams, or updates"
                   />
@@ -268,11 +397,59 @@ export default function Layout() {
                   >
                     ⌘K
                   </button>
+
+                  {searchFocused && searchQuery.trim() ? (
+                    <div className="absolute left-0 right-0 top-[calc(100%+12px)] z-30 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+                      <div className="border-b border-slate-100 px-4 py-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          {searchLoading ? 'Searching workspace' : 'Quick results'}
+                        </p>
+                      </div>
+                      <div className="max-h-[360px] overflow-y-auto px-2 py-2">
+                        {headerSearchGroups.length ? (
+                          headerSearchGroups.map((group) => (
+                            <div key={group.key} className="px-2 py-2">
+                              <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{group.label}</p>
+                              <div className="mt-2 space-y-1">
+                                {group.items.map((item) => (
+                                  <button
+                                    key={`${group.key}-${item.id}`}
+                                    type="button"
+                                    onMouseDown={(event) => {
+                                      event.preventDefault()
+                                      handleHeaderSearchNavigate(item.href)
+                                    }}
+                                    className="w-full rounded-2xl px-3 py-3 text-left transition-colors hover:bg-slate-50"
+                                  >
+                                    <p className="font-semibold text-slate-950">{item.title}</p>
+                                    <p className="mt-1 text-sm text-slate-500">{item.subtitle || 'Open result'}</p>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-5 text-sm text-slate-500">
+                            {searchLoading ? 'Looking for matches...' : 'No quick matches yet. Open the full search workspace for broader filters.'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="border-t border-slate-100 px-3 py-3">
+                        <button
+                          type="submit"
+                          className="w-full rounded-2xl border border-slate-200 bg-[#fcfcfb] px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                        >
+                          <p className="font-semibold text-slate-950">Open full search results</p>
+                          <p className="mt-1 text-sm text-slate-500">Use filters, grouped results, and broader search coverage.</p>
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </form>
 
                 <NavLink
                   to="/notifications"
-                  className="flex items-center gap-3 rounded-[18px] border border-slate-200 bg-white px-4 py-3 transition-colors hover:bg-slate-50"
+                  className="flex items-center gap-3 rounded-[20px] border border-slate-200/90 bg-white/92 px-4 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)] transition-colors hover:bg-white"
                 >
                   <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
                     <BellIcon className="h-5 w-5" />
@@ -285,7 +462,7 @@ export default function Layout() {
 
                 <NavLink
                   to="/profile"
-                  className="flex items-center gap-3 rounded-[18px] border border-slate-200 bg-white px-4 py-3 transition-colors hover:bg-slate-50"
+                  className="flex items-center gap-3 rounded-[20px] border border-slate-200/90 bg-white/92 px-4 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)] transition-colors hover:bg-white"
                 >
                   <UserAvatar user={user} fallback={userInitials} className="h-10 w-10 rounded-2xl text-sm" />
                   <div className="text-left">
@@ -296,6 +473,30 @@ export default function Layout() {
               </div>
             </div>
           </header>
+
+          {user?.email && !user?.email_verified ? (
+            <div className="border-b border-slate-200/80 bg-[rgba(246,246,242,0.8)] px-5 py-4 md:px-8">
+              <section className="rounded-[24px] border border-amber-200/80 bg-amber-50/70 px-5 py-4 shadow-[0_10px_26px_rgba(180,83,9,0.06)]">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Verification pending</p>
+                    <h2 className="mt-2 text-lg font-semibold text-slate-950">Confirm your email to strengthen recovery and account trust.</h2>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Your workspace is live, but verified email keeps login recovery, notifications, and future security upgrades reliable.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <NavLink to="/verify-email" className="btn-primary">
+                      Verify email
+                    </NavLink>
+                    <NavLink to="/settings/security" className="btn-secondary">
+                      Open security
+                    </NavLink>
+                  </div>
+                </div>
+              </section>
+            </div>
+          ) : null}
 
           <main className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-5 md:px-8 md:py-8">
             <Outlet />
@@ -310,6 +511,10 @@ export default function Layout() {
           quickActions={quickActions}
           tasks={paletteResults.tasks}
           teams={paletteResults.teams}
+          people={paletteResults.people}
+          comments={paletteResults.comments}
+          announcements={paletteResults.announcements}
+          milestones={paletteResults.milestones}
           onClose={() => setPaletteOpen(false)}
           onChangeQuery={setPaletteQuery}
           onNavigate={handlePaletteNavigate}
@@ -319,13 +524,14 @@ export default function Layout() {
   )
 }
 
-function CommandPalette({ query, loading, quickActions, tasks, teams, onClose, onChangeQuery, onNavigate }) {
-  const hasResults = quickActions.length || tasks.length || teams.length
+function CommandPalette({ query, loading, quickActions, tasks, teams, people, comments, announcements, milestones, onClose, onChangeQuery, onNavigate }) {
+  const hasResults =
+    quickActions.length || tasks.length || teams.length || people.length || comments.length || announcements.length || milestones.length
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-slate-950/30 px-4 py-16 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-slate-950/34 px-4 py-16 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-3xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_32px_120px_rgba(15,23,42,0.22)]"
+        className="w-full max-w-3xl overflow-hidden rounded-[30px] border border-slate-200/90 bg-[rgba(255,255,255,0.96)] shadow-[0_32px_120px_rgba(15,23,42,0.18)] backdrop-blur-xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4">
@@ -372,11 +578,11 @@ function CommandPalette({ query, loading, quickActions, tasks, teams, onClose, o
                   <button
                     key={task.id}
                     type="button"
-                    onClick={() => onNavigate(`/tasks/${task.id}`)}
+                    onClick={() => onNavigate(task.href || `/tasks/${task.id}`)}
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50"
                   >
                     <p className="font-semibold text-slate-950">{task.title}</p>
-                    <p className="mt-1 text-sm text-slate-500">{task.team_name || 'Task'} • {task.status?.replaceAll('_', ' ')}</p>
+                    <p className="mt-1 text-sm text-slate-500">{task.subtitle || 'Task'}{task.status ? ` • ${task.status.replaceAll('_', ' ')}` : ''}</p>
                   </button>
                 ))}
               </div>
@@ -389,15 +595,91 @@ function CommandPalette({ query, loading, quickActions, tasks, teams, onClose, o
                   <button
                     key={team.id}
                     type="button"
-                    onClick={() => onNavigate(`/teams/${team.id}/overview`)}
+                    onClick={() => onNavigate(team.href || `/teams/${team.id}/overview`)}
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50"
                   >
-                    <p className="font-semibold text-slate-950">{team.name}</p>
-                    <p className="mt-1 text-sm text-slate-500">{team.description || 'Open team workspace'}</p>
+                    <p className="font-semibold text-slate-950">{team.title || team.name}</p>
+                    <p className="mt-1 text-sm text-slate-500">{team.subtitle || team.description || 'Open team workspace'}</p>
                   </button>
                 ))}
               </div>
             </div>
+
+            {milestones.length ? (
+              <div>
+                <PaletteSectionTitle title="Milestones" />
+                <div className="mt-3 space-y-2">
+                  {milestones.map((milestone) => (
+                    <button
+                      key={milestone.id}
+                      type="button"
+                      onClick={() => onNavigate(milestone.href || '/teams')}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                    >
+                      <p className="font-semibold text-slate-950">{milestone.title}</p>
+                      <p className="mt-1 text-sm text-slate-500">{milestone.subtitle || 'Milestone'}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {people.length ? (
+              <div>
+                <PaletteSectionTitle title="People" />
+                <div className="mt-3 space-y-2">
+                  {people.map((person) => (
+                    <button
+                      key={person.id}
+                      type="button"
+                      onClick={() => onNavigate(person.href || '/profile')}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                    >
+                      <p className="font-semibold text-slate-950">{person.title}</p>
+                      <p className="mt-1 text-sm text-slate-500">{person.subtitle}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {comments.length ? (
+              <div>
+                <PaletteSectionTitle title="Recent Matches" />
+                <div className="mt-3 space-y-2">
+                  {comments.map((comment) => (
+                    <button
+                      key={comment.id}
+                      type="button"
+                      onClick={() => onNavigate(comment.href)}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                    >
+                      <p className="font-semibold text-slate-950">{comment.title}</p>
+                      <p className="mt-1 text-sm text-slate-500">{comment.subtitle}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {announcements.length ? (
+              <div>
+                <PaletteSectionTitle title="Announcements" />
+                <div className="mt-3 space-y-2">
+                  {announcements.map((announcement) => (
+                    <button
+                      key={announcement.id}
+                      type="button"
+                      onClick={() => onNavigate(announcement.href)}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                    >
+                      <p className="font-semibold text-slate-950">{announcement.title}</p>
+                      <p className="mt-1 text-sm text-slate-500">{announcement.subtitle}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {!loading && !hasResults ? (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-[#fcfcfb] px-4 py-6 text-sm text-slate-500">
@@ -413,7 +695,7 @@ function CommandPalette({ query, loading, quickActions, tasks, teams, onClose, o
 }
 
 function PaletteSectionTitle({ title }) {
-  return <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">{title}</p>
+  return <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</p>
 }
 
 function NavItem({ item, sidebarOpen }) {
@@ -424,15 +706,15 @@ function NavItem({ item, sidebarOpen }) {
       to={item.to}
       end={item.to === '/dashboard'}
       className={({ isActive }) =>
-        `flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
-          isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+        `flex items-center gap-3 rounded-[18px] px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+          isActive
+            ? 'bg-slate-950 text-white shadow-[0_12px_24px_rgba(15,23,42,0.12)]'
+            : 'text-slate-600 hover:bg-white hover:text-slate-950'
         }`
       }
     >
       <span
-        className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
-          sidebarOpen ? 'bg-slate-100' : 'bg-slate-100'
-        } text-slate-700`}
+        className={`flex h-10 w-10 items-center justify-center rounded-2xl ${sidebarOpen ? 'bg-slate-100' : 'bg-slate-100'} text-slate-700`}
       >
         <Icon className="h-5 w-5" />
       </span>
@@ -453,7 +735,7 @@ function UserAvatar({ user, fallback, className = '' }) {
   }
 
   return (
-    <div className={`flex items-center justify-center bg-emerald-600 font-semibold text-white ${className}`}>
+    <div className={`flex items-center justify-center bg-slate-900 font-semibold text-white ${className}`}>
       {fallback}
     </div>
   )
@@ -491,6 +773,22 @@ function PeopleIcon(props) {
   )
 }
 
+function FlagIcon(props) {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 3v18M5 4h10l-1 3 4 2-4 2 1 3H5" />
+    </svg>
+  )
+}
+
+function AutomateIcon(props) {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 7h16M7 4v6M13 14h7M13 14a4 4 0 1 0 0 8h7M13 14a4 4 0 1 1 0-8h7" />
+    </svg>
+  )
+}
+
 function SearchIcon(props) {
   return (
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
@@ -503,6 +801,15 @@ function BellIcon(props) {
   return (
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.44V11a6 6 0 1 0-12 0v3.16c0 .54-.21 1.05-.6 1.44L4 17h5m6 0v1a3 3 0 1 1-6 0v-1m6 0H9" />
+    </svg>
+  )
+}
+
+function MailIcon(props) {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16v12H4z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="m4 7 8 6 8-6" />
     </svg>
   )
 }

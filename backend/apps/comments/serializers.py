@@ -3,7 +3,7 @@ from __future__ import annotations
 from rest_framework import serializers
 
 from apps.comments.constants import COMMENT_MAX_LENGTH
-from apps.comments.models import Comment, CommentReaction
+from apps.comments.models import Comment, CommentReaction, CommentVersion
 from apps.comments.parsers import extract_mention_handles
 from apps.comments.services import extract_mentions_from_comment, validate_comment_parent
 from apps.users.serializers import UserPublicSerializer
@@ -38,6 +38,7 @@ class CommentThreadSerializer(serializers.ModelSerializer):
     replies = serializers.SerializerMethodField()
     mentioned_users = serializers.SerializerMethodField()
     reactions = serializers.SerializerMethodField()
+    edit_history_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -46,6 +47,8 @@ class CommentThreadSerializer(serializers.ModelSerializer):
             "task",
             "author",
             "author_data",
+            "guest_name",
+            "guest_email",
             "parent",
             "content",
             "is_edited",
@@ -54,6 +57,7 @@ class CommentThreadSerializer(serializers.ModelSerializer):
             "deleted_at",
             "mentioned_users",
             "reactions",
+            "edit_history_count",
             "created_at",
             "updated_at",
             "replies",
@@ -81,6 +85,9 @@ class CommentThreadSerializer(serializers.ModelSerializer):
     def get_reactions(self, obj):
         return serialize_comment_reactions(comment=obj, request=self.context.get("request"))
 
+    def get_edit_history_count(self, obj):
+        return getattr(obj, "versions_count", None) or obj.versions.count()
+
 
 class CommentReplyListSerializer(serializers.ModelSerializer):
     task = serializers.UUIDField(source="task_id", read_only=True)
@@ -89,6 +96,7 @@ class CommentReplyListSerializer(serializers.ModelSerializer):
     author_data = CommentAuthorSerializer(source="author", read_only=True)
     mentioned_users = serializers.SerializerMethodField()
     reactions = serializers.SerializerMethodField()
+    edit_history_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -97,6 +105,8 @@ class CommentReplyListSerializer(serializers.ModelSerializer):
             "task",
             "author",
             "author_data",
+            "guest_name",
+            "guest_email",
             "parent",
             "content",
             "is_edited",
@@ -105,6 +115,7 @@ class CommentReplyListSerializer(serializers.ModelSerializer):
             "deleted_at",
             "mentioned_users",
             "reactions",
+            "edit_history_count",
             "created_at",
             "updated_at",
         ]
@@ -125,9 +136,28 @@ class CommentReplyListSerializer(serializers.ModelSerializer):
     def get_reactions(self, obj):
         return serialize_comment_reactions(comment=obj, request=self.context.get("request"))
 
+    def get_edit_history_count(self, obj):
+        return getattr(obj, "versions_count", None) or obj.versions.count()
+
 
 class CommentDetailSerializer(CommentThreadSerializer):
     pass
+
+
+class CommentVersionSerializer(serializers.ModelSerializer):
+    edited_by = UserPublicSerializer(read_only=True)
+
+    class Meta:
+        model = CommentVersion
+        fields = (
+            "id",
+            "content",
+            "edited_by",
+            "edited_at",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
 
 
 class CommentCreateSerializer(serializers.Serializer):

@@ -7,8 +7,15 @@ from urllib.parse import urlencode
 from django.http import HttpResponseRedirect, HttpRequest
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.utils.crypto import get_random_string
 
-from apps.authentication.services import create_user_account, issue_tokens_for_user, sync_google_account_profile
+from apps.authentication.services import (
+    create_user_account,
+    issue_tokens_for_user,
+    register_auth_session,
+    set_refresh_cookie,
+    sync_google_account_profile,
+)
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_auth_action
 from apps.integrations.email.builders import _get_frontend_url
@@ -30,6 +37,15 @@ def _frontend_url_with_path(path: str) -> str:
     if frontend_url:
         return f"{frontend_url}{path}"
     return path
+
+
+def _normalize_frontend_next_path(next_path: str | None) -> str:
+    candidate = str(next_path or "").strip()
+    if not candidate.startswith("/"):
+        return ""
+    if candidate.startswith("//"):
+        return ""
+    return candidate
 
 
 def get_google_authorization_url(redirect_uri: str, state: str = "") -> str:
@@ -121,7 +137,7 @@ def find_or_create_google_user(
         full_name = name or f"{first_name} {last_name}".strip() or email.split('@')[0]
         user = create_user_account(
             email=email,
-            password=User.objects.make_random_password(),
+            password=get_random_string(32),
             name=full_name,
             first_name=first_name,
             last_name=last_name,
@@ -150,6 +166,7 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
         return HttpResponseRedirect(redirect_url)
     
     try:
+        next_path = _normalize_frontend_next_path(request.GET.get("state"))
         configured_redirect_uri = str(getattr(settings, "GOOGLE_REDIRECT_URI", "")).strip()
         if configured_redirect_uri:
             redirect_uri = configured_redirect_uri
@@ -188,18 +205,24 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
         )
         
         token_payload = issue_tokens_for_user(user=user)
+        register_auth_session(user=user, token_payload=token_payload, request=request)
         
         frontend_url = _frontend_url_with_path("/auth/google/callback")
-        user_payload = json.dumps(CurrentUserSerializer(user).data, separators=(",", ":"))
-        params = urlencode(
-            {
-                "access": token_payload["access"],
-                "refresh": token_payload["refresh"],
-                "user": user_payload,
-            }
-        )
-        
-        return HttpResponseRedirect(f"{frontend_url}?{params}")
+        params = {"access": token_payload["access"]}
+        if next_path:
+            params["next"] = next_path
+
+        try:
+            params["user"] = json.dumps(CurrentUserSerializer(user).data, separators=(",", ":"))
+        except Exception:
+            logger.exception("Unable to serialize Google OAuth callback user payload", extra={"user_id": str(user.id)})
+
+        response = HttpResponseRedirect(f"{frontend_url}?{urlencode(params)}")
+        try:
+            set_refresh_cookie(response, token_payload["refresh"])
+        except Exception:
+            logger.exception("Unable to attach refresh cookie during Google OAuth callback", extra={"user_id": str(user.id)})
+        return response
         
     except GoogleOAuthCallbackError as exc:
         logger.warning("Google OAuth callback failed: %s", exc)

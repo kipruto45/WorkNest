@@ -46,6 +46,22 @@ services:
         value: smtp
       - key: EMAIL_DELIVERY_MODE
         value: sync
+      - key: SMS_ENABLED
+        value: "false"
+      - key: SMS_PROVIDER
+        value: africas_talking
+      - key: AFRICAS_TALKING_USE_SANDBOX
+        value: "true"
+      - key: AFRICAS_TALKING_USERNAME
+        value: sandbox
+      - key: AFRICAS_TALKING_API_KEY
+        sync: false
+      - key: AFRICAS_TALKING_SENDER_ID
+        sync: false
+      - key: AFRICAS_TALKING_ENVIRONMENT
+        value: sandbox
+      - key: AFRICAS_TALKING_BASE_URL
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -57,9 +73,9 @@ services:
       - key: SENDGRID_API_KEY
         sync: false
       - key: ADMIN_BOOTSTRAP_ENABLED
-        value: "1"
+        value: "0"
       - key: ADMIN_EMAIL
-        value: kiprutovictor39@gmail.com
+        sync: false
       - key: ADMIN_NAME
         value: WorkNest Admin
       - key: ADMIN_PASSWORD
