@@ -16,6 +16,7 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 logger = logging.getLogger(__name__)
 
 from apps.authentication.permissions import AuthEntryPointPermission, AuthenticatedSessionPermission
+from apps.authentication.adapter import build_google_oauth_state
 from apps.authentication.serializers import (
     AuthSessionSerializer,
     AuthTokenResponseSerializer,
@@ -176,6 +177,7 @@ class LoginView(APIView):
             credential=serializer.validated_data["credential"],
             password=serializer.validated_data["password"],
             request=request,
+            account_type=serializer.validated_data.get("account_type", ""),
             remember_me=serializer.validated_data.get("remember_me", False),
         )
         response = success_response(
@@ -376,7 +378,15 @@ class GoogleOAuthConfigView(APIView):
         return f"{backend_url}/api/v1/auth/google/callback/"
 
     @classmethod
-    def _build_login_url(cls, request, *, next_path: str = "") -> str:
+    def _build_login_url(
+        cls,
+        request,
+        *,
+        next_path: str = "",
+        account_type: str = "",
+        flow: str = "login",
+        team_name: str = "",
+    ) -> str:
         client_id = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", "")).strip()
         callback_url = cls._build_callback_url(request)
         params = {
@@ -387,8 +397,14 @@ class GoogleOAuthConfigView(APIView):
             "access_type": "online",
         }
         normalized_next_path = _normalize_frontend_next_path(next_path)
-        if normalized_next_path:
-            params["state"] = normalized_next_path
+        state = build_google_oauth_state(
+            next_path=normalized_next_path,
+            account_type=account_type,
+            flow=flow,
+            team_name=team_name,
+        )
+        if state:
+            params["state"] = state
         return f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
 
     @extend_schema(responses=GoogleOAuthConfigSerializer)
@@ -397,6 +413,9 @@ class GoogleOAuthConfigView(APIView):
         client_secret = str(getattr(settings, "GOOGLE_OAUTH_CLIENT_SECRET", "")).strip()
         is_enabled = bool(client_id and client_secret)
         next_path = _normalize_frontend_next_path(request.query_params.get("next"))
+        account_type = str(request.query_params.get("account_type", "")).strip()
+        flow = str(request.query_params.get("flow", "login")).strip() or "login"
+        team_name = str(request.query_params.get("team_name", "")).strip()
 
         try:
             return success_response(
@@ -405,7 +424,17 @@ class GoogleOAuthConfigView(APIView):
                 data={
                     "provider": "google",
                     "enabled": is_enabled,
-                    "login_url": self._build_login_url(request, next_path=next_path) if is_enabled else None,
+                    "login_url": (
+                        self._build_login_url(
+                            request,
+                            next_path=next_path,
+                            account_type=account_type,
+                            flow=flow,
+                            team_name=team_name,
+                        )
+                        if is_enabled
+                        else None
+                    ),
                     "callback_url": self._build_callback_url(request) if is_enabled else None,
                 },
             )
@@ -434,11 +463,27 @@ class GoogleLoginView(APIView):
         if not client_id or not client_secret:
             raise ValidationError({"detail": "Google OAuth is not configured on the backend."})
         next_path = _normalize_frontend_next_path(request.query_params.get("next"))
+        account_type = str(request.query_params.get("account_type", "")).strip()
+        flow = str(request.query_params.get("flow", "login")).strip() or "login"
+        team_name = str(request.query_params.get("team_name", "")).strip()
+        valid_account_types = {choice for choice, _label in User.AccountType.choices}
+        if flow == "register" and account_type not in valid_account_types:
+            raise ValidationError({"account_type": "Choose your workspace mode before continuing with Google."})
+        if flow == "login" and account_type not in valid_account_types:
+            account_type = ""
+        if flow not in {"login", "register"}:
+            flow = "login"
 
         try:
             payload = {
                 "provider": "google",
-                "login_url": GoogleOAuthConfigView._build_login_url(request, next_path=next_path),
+                "login_url": GoogleOAuthConfigView._build_login_url(
+                    request,
+                    next_path=next_path,
+                    account_type=account_type,
+                    flow=flow,
+                    team_name=team_name,
+                ),
             }
         except Exception as exc:
             logger.exception("Failed to generate Google login URL")
@@ -501,9 +546,11 @@ class GoogleAuthView(APIView):
         serializer.is_valid(raise_exception=True)
         
         credential = serializer.validated_data["credential"]
-        
+        account_type = serializer.validated_data["account_type"]
+        team_name = serializer.validated_data.get("team_name", "")
+
         try:
-            result = authenticate_google_user(credential)
+            result = authenticate_google_user(credential, account_type=account_type, team_name=team_name)
             
             user = result["user"]
             tokens = result["tokens"]

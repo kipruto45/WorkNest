@@ -17,6 +17,7 @@ export default function AccountSecurity() {
   const [resending, setResending] = useState(false)
   const [sessions, setSessions] = useState([])
   const [devices, setDevices] = useState([])
+  const [warnings, setWarnings] = useState([])
   const [revokingSessionId, setRevokingSessionId] = useState('')
   const [removingDeviceId, setRemovingDeviceId] = useState('')
 
@@ -24,15 +25,30 @@ export default function AccountSecurity() {
 
   const loadSecurityData = async () => {
     setLoading(true)
+    setWarnings([])
     try {
-      const [sessionsResponse, devicesResponse] = await Promise.all([
+      const [sessionsResult, devicesResult] = await Promise.allSettled([
         authAPI.getSessions(),
         usersAPI.getPushDevices({ page_size: 50 }),
       ])
-      setSessions(unwrapData(sessionsResponse) || [])
-      setDevices(unwrapResults(devicesResponse))
-    } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to load security data right now.')
+
+      const nextWarnings = []
+
+      if (sessionsResult.status === 'fulfilled') {
+        setSessions(unwrapData(sessionsResult.value) || [])
+      } else {
+        setSessions([])
+        nextWarnings.push('Recent session history is temporarily unavailable.')
+      }
+
+      if (devicesResult.status === 'fulfilled') {
+        setDevices(unwrapResults(devicesResult.value))
+      } else {
+        setDevices([])
+        nextWarnings.push('Push device details are temporarily unavailable.')
+      }
+
+      setWarnings(nextWarnings)
     } finally {
       setLoading(false)
     }
@@ -124,15 +140,46 @@ export default function AccountSecurity() {
         description="Review verification status, active sessions, and push-ready devices from one connected control surface."
         stats={stats}
         spotlight={{
-          eyebrow: 'Future-ready 2FA',
-          title: 'The account model is ready for stronger auth.',
-          description: 'This workspace now exposes verified identity state, tracked sessions, and device inventory so stronger authentication can be layered in cleanly.',
+          eyebrow: 'Account safety',
+          title: 'Review trusted identity and active devices.',
+          description: 'Use this page to keep sign-in verification, recent sessions, and push-ready devices under control.',
           points: [
             { label: '2FA status', value: currentUser?.two_factor_status || 'disabled' },
             { label: 'Device records', value: devices.length || '0' },
           ],
         }}
       />
+
+      {warnings.length ? (
+        <section className="rounded-[24px] border border-amber-200 bg-amber-50/80 px-5 py-4 text-sm text-amber-900">
+          <p className="font-semibold">Some security data is temporarily unavailable.</p>
+          <div className="mt-2 space-y-1">
+            {warnings.map((warning) => (
+              <p key={warning}>{warning}</p>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="card fade-in">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="feature-tile">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Email</p>
+            <p className="mt-3 text-sm font-semibold text-emerald-950">{currentUser?.email || 'Not available'}</p>
+            <p className="mt-2 text-xs text-slate-500">{currentUser?.email_verified ? 'Verified for sign-in and recovery.' : 'Verification still pending.'}</p>
+          </div>
+          <div className="feature-tile">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Phone</p>
+            <p className="mt-3 text-sm font-semibold text-emerald-950">{currentUser?.phone_number || 'No phone number on file'}</p>
+            <p className="mt-2 text-xs text-slate-500">{currentUser?.phone_verified ? 'Verified for SMS and recovery.' : 'Verification still pending or not added.'}</p>
+          </div>
+          <div className="feature-tile">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Recovery</p>
+            <p className="mt-3 text-sm font-semibold text-emerald-950">Password and session control</p>
+            <p className="mt-2 text-xs text-slate-500">Use reset, verification, and session revocation controls to secure access.</p>
+          </div>
+        </div>
+      </section>
 
       {!currentUser?.email_verified ? (
         <section className="card fade-in">
@@ -141,7 +188,7 @@ export default function AccountSecurity() {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Email verification</p>
               <h2 className="mt-2 text-2xl font-bold text-emerald-950">Confirm your email address</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-soft">
-                Verified email strengthens account recovery, secure notifications, and future authentication upgrades.
+                Verified email strengthens account recovery and secure notifications.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">

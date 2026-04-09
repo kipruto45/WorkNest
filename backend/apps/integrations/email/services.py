@@ -17,6 +17,7 @@ from apps.integrations.email.builders import (
     build_admin_communication_email_payload,
     build_attachment_uploaded_email_payload,
     build_comment_posted_email_payload,
+    build_credential_change_email_payload,
     build_deadline_approaching_email_payload,
     build_email_verification_email_payload,
     build_invitation_accepted_email_payload,
@@ -329,6 +330,14 @@ def queue_password_reset_email(*, user, reset_url: str, actor=None, expires_in_m
 def queue_email_verification_email(*, user, verification_url: str, actor=None) -> EmailDelivery:
     return queue_email(
         payload=build_email_verification_email_payload(user=user, verification_url=verification_url),
+        actor=actor or user,
+        user=user,
+    )
+
+
+def queue_credential_change_email(*, user, new_email: str, code: str, actor=None) -> EmailDelivery:
+    return queue_email(
+        payload=build_credential_change_email_payload(user=user, new_email=new_email, code=code),
         actor=actor or user,
         user=user,
     )

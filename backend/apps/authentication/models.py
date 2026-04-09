@@ -117,3 +117,35 @@ class PhoneVerificationCode(TimeStampedUUIDModel):
     @property
     def is_active(self) -> bool:
         return self.used_at is None and self.expires_at > timezone.now()
+
+
+class CredentialChangeRequest(TimeStampedUUIDModel):
+    class CredentialType(models.TextChoices):
+        EMAIL = "email", "Email"
+        PHONE = "phone", "Phone"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="credential_change_requests",
+    )
+    credential_type = models.CharField(max_length=16, choices=CredentialType.choices)
+    current_value = models.CharField(max_length=255, blank=True)
+    new_value = models.CharField(max_length=255)
+    code = models.CharField(max_length=6)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    attempt_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "credential_change_requests"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "credential_type", "expires_at"]),
+            models.Index(fields=["new_value", "credential_type", "expires_at"]),
+            models.Index(fields=["current_value", "credential_type", "used_at"]),
+        ]
+
+    @property
+    def is_active(self) -> bool:
+        return self.used_at is None and self.expires_at > timezone.now()

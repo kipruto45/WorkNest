@@ -9,6 +9,7 @@ from apps.common.api.mixins import PaginatedAPIViewMixin
 from apps.common.responses import success_response
 from apps.authentication.throttles import AdminSMSBroadcastThrottle
 from apps.notifications.permissions import IsNotificationOwner
+from apps.users.permissions import IsConfiguredPlatformAdmin
 from apps.notifications.selectors import (
     get_admin_communication_by_id,
     get_admin_communications,
@@ -161,7 +162,7 @@ class NotificationMarkAllReadView(APIView):
 
 
 class AdminNotificationSendView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsConfiguredPlatformAdmin]
 
     @extend_schema(request=AdminNotificationSendSerializer)
     def post(self, request, *args, **kwargs):  # type: ignore[override]
@@ -183,7 +184,7 @@ class AdminNotificationSendView(APIView):
 
 
 class AdminCommunicationListCreateView(PaginatedAPIViewMixin, APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsConfiguredPlatformAdmin]
     throttle_classes = [AdminSMSBroadcastThrottle]
 
     @extend_schema(responses=AdminCommunicationSerializer(many=True))
@@ -224,7 +225,7 @@ class AdminCommunicationListCreateView(PaginatedAPIViewMixin, APIView):
 
 
 class AdminCommunicationDetailView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsConfiguredPlatformAdmin]
 
     @extend_schema(responses=AdminCommunicationSerializer)
     def get(self, request, pk, *args, **kwargs):  # type: ignore[override]
@@ -239,7 +240,7 @@ class AdminCommunicationDetailView(APIView):
 
 
 class AdminSMSLogListView(PaginatedAPIViewMixin, APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsConfiguredPlatformAdmin]
 
     @extend_schema(responses=SMSDeliverySerializer(many=True))
     def get(self, request, *args, **kwargs):  # type: ignore[override]
@@ -252,7 +253,7 @@ class AdminSMSLogListView(PaginatedAPIViewMixin, APIView):
 
 
 class AdminSMSLogDetailView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsConfiguredPlatformAdmin]
 
     @extend_schema(responses=SMSDeliverySerializer)
     def get(self, request, pk, *args, **kwargs):  # type: ignore[override]

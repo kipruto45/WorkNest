@@ -141,3 +141,34 @@ class TaskSerializerTests(TestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertIn("assigned_to", serializer.errors)
+
+    def test_create_serializer_uses_personal_workspace_when_team_is_omitted(self) -> None:
+        personal_team = Team.objects.create(
+            name="Owner Personal",
+            slug="owner-personal-2",
+            description="Personal",
+            created_by=self.owner,
+            is_personal=True,
+        )
+        Membership.objects.create(
+            user=self.owner,
+            team=personal_team,
+            role=Membership.Role.ADMIN,
+            status=Membership.Status.ACTIVE,
+            invited_by=self.owner,
+            joined_at=timezone.now(),
+        )
+
+        request = self.factory.post("/api/v1/tasks/")
+        request.user = self.owner
+        request.user.account_type = User.AccountType.PERSONAL
+        serializer = TaskCreateSerializer(
+            data={
+                "title": "Personal follow-up",
+                "priority": Task.Priority.MEDIUM,
+            },
+            context={"request": request},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["team"], personal_team)

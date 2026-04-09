@@ -6,6 +6,7 @@ from rest_framework import permissions, serializers
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 
+from apps.users.permissions import IsConfiguredPlatformAdmin
 from apps.common.api.mixins import PaginatedAPIViewMixin
 from apps.common.responses import success_response
 from apps.users.models import User
@@ -13,6 +14,8 @@ from apps.users.selectors import filter_admin_users
 from apps.users.serializers import (
     AdminUserSearchSerializer,
     AdminUserUpdateSerializer,
+    CredentialChangeConfirmSerializer,
+    CredentialChangeRequestSerializer,
     CurrentUserSerializer,
     NotificationPreferencesSerializer,
     PhoneSettingsSerializer,
@@ -30,7 +33,12 @@ from apps.users.services import (
     update_user_profile,
     upsert_push_device,
 )
-from apps.authentication.services import confirm_phone_verification, request_phone_verification
+from apps.authentication.services import (
+    confirm_credential_change,
+    confirm_phone_verification,
+    request_credential_change,
+    request_phone_verification,
+)
 from apps.authentication.throttles import PhoneVerificationThrottle
 
 
@@ -66,8 +74,11 @@ class UserPhoneSettingsView(APIView):
     def post(self, request, *args, **kwargs):  # type: ignore[override]
         serializer = PhoneSettingsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        if User.objects.exclude(pk=request.user.pk).filter(phone_number=serializer.validated_data["phone_number"]).exists():
-            raise serializers.ValidationError({"phone_number": "Phone number is already registered."})
+        requested_phone_number = serializer.validated_data["phone_number"]
+        if request.user.phone_number and requested_phone_number != request.user.phone_number:
+            raise serializers.ValidationError(
+                {"phone_number": "Verify a new phone number before replacing your current sign-in details."}
+            )
         user = update_phone_settings(user=request.user, **serializer.validated_data)
         return success_response(
             request=request,
@@ -100,6 +111,48 @@ class NotificationPreferencesView(APIView):
             request=request,
             message="Notification preferences updated successfully.",
             data=NotificationPreferencesSerializer(user).data,
+        )
+
+
+class CredentialChangeRequestView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [PhoneVerificationThrottle]
+
+    @extend_schema(request=CredentialChangeRequestSerializer, responses=CurrentUserSerializer)
+    def post(self, request, *args, **kwargs):  # type: ignore[override]
+        serializer = CredentialChangeRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request_credential_change(
+            user=request.user,
+            credential_type=serializer.validated_data["credential_type"],
+            new_value=serializer.validated_data["new_value"],
+            phone_country_code=serializer.validated_data.get("phone_country_code", ""),
+            actor=request.user,
+        )
+        return success_response(
+            request=request,
+            message="Verification code sent successfully.",
+            data=CurrentUserSerializer(request.user).data,
+        )
+
+
+class CredentialChangeConfirmView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [PhoneVerificationThrottle]
+
+    @extend_schema(request=CredentialChangeConfirmSerializer, responses=CurrentUserSerializer)
+    def post(self, request, *args, **kwargs):  # type: ignore[override]
+        serializer = CredentialChangeConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = confirm_credential_change(
+            user=request.user,
+            credential_type=serializer.validated_data["credential_type"],
+            code=serializer.validated_data["code"],
+        )
+        return success_response(
+            request=request,
+            message="Credentials updated successfully.",
+            data=CurrentUserSerializer(user).data,
         )
 
 
@@ -143,7 +196,7 @@ class AdminUserSearchQuerySerializer(serializers.Serializer):
 
 
 class AdminUserSearchView(PaginatedAPIViewMixin, APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsConfiguredPlatformAdmin]
 
     @extend_schema(parameters=[AdminUserSearchQuerySerializer], responses=AdminUserSearchSerializer(many=True))
     def get(self, request, *args, **kwargs):  # type: ignore[override]
@@ -166,7 +219,7 @@ class AdminUserSearchView(PaginatedAPIViewMixin, APIView):
 
 
 class AdminUserDetailView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsConfiguredPlatformAdmin]
 
     @extend_schema(responses=AdminUserSearchSerializer)
     def get(self, request, pk, *args, **kwargs):  # type: ignore[override]

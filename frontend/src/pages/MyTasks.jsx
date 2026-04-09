@@ -143,12 +143,14 @@ export default function MyTasks() {
     const results = unwrapResults(response)
     setTeams(results)
 
-    if (!draft.team_id && results.length) {
-      const preferredTeamId = currentUser?.default_team_id
-      const defaultTeam = preferredTeamId ? results.find((team) => String(team.id) === String(preferredTeamId)) : null
+    if (!draft.team_id) {
+      const preferredTeamId = currentUser?.default_team_id || ''
+      const defaultTeam = preferredTeamId
+        ? results.find((team) => String(team.id) === String(preferredTeamId))
+        : results.find((team) => team.is_personal) || null
       setDraft((current) => ({
         ...current,
-        team_id: defaultTeam?.id || results[0].id,
+        team_id: defaultTeam?.id || preferredTeamId || results[0]?.id || '',
         assigned_to: currentUser?.id || '',
       }))
     }
@@ -226,6 +228,10 @@ export default function MyTasks() {
     })
   }, [focusMode, tasks])
 
+  const resolvedWorkspaceId = draft.team_id || currentUser?.default_team_id || teams[0]?.id || ''
+  const resolvedWorkspaceName =
+    teams.find((team) => String(team.id) === String(resolvedWorkspaceId))?.name || (isPersonalAccount ? 'Personal workspace' : 'Workspace')
+
   const stats = useMemo(() => {
     const completed = tasks.filter((task) => task.status === 'done').length
     const inFlight = tasks.filter((task) => task.status === 'in_progress' || task.status === 'in_review').length
@@ -239,18 +245,21 @@ export default function MyTasks() {
   const highlightedTemplates = useMemo(() => templates.slice(0, 4), [templates])
 
   const handleOpenComposer = useCallback(() => {
-    if (!teams.length) {
-      toast.info('Create or join a team before adding tasks.')
+    const preferredWorkspaceId = draft.team_id || currentUser?.default_team_id || teams[0]?.id || ''
+    if (!preferredWorkspaceId && !isPersonalAccount) {
+      toast.info(
+        'Create or join a team before adding tasks.'
+      )
       return
     }
 
     setDraft({
       ...initialDraft,
-      team_id: draft.team_id || teams[0].id,
+      team_id: preferredWorkspaceId,
       assigned_to: currentUser?.id || '',
     })
     setShowComposer(true)
-  }, [currentUser?.id, draft.team_id, teams])
+  }, [currentUser?.default_team_id, currentUser?.id, draft.team_id, isPersonalAccount, teams])
 
   useEffect(() => {
     if (loading || searchParams.get('compose') !== '1') return
@@ -382,8 +391,13 @@ export default function MyTasks() {
 
   const handleCreateTask = async (event) => {
     event.preventDefault()
-    if (!draft.team_id || !draft.title.trim()) {
-      toast.error('Choose a team and add a task title.')
+    if (!draft.title.trim()) {
+      toast.error('Add a task title before saving.')
+      return
+    }
+
+    if (!isPersonalAccount && !resolvedWorkspaceId) {
+      toast.error('Choose a workspace and add a task title.')
       return
     }
 
@@ -398,12 +412,12 @@ export default function MyTasks() {
         .join('\n\n')
       const createdTask = await dispatch(
         createTask({
-          team_id: draft.team_id,
+          ...(resolvedWorkspaceId ? { team_id: resolvedWorkspaceId } : {}),
           title: draft.title.trim(),
           description: combinedDescription,
           priority: draft.priority,
           status: 'todo',
-          assigned_to: draft.assigned_to || null,
+          assigned_to: isPersonalAccount ? null : draft.assigned_to || null,
           estimated_minutes: draft.estimated_minutes ? Number(draft.estimated_minutes) : null,
           planned_for_date: draft.planned_for_date || null,
           start_at: combineDateTime(draft.start_date, draft.start_time),
@@ -418,7 +432,7 @@ export default function MyTasks() {
       if (draft.save_as_template && draft.template_name.trim()) {
         setTemplateCreating(true)
         await tasksAPI.createTemplate({
-          team_id: draft.team_id,
+          team_id: resolvedWorkspaceId,
           name: draft.template_name.trim(),
           title: draft.title.trim(),
           description: draft.description.trim(),
@@ -431,11 +445,11 @@ export default function MyTasks() {
           recurrence_interval: Number(draft.recurrence_interval || 1),
           assigned_to: draft.assigned_to || null,
         })
-        await loadTemplates(draft.team_id)
+        await loadTemplates(resolvedWorkspaceId)
       }
 
       toast.success(
-        draft.assigned_to && String(draft.assigned_to) !== String(currentUser?.id)
+        !isPersonalAccount && draft.assigned_to && String(draft.assigned_to) !== String(currentUser?.id)
           ? 'Task created and assigned to your teammate.'
           : 'Task created in your queue.'
       )
@@ -574,7 +588,7 @@ export default function MyTasks() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Assigned to you" value={tasks.length} hint="Across all active teams" />
+        <StatCard label="Assigned to you" value={tasks.length} hint={isPersonalAccount ? 'Across your personal queue' : 'Across all active teams'} />
         <StatCard label="In flight" value={stats.inFlight} hint="Currently moving through execution" />
         <StatCard label="Planned today" value={stats.plannedToday} hint="Items in your day plan" />
         <StatCard label="Estimated load" value={formatEstimate(stats.totalEstimateMinutes)} hint="Current active workload" accent="from-lime-500 to-emerald-600" />
@@ -635,7 +649,7 @@ export default function MyTasks() {
                 className="input-field"
               >
                 <option value="status">Change status</option>
-                <option value="assign">Assign teammate</option>
+                {!isPersonalAccount ? <option value="assign">Assign teammate</option> : null}
                 <option value="archive">Archive tasks</option>
               </select>
               {bulkDraft.action === 'status' ? (
@@ -783,14 +797,16 @@ export default function MyTasks() {
             <form onSubmit={handleCreateTask} className="mt-6 space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-900">Team</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-900">
+                    {isPersonalAccount ? 'Workspace' : 'Team'}
+                  </label>
                   {isPersonalAccount ? (
                     <div className="input-field flex items-center justify-between bg-slate-50 text-slate-700">
-                      {teams.find((team) => team.id === draft.team_id)?.name || 'Personal workspace'}
+                      {resolvedWorkspaceName}
                     </div>
                   ) : (
                     <select
-                      value={draft.team_id}
+                      value={resolvedWorkspaceId}
                       onChange={(event) =>
                         setDraft((current) => ({
                           ...current,

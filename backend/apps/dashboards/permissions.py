@@ -3,6 +3,7 @@ from __future__ import annotations
 from rest_framework import permissions
 
 from apps.memberships.models import Membership
+from apps.users.permissions import is_configured_platform_admin
 
 
 class IsActiveTeamMember(permissions.BasePermission):
@@ -28,4 +29,4 @@ class IsPlatformAdmin(permissions.BasePermission):
     message = "You do not have permission to view platform administration dashboards."
 
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.is_staff)
+        return is_configured_platform_admin(getattr(request, "user", None))

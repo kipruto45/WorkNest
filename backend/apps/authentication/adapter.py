@@ -48,6 +48,59 @@ def _normalize_frontend_next_path(next_path: str | None) -> str:
     return candidate
 
 
+def build_google_oauth_state(*, next_path: str = "", account_type: str = "", flow: str = "login", team_name: str = "") -> str:
+    payload: dict[str, str] = {}
+    normalized_next_path = _normalize_frontend_next_path(next_path)
+    if normalized_next_path:
+        payload["next"] = normalized_next_path
+
+    valid_account_types = {choice for choice, _label in UserModel.AccountType.choices}
+    if account_type in valid_account_types:
+        payload["account_type"] = account_type
+
+    if flow in {"login", "register"}:
+        payload["flow"] = flow
+
+    cleaned_team_name = team_name.strip()
+    if cleaned_team_name:
+        payload["team_name"] = cleaned_team_name
+
+    if not payload:
+        return ""
+    return json.dumps(payload, separators=(",", ":"))
+
+
+def parse_google_oauth_state(raw_state: str | None) -> dict[str, str]:
+    fallback_next_path = _normalize_frontend_next_path(raw_state)
+    result = {
+        "next_path": fallback_next_path,
+        "account_type": "",
+        "flow": "login",
+        "team_name": "",
+    }
+    if not raw_state:
+        return result
+    try:
+        payload = json.loads(raw_state)
+    except (TypeError, ValueError):
+        return result
+    if not isinstance(payload, dict):
+        return result
+
+    result["next_path"] = _normalize_frontend_next_path(payload.get("next")) or fallback_next_path
+    account_type = str(payload.get("account_type", "")).strip()
+    valid_account_types = {choice for choice, _label in UserModel.AccountType.choices}
+    result["account_type"] = account_type if account_type in valid_account_types else ""
+    flow = str(payload.get("flow", "login")).strip()
+    result["flow"] = flow if flow in {"login", "register"} else "login"
+    result["team_name"] = str(payload.get("team_name", "")).strip()
+    return result
+
+
+def _auth_entry_path(flow: str) -> str:
+    return "/register" if flow == "register" else "/login"
+
+
 def get_google_authorization_url(redirect_uri: str, state: str = "") -> str:
     """Build the Google OAuth authorization URL."""
     client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', '')
@@ -119,10 +172,18 @@ def find_or_create_google_user(
     last_name: str = "",
     name: str = "",
     avatar: str = "",
+    account_type: str = "",
+    team_name: str = "",
 ) -> UserModel:
     """Find existing user or create new one for Google auth."""
+    resolved_account_type = account_type or UserModel.AccountType.PERSONAL
     try:
         user = User.objects.get(email__iexact=email)
+        if account_type and user.account_type != account_type:
+            raise GoogleOAuthCallbackError(
+                "account_type_mismatch",
+                "Selected workspace mode does not match this account.",
+            )
 
         return sync_google_account_profile(
             user=user,
@@ -142,6 +203,8 @@ def find_or_create_google_user(
             first_name=first_name,
             last_name=last_name,
             auth_provider=UserModel.AuthProvider.GOOGLE,
+            account_type=resolved_account_type,
+            team_name=team_name,
         )
         return sync_google_account_profile(
             user=user,
@@ -155,18 +218,24 @@ def find_or_create_google_user(
 
 def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
     """Process the Google OAuth callback and redirect with tokens."""
+    state_payload = parse_google_oauth_state(request.GET.get("state"))
+    auth_entry_path = _auth_entry_path(state_payload["flow"])
     error = request.GET.get("error")
     if error:
-        redirect_url = _frontend_url_with_path("/login?error=google_auth_failed")
+        redirect_url = _frontend_url_with_path(f"{auth_entry_path}?error=google_auth_failed")
         return HttpResponseRedirect(redirect_url)
     
     code = request.GET.get("code")
     if not code:
-        redirect_url = _frontend_url_with_path("/login?error=no_authorization_code")
+        redirect_url = _frontend_url_with_path(f"{auth_entry_path}?error=no_authorization_code")
         return HttpResponseRedirect(redirect_url)
     
     try:
-        next_path = _normalize_frontend_next_path(request.GET.get("state"))
+        next_path = state_payload["next_path"]
+        account_type = state_payload["account_type"]
+        if state_payload["flow"] == "register" and not account_type:
+            redirect_url = _frontend_url_with_path(f"{auth_entry_path}?error=account_type_required")
+            return HttpResponseRedirect(redirect_url)
         configured_redirect_uri = str(getattr(settings, "GOOGLE_REDIRECT_URI", "")).strip()
         if configured_redirect_uri:
             redirect_uri = configured_redirect_uri
@@ -195,7 +264,15 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
             redirect_url = _frontend_url_with_path("/login?error=no_email")
             return HttpResponseRedirect(redirect_url)
         
-        user = find_or_create_google_user(email, first_name, last_name, name, avatar)
+        user = find_or_create_google_user(
+            email,
+            first_name,
+            last_name,
+            name,
+            avatar,
+            account_type=account_type,
+            team_name=state_payload["team_name"],
+        )
         
         log_auth_action(
             action=AuditAction.USER_LOGGED_IN,
@@ -226,9 +303,9 @@ def handle_google_oauth_callback(request: HttpRequest) -> HttpResponseRedirect:
         
     except GoogleOAuthCallbackError as exc:
         logger.warning("Google OAuth callback failed: %s", exc)
-        redirect_url = _frontend_url_with_path(f"/login?error={exc.error_code}")
+        redirect_url = _frontend_url_with_path(f"{auth_entry_path}?error={exc.error_code}")
         return HttpResponseRedirect(redirect_url)
     except Exception:
         logger.exception("Unhandled Google OAuth callback failure")
-        redirect_url = _frontend_url_with_path("/login?error=google_auth_failed")
+        redirect_url = _frontend_url_with_path(f"{auth_entry_path}?error=google_auth_failed")
         return HttpResponseRedirect(redirect_url)

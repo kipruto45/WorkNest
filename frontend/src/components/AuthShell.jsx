@@ -21,15 +21,15 @@ export default function AuthShell({
   logoSubtitle = '',
 }) {
   return (
-    <div className={`app-shell auth-shell relative flex min-h-dvh items-center justify-center overflow-hidden px-4 ${compact ? 'py-2 lg:py-3' : 'py-4 lg:py-6'} ${shellClassName}`}>
+    <div className={`app-shell auth-shell relative flex min-h-dvh items-center justify-center overflow-hidden px-4 ${compact ? 'py-2 lg:py-2' : 'py-4 lg:py-6'} ${shellClassName}`}>
       <div className="auth-shell-glow auth-shell-glow-left" />
       <div className="auth-shell-glow auth-shell-glow-right" />
       <div className="auth-shell-grid" />
 
-      <div className={`relative grid w-full ${compact ? 'max-w-6xl gap-4 lg:grid-cols-[0.96fr,1.04fr]' : 'max-w-5xl gap-6 lg:grid-cols-[1.02fr,0.98fr]'}`}>
+      <div className={`relative grid w-full ${compact ? 'max-w-6xl gap-4 lg:grid-cols-[0.96fr,1.04fr] lg:items-center' : 'max-w-5xl gap-6 lg:grid-cols-[1.02fr,0.98fr]'}`}>
         {mobileHero ? <div className="mb-4 lg:hidden">{mobileHero}</div> : null}
 
-        <div className={`hero-panel auth-hero-panel hidden flex-col lg:flex ${compact ? 'min-h-[420px] gap-4' : 'min-h-[460px] justify-between'} ${heroPanelClassName}`}>
+        <div className={`hero-panel auth-hero-panel hidden flex-col lg:flex ${compact ? 'min-h-[400px] gap-3.5' : 'min-h-[460px] justify-between'} ${heroPanelClassName}`}>
           <div>
             <div className="stat-chip inline-flex items-center gap-2">
               <img src="/logo_hd.png" alt="WorkNest logo" className="h-5 w-5 rounded-md object-cover" />
@@ -76,7 +76,7 @@ export default function AuthShell({
           )}
         </div>
 
-        <div className={`page-shell fade-in w-full ${compact ? 'px-4 py-4 md:px-5 md:py-5' : 'px-5 py-6 md:px-7 md:py-7'} ${cardClassName}`}>
+        <div className={`page-shell fade-in w-full ${compact ? 'px-4 py-4 md:px-5 md:py-4' : 'px-5 py-6 md:px-7 md:py-7'} ${cardClassName}`}>
           <AppLogo
             to="/login"
             title={logoTitle}

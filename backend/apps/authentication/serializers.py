@@ -17,10 +17,10 @@ User = get_user_model()
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8, style={"input_type": "password"})
     password_confirm = serializers.CharField(write_only=True, style={"input_type": "password"})
-    account_type = serializers.ChoiceField(choices=User.AccountType.choices, default=User.AccountType.PERSONAL)
+    account_type = serializers.ChoiceField(choices=User.AccountType.choices, required=True)
     team_name = serializers.CharField(required=False, allow_blank=True)
-    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
-    phone_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    email = serializers.EmailField(required=True, allow_blank=False, allow_null=False)
+    phone_number = serializers.CharField(required=True, allow_blank=False, allow_null=False)
     phone_country_code = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
@@ -72,8 +72,10 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         email = (attrs.get("email") or "").strip()
         phone_number = (attrs.get("phone_number") or "").strip()
-        if not email and not phone_number:
-            raise serializers.ValidationError({"email": "Enter an email or phone number to register."})
+        if not email:
+            raise serializers.ValidationError({"email": "Email is required."})
+        if not phone_number:
+            raise serializers.ValidationError({"phone_number": "Phone number is required."})
         if phone_number and not attrs.get("phone_country_code"):
             attrs["phone_country_code"] = infer_phone_country_code(phone_number)
 
@@ -90,6 +92,7 @@ class LoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=False, allow_blank=True)
     phone_number = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    account_type = serializers.ChoiceField(choices=User.AccountType.choices, required=False, allow_blank=True)
     remember_me = serializers.BooleanField(default=False, required=False)
 
     def validate(self, attrs: dict) -> dict:
@@ -192,6 +195,13 @@ class GoogleAuthRequestSerializer(serializers.Serializer):
     credential = serializers.CharField(
         help_text="Google ID token (JWT) from Google Sign-In"
     )
+    account_type = serializers.ChoiceField(choices=User.AccountType.choices, required=True)
+    team_name = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs: dict) -> dict:
+        if attrs["account_type"] == User.AccountType.TEAM and not (attrs.get("team_name") or "").strip():
+            raise serializers.ValidationError({"team_name": "Team name is required for team accounts."})
+        return attrs
 
 
 class GoogleAuthResponseSerializer(serializers.Serializer):

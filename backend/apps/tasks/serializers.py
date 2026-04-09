@@ -397,7 +397,7 @@ class TaskBoardSerializer(serializers.ModelSerializer):
 
 
 class TaskCreateSerializer(serializers.Serializer):
-    team_id = serializers.UUIDField()
+    team_id = serializers.UUIDField(required=False, allow_null=True)
     title = serializers.CharField(max_length=255)
     description = serializers.CharField(required=False, allow_blank=True)
     status = serializers.ChoiceField(choices=Task.Status.choices, required=False, default=Task.Status.TODO)
@@ -421,13 +421,29 @@ class TaskCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
-        team = Team.objects.filter(pk=attrs["team_id"]).first()
+        request_user = self.context["request"].user
+        team_id = attrs.get("team_id")
+        team = Team.objects.filter(pk=team_id).first() if team_id else None
+        if team is None and getattr(request_user, "account_type", User.AccountType.PERSONAL) == User.AccountType.PERSONAL:
+            membership = (
+                Membership.objects.select_related("team")
+                .filter(
+                    user=request_user,
+                    status=Membership.Status.ACTIVE,
+                    team__is_personal=True,
+                    team__is_archived=False,
+                )
+                .order_by("team__created_at")
+                .first()
+            )
+            team = membership.team if membership else None
+
         if not team:
             raise serializers.ValidationError({"team_id": "Selected team does not exist."})
 
         membership = Membership.objects.filter(
             team=team,
-            user=self.context["request"].user,
+            user=request_user,
             status=Membership.Status.ACTIVE,
         ).first()
         if not membership:

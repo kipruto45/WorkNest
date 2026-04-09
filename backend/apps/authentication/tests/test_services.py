@@ -167,7 +167,8 @@ class AuthenticationServiceTests(TestCase):
                 "last_name": "Google",
                 "avatar": "https://example.com/existing-google.png",
                 "google_sub": "sub-123",
-            }
+            },
+            account_type=User.AccountType.PERSONAL,
         )
 
         user.refresh_from_db()

@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -14,8 +15,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.integrations.models import EmailDelivery
-from apps.authentication.models import AuthSession, EmailVerificationToken, LoginActivity
-from apps.authentication.services import register_auth_session
+from apps.authentication.models import AuthSession, CredentialChangeRequest, EmailVerificationToken, LoginActivity
+from apps.authentication.services import confirm_credential_change, register_auth_session, request_email_change
 from apps.authentication.tokens import create_token_pair_for_user
 from apps.authentication.throttles import LoginThrottle, RegisterThrottle
 from apps.memberships.models import Membership
@@ -46,13 +47,15 @@ class AuthenticationEndpointTests(APITestCase):
                 "first_name": "Jane",
                 "last_name": "Doe",
                 "email": "jane@example.com",
+                "phone_number": "+254712345678",
                 "password": "StrongPass123!",
                 "password_confirm": "StrongPass123!",
+                "account_type": "personal",
             },
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertTrue(response.data["success"])
         self.assertIn("access", response.data["data"]["tokens"])
         self.assertIn("refresh", response.data["data"]["tokens"])
@@ -65,6 +68,7 @@ class AuthenticationEndpointTests(APITestCase):
             {
                 "name": "Team Owner",
                 "email": "owner@example.com",
+                "phone_number": "+254712345678",
                 "password": "StrongPass123!",
                 "password_confirm": "StrongPass123!",
                 "account_type": "team",
@@ -82,6 +86,7 @@ class AuthenticationEndpointTests(APITestCase):
             {
                 "name": "Team Owner",
                 "email": "team-owner@example.com",
+                "phone_number": "+254712345678",
                 "password": "StrongPass123!",
                 "password_confirm": "StrongPass123!",
                 "account_type": "team",
@@ -90,7 +95,7 @@ class AuthenticationEndpointTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         user_id = response.data["data"]["user"]["id"]
         self.assertTrue(Team.objects.filter(name="Alpha Squad").exists())
         self.assertTrue(
@@ -104,6 +109,7 @@ class AuthenticationEndpointTests(APITestCase):
             {
                 "name": "Personal Owner",
                 "email": "personal-owner@example.com",
+                "phone_number": "+254712345678",
                 "password": "StrongPass123!",
                 "password_confirm": "StrongPass123!",
                 "account_type": "personal",
@@ -111,7 +117,7 @@ class AuthenticationEndpointTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         user_id = response.data["data"]["user"]["id"]
         self.assertTrue(Team.objects.filter(is_personal=True, created_by_id=user_id).exists())
     def test_register_rejects_duplicate_email(self) -> None:
@@ -122,8 +128,10 @@ class AuthenticationEndpointTests(APITestCase):
             {
                 "name": "Jane Duplicate",
                 "email": "jane@example.com",
+                "phone_number": "+254712345678",
                 "password": "StrongPass123!",
                 "password_confirm": "StrongPass123!",
+                "account_type": "personal",
             },
             format="json",
         )
@@ -132,23 +140,21 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertFalse(response.data["success"])
         self.assertIn("email", response.data["errors"])
 
-    def test_register_accepts_phone_number_without_email(self) -> None:
+    def test_register_requires_both_email_and_phone_number(self) -> None:
         response = self.client.post(
             reverse("api_v1:authentication:register"),
             {
                 "name": "Phone First",
-                "phone_number": "0712345678",
-                "phone_country_code": "+254",
+                "email": "phone-first@example.com",
                 "password": "StrongPass123!",
                 "password_confirm": "StrongPass123!",
+                "account_type": "personal",
             },
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["data"]["user"]["phone_number"], "+254712345678")
-        self.assertFalse(response.data["data"]["user"]["phone_verified"])
-        self.assertEqual(User.objects.filter(phone_number="+254712345678").count(), 1)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("phone_number", response.data["errors"])
 
     def test_register_rejects_duplicate_phone_number_after_normalization(self) -> None:
         User.objects.create_user(phone_number="+254712345678", password="StrongPass123!", name="Phone Owner")
@@ -157,10 +163,12 @@ class AuthenticationEndpointTests(APITestCase):
             reverse("api_v1:authentication:register"),
             {
                 "name": "Phone Duplicate",
+                "email": "phone-duplicate@example.com",
                 "phone_number": "0712345678",
                 "phone_country_code": "+254",
                 "password": "StrongPass123!",
                 "password_confirm": "StrongPass123!",
+                "account_type": "personal",
             },
             format="json",
         )
@@ -206,6 +214,31 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertEqual(response.data["data"]["user"]["id"], str(user.id))
         self.assertEqual(LoginActivity.objects.filter(user=user, success=True).count(), 1)
 
+    @patch("apps.authentication.services.queue_credential_change_email")
+    def test_login_with_recently_changed_email_prompts_for_updated_details(self, mocked_queue_email) -> None:
+        user = User.objects.create_user(
+            email="before-change@example.com",
+            phone_number="+254712345678",
+            password="StrongPass123!",
+            name="Change Me",
+        )
+        request_email_change(user=user, new_email="after-change@example.com", actor=user)
+        change_request = CredentialChangeRequest.objects.get(user=user, credential_type="email")
+        confirm_credential_change(user=user, credential_type="email", code=change_request.code)
+
+        response = self.client.post(
+            reverse("api_v1:authentication:login"),
+            {"credential": "before-change@example.com", "password": "StrongPass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(
+            response.data["message"],
+            "Your email address was recently changed. Sign in with your updated details.",
+        )
+        mocked_queue_email.assert_called_once()
+
     def test_current_user_works_after_phone_login(self) -> None:
         user = User.objects.create_user(
             phone_number="+254712345678",
@@ -231,8 +264,10 @@ class AuthenticationEndpointTests(APITestCase):
             {
                 "name": "Verify Me",
                 "email": "verify-me@example.com",
+                "phone_number": "+254712345678",
                 "password": "StrongPass123!",
                 "password_confirm": "StrongPass123!",
+                "account_type": "personal",
             },
             format="json",
         )
@@ -346,6 +381,23 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertTrue(response.data["success"])
         self.assertTrue(response.data["data"]["user"]["is_staff"])
 
+    def test_login_rejects_mismatched_account_type(self) -> None:
+        user = User.objects.create_user(
+            email="team-user@example.com",
+            password="StrongPass123!",
+            name="Team User",
+            account_type=User.AccountType.TEAM,
+        )
+
+        response = self.client.post(
+            reverse("api_v1:authentication:login"),
+            {"email": user.email, "password": "StrongPass123!", "account_type": "personal"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertFalse(response.data["success"])
+
     @patch("apps.authentication.services.queue_welcome_email", side_effect=RuntimeError("smtp unavailable"))
     def test_register_succeeds_when_welcome_email_queueing_fails(self, _mock_queue_welcome_email) -> None:
         response = self.client.post(
@@ -355,8 +407,10 @@ class AuthenticationEndpointTests(APITestCase):
                 "first_name": "Jane",
                 "last_name": "Doe",
                 "email": "jane-welcome@example.com",
+                "phone_number": "+254712345678",
                 "password": "StrongPass123!",
                 "password_confirm": "StrongPass123!",
+                "account_type": "personal",
             },
             format="json",
         )
@@ -372,8 +426,10 @@ class AuthenticationEndpointTests(APITestCase):
             {
                 "name": "Jane Serializer",
                 "email": "jane-serializer@example.com",
+                "phone_number": "+254712345679",
                 "password": "StrongPass123!",
                 "password_confirm": "StrongPass123!",
+                "account_type": "personal",
             },
             format="json",
         )
@@ -391,8 +447,10 @@ class AuthenticationEndpointTests(APITestCase):
                 "first_name": "Jane",
                 "last_name": "Doe",
                 "email": "jane-proxy@example.com",
+                "phone_number": "+254712345680",
                 "password": "StrongPass123!",
                 "password_confirm": "StrongPass123!",
+                "account_type": "personal",
             },
             format="json",
             HTTP_X_FORWARDED_FOR="unknown, 203.0.113.42",
@@ -411,7 +469,7 @@ class AuthenticationEndpointTests(APITestCase):
 
         response = self.client.post(
             reverse("api_v1:authentication:login"),
-            {"email": user.email, "password": "StrongPass123!"},
+            {"email": user.email, "password": "StrongPass123!", "account_type": "personal"},
             format="json",
             HTTP_X_FORWARDED_FOR="unknown, 203.0.113.42",
         )
@@ -430,7 +488,7 @@ class AuthenticationEndpointTests(APITestCase):
 
         response = self.client.post(
             reverse("api_v1:authentication:login"),
-            {"email": user.email, "password": "StrongPass123!"},
+            {"email": user.email, "password": "StrongPass123!", "account_type": "personal"},
             format="json",
         )
 
@@ -472,7 +530,7 @@ class AuthenticationEndpointTests(APITestCase):
         )
         login_response = self.client.post(
             reverse("api_v1:authentication:login"),
-            {"email": user.email, "password": "StrongPass123!"},
+            {"email": user.email, "password": "StrongPass123!", "account_type": "personal"},
             format="json",
         )
         refresh_token = login_response.data["data"]["tokens"]["refresh"]
@@ -504,7 +562,7 @@ class AuthenticationEndpointTests(APITestCase):
         )
         login_response = self.client.post(
             reverse("api_v1:authentication:login"),
-            {"email": user.email, "password": "StrongPass123!"},
+            {"email": user.email, "password": "StrongPass123!", "account_type": "personal"},
             format="json",
         )
         access = login_response.data["data"]["tokens"]["access"]
@@ -593,7 +651,7 @@ class AuthenticationEndpointTests(APITestCase):
         )
         login_response = self.client.post(
             reverse("api_v1:authentication:login"),
-            {"email": user.email, "password": "StrongPass123!"},
+            {"email": user.email, "password": "StrongPass123!", "account_type": "personal"},
             format="json",
         )
         access = login_response.data["data"]["tokens"]["access"]
@@ -612,12 +670,23 @@ class AuthenticationEndpointTests(APITestCase):
 
     @override_settings(GOOGLE_OAUTH_CLIENT_ID="client", GOOGLE_OAUTH_CLIENT_SECRET="secret")
     def test_google_login_endpoint_redirects_when_configured(self) -> None:
-        response = self.client.get(reverse("api_v1:authentication:google-login"))
+        response = self.client.get(
+            reverse("api_v1:authentication:google-login"),
+            {"flow": "login"},
+        )
 
         self.assertEqual(response.status_code, status.HTTP_302_FOUND)
         self.assertIn("accounts.google.com", response["Location"])
         self.assertIn("accounts.google.com", response["Location"])
         self.assertIn("redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fv1%2Fauth%2Fgoogle%2Fcallback%2F", response["Location"])
+        self.assertIn("state=", response["Location"])
+
+    @override_settings(GOOGLE_OAUTH_CLIENT_ID="client", GOOGLE_OAUTH_CLIENT_SECRET="secret")
+    def test_google_login_endpoint_requires_account_type_for_register_flow(self) -> None:
+        response = self.client.get(reverse("api_v1:authentication:google-login"), {"flow": "register"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("account_type", response.data["errors"])
 
     @patch("apps.authentication.google_service.authenticate_google_user")
     def test_google_auth_endpoint_returns_full_current_user_payload(self, authenticate_google_user_mock) -> None:
@@ -640,7 +709,7 @@ class AuthenticationEndpointTests(APITestCase):
 
         response = self.client.post(
             reverse("api_v1:authentication:google-auth"),
-            {"credential": "fake-google-id-token"},
+            {"credential": "fake-google-id-token", "account_type": "personal"},
             format="json",
         )
 
@@ -675,7 +744,17 @@ class AuthenticationEndpointTests(APITestCase):
 
         response = self.client.get(
             reverse("api_v1:authentication:google-callback"),
-            {"code": "oauth-code", "state": "/teams/team-99/overview"},
+            {
+                "code": "oauth-code",
+                "state": json.dumps(
+                    {
+                        "next": "/teams/team-99/overview",
+                        "account_type": "team",
+                        "flow": "register",
+                        "team_name": "Callback Team",
+                    }
+                ),
+            },
         )
 
         self.assertEqual(response.status_code, status.HTTP_302_FOUND)
@@ -686,4 +765,5 @@ class AuthenticationEndpointTests(APITestCase):
 
         user = User.objects.get(email="callback-user@example.com")
         self.assertEqual(user.auth_provider, User.AuthProvider.GOOGLE)
+        self.assertEqual(user.account_type, User.AccountType.TEAM)
         self.assertTrue(AuthSession.objects.filter(user=user, status=AuthSession.Status.ACTIVE).exists())

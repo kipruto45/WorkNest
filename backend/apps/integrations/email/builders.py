@@ -20,6 +20,7 @@ EMAIL_TYPE_COMMENT_POSTED = "comment_posted"
 EMAIL_TYPE_MENTIONED_IN_COMMENT = "mentioned_in_comment"
 EMAIL_TYPE_WELCOME = "welcome"
 EMAIL_TYPE_EMAIL_VERIFICATION = "email_verification"
+EMAIL_TYPE_CREDENTIAL_CHANGE = "credential_change_verification"
 EMAIL_TYPE_INVITATION_ACCEPTED = "invitation_accepted"
 EMAIL_TYPE_ROLE_CHANGED = "role_changed"
 EMAIL_TYPE_TASK_STATUS_CHANGED = "task_status_changed"
@@ -337,6 +338,43 @@ def build_email_verification_email_payload(*, user, verification_url: str) -> Qu
         related_object_type="user",
         related_object_id=str(user.id),
         provider_metadata={"categories": [EMAIL_TYPE_EMAIL_VERIFICATION]},
+    )
+
+
+def build_credential_change_email_payload(*, user, new_email: str, code: str) -> QueuedEmailPayload:
+    settings_url = _frontend_path("/settings")
+    context = _base_context(
+        eyebrow="Security",
+        title="Confirm your new email address",
+        greeting=f"Hi {_display_name(user, 'there')},",
+        intro="Use the verification code below to confirm your new sign-in email address before the change is applied.",
+        preheader_text="Verify your new email address with this code.",
+        button_text="Open settings",
+        button_url=settings_url,
+        button_hint="If you're already in the app, enter the code from this email in the account settings screen.",
+        detail_title="Verification details",
+        detail_items=[
+            {"label": "New email", "value": new_email},
+            {"label": "Verification code", "value": code},
+            {"label": "Expires in", "value": "10 minutes"},
+        ],
+        preview_label="Verification code",
+        preview_text=code,
+        footer_note="This code can only be used once.",
+        help_text="If you did not request this change, ignore this email and keep using your current sign-in details.",
+        reason_text=f"You received this email because a sign-in email change was requested for your {_get_app_name()} account.",
+    )
+    return _build_job(
+        email_type=EMAIL_TYPE_CREDENTIAL_CHANGE,
+        template_name="email_verification",
+        recipient_email=new_email,
+        subject="Confirm your new email address",
+        context=context,
+        metadata={"user_id": str(user.id), "new_email": new_email},
+        source="authentication.credential_change_email",
+        related_object_type="user",
+        related_object_id=str(user.id),
+        provider_metadata={"categories": [EMAIL_TYPE_CREDENTIAL_CHANGE]},
     )
 
 

@@ -7,7 +7,6 @@ import LoadingState from '../components/LoadingState'
 import { usersAPI, unwrapData } from '../services/api'
 import { setUser } from '../features/authSlice'
 import { CLIENT_STORAGE_KEYS, USER_PREFERENCE_KEYS } from '../utils/clientConfig.js'
-import { applyThemePreference, THEME_OPTIONS } from '../utils/theme'
 
 const notificationOptions = [
   { key: 'task_assigned', label: 'Task assignments', description: 'Get notified when work lands on your plate.' },
@@ -61,9 +60,10 @@ export default function Settings() {
   const currentUser = useSelector((state) => state.auth.user)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [verifyingPhone, setVerifyingPhone] = useState(false)
-  const [confirmingPhone, setConfirmingPhone] = useState(false)
-  const [verificationCode, setVerificationCode] = useState('')
+  const [sendingEmailCode, setSendingEmailCode] = useState(false)
+  const [confirmingEmailCode, setConfirmingEmailCode] = useState(false)
+  const [sendingPhoneCode, setSendingPhoneCode] = useState(false)
+  const [confirmingPhoneCode, setConfirmingPhoneCode] = useState(false)
   const [settings, setSettings] = useState({
     channels: {
       in_app: notificationOptions.reduce((acc, option) => ({ ...acc, [option.key]: true }), {}),
@@ -80,7 +80,9 @@ export default function Settings() {
     sms_opt_in: false,
     compactMode: false,
     reducedMotion: false,
-    theme_preference: THEME_OPTIONS.light,
+    email: '',
+    email_code: '',
+    phone_code: '',
   })
 
   useEffect(() => {
@@ -124,7 +126,9 @@ export default function Settings() {
           sms_opt_in: profile?.sms_opt_in ?? current.sms_opt_in,
           compactMode: localPreferences.compactMode ?? current.compactMode,
           reducedMotion: localPreferences.reducedMotion ?? current.reducedMotion,
-          theme_preference: THEME_OPTIONS.light,
+          email: profile?.email || current.email,
+          email_code: current.email_code,
+          phone_code: current.phone_code,
         }))
       } catch (_error) {
         const localPreferences = readWorkspacePrefs()
@@ -146,7 +150,9 @@ export default function Settings() {
           sms_opt_in: currentUser?.sms_opt_in ?? current.sms_opt_in,
           compactMode: localPreferences.compactMode ?? current.compactMode,
           reducedMotion: localPreferences.reducedMotion ?? current.reducedMotion,
-          theme_preference: THEME_OPTIONS.light,
+          email: currentUser?.email || current.email,
+          email_code: current.email_code,
+          phone_code: current.phone_code,
         }))
       } finally {
         setLoading(false)
@@ -178,9 +184,6 @@ export default function Settings() {
     const savedLocally = writeWorkspacePrefs(settings)
     try {
       const requests = [
-        usersAPI.updateProfile({
-          theme_preference: THEME_OPTIONS.light,
-        }),
         usersAPI.updateNotificationPreferences({
           channels: settings.channels,
           mention_sms: settings.mention_sms,
@@ -190,11 +193,11 @@ export default function Settings() {
           broadcast_sms: settings.broadcast_sms,
         }),
       ]
-      if (settings.phone_number.trim()) {
+      if ((currentUser?.phone_number || '').trim()) {
         requests.push(
           usersAPI.updatePhoneSettings({
-            phone_number: settings.phone_number.trim(),
-            phone_country_code: settings.phone_country_code.trim(),
+            phone_number: currentUser.phone_number.trim(),
+            phone_country_code: (currentUser.phone_country_code || settings.phone_country_code).trim(),
             sms_opt_in: settings.sms_opt_in,
           })
         )
@@ -208,7 +211,6 @@ export default function Settings() {
           phone_verified: refreshedProfile.phone_verified ?? current.phone_verified,
         }))
       }
-      applyThemePreference(THEME_OPTIONS.light)
       toast.success('Preferences saved successfully.')
     } catch (error) {
       if (savedLocally) {
@@ -221,41 +223,102 @@ export default function Settings() {
     }
   }
 
-  const requestPhoneVerification = async () => {
-    if (!settings.phone_number.trim()) {
-      toast.error('Add a phone number before requesting verification.')
+  const syncUpdatedUser = (updatedUser) => {
+    if (!updatedUser) return
+    dispatch(setUser(updatedUser))
+    setSettings((current) => ({
+      ...current,
+      email: updatedUser.email || current.email,
+      phone_number: updatedUser.phone_number || current.phone_number,
+      phone_country_code: updatedUser.phone_country_code || current.phone_country_code,
+      phone_verified: Boolean(updatedUser.phone_verified),
+      email_verified: Boolean(updatedUser.email_verified),
+      sms_opt_in: Boolean(updatedUser.sms_opt_in),
+      email_code: '',
+      phone_code: '',
+    }))
+  }
+
+  const requestEmailChange = async () => {
+    if (!settings.email.trim()) {
+      toast.error('Enter the new email address you want to use.')
       return
     }
-    setVerifyingPhone(true)
+    setSendingEmailCode(true)
     try {
-      await usersAPI.requestPhoneVerification()
-      toast.success('Verification code sent to your phone.')
+      await usersAPI.requestCredentialChange({
+        credential_type: 'email',
+        new_value: settings.email.trim(),
+      })
+      toast.success('Verification code sent to the new email address.')
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to send a verification code right now.')
+      const fieldError = error?.response?.data?.errors?.new_value?.[0]
+      toast.error(fieldError || error?.response?.data?.message || 'Unable to send an email verification code right now.')
     } finally {
-      setVerifyingPhone(false)
+      setSendingEmailCode(false)
     }
   }
 
-  const confirmPhoneCode = async () => {
-    if (!verificationCode.trim()) {
-      toast.error('Enter the verification code you received.')
+  const confirmEmailChange = async () => {
+    if (!settings.email_code.trim()) {
+      toast.error('Enter the verification code sent to the new email address.')
       return
     }
-    setConfirmingPhone(true)
+    setConfirmingEmailCode(true)
     try {
-      const response = await usersAPI.confirmPhoneVerification({ code: verificationCode.trim() })
-      const updatedUser = unwrapData(response)
-      if (updatedUser) {
-        dispatch(setUser(updatedUser))
-        setSettings((current) => ({ ...current, phone_verified: Boolean(updatedUser.phone_verified) }))
-      }
-      setVerificationCode('')
-      toast.success('Phone number verified successfully.')
+      const response = await usersAPI.confirmCredentialChange({
+        credential_type: 'email',
+        code: settings.email_code.trim(),
+      })
+      syncUpdatedUser(unwrapData(response))
+      toast.success('Email updated successfully.')
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Verification code could not be confirmed.')
+      const fieldError = error?.response?.data?.errors?.code?.[0]
+      toast.error(fieldError || error?.response?.data?.message || 'Verification code could not be confirmed.')
     } finally {
-      setConfirmingPhone(false)
+      setConfirmingEmailCode(false)
+    }
+  }
+
+  const requestPhoneChange = async () => {
+    if (!settings.phone_number.trim()) {
+      toast.error('Enter the new phone number you want to use.')
+      return
+    }
+    setSendingPhoneCode(true)
+    try {
+      await usersAPI.requestCredentialChange({
+        credential_type: 'phone',
+        new_value: settings.phone_number.trim(),
+        phone_country_code: settings.phone_country_code.trim(),
+      })
+      toast.success('Verification code sent to the new phone number.')
+    } catch (error) {
+      const fieldError = error?.response?.data?.errors?.new_value?.[0]
+      toast.error(fieldError || error?.response?.data?.message || 'Unable to send an SMS verification code right now.')
+    } finally {
+      setSendingPhoneCode(false)
+    }
+  }
+
+  const confirmPhoneChange = async () => {
+    if (!settings.phone_code.trim()) {
+      toast.error('Enter the verification code sent to the new phone number.')
+      return
+    }
+    setConfirmingPhoneCode(true)
+    try {
+      const response = await usersAPI.confirmCredentialChange({
+        credential_type: 'phone',
+        code: settings.phone_code.trim(),
+      })
+      syncUpdatedUser(unwrapData(response))
+      toast.success('Phone number updated successfully.')
+    } catch (error) {
+      const fieldError = error?.response?.data?.errors?.code?.[0]
+      toast.error(fieldError || error?.response?.data?.message || 'Verification code could not be confirmed.')
+    } finally {
+      setConfirmingPhoneCode(false)
     }
   }
 
@@ -273,24 +336,24 @@ export default function Settings() {
     <div className="space-y-6">
       <PageHero
         eyebrow="Settings"
-        title="Tune the workspace feel"
-        description="Shape the app around how you prefer to receive signals, move through the UI, and manage focus."
+        title="Account and notification settings"
+        description="Manage verified sign-in details and notification delivery from one place."
         stats={[
           {
             label: 'Alerts enabled',
             value: activeChannelCount,
             caption: 'Active channels',
           },
-          { label: 'Visual system', value: 'emerald', caption: 'App-wide light theme' },
+          { label: 'Email', value: currentUser?.email_verified ? 'Verified' : 'Pending', caption: 'Sign-in address' },
           { label: 'Phone status', value: settings.phone_verified ? 'Verified' : settings.phone_number ? 'Pending' : 'Missing', caption: 'SMS identity' },
         ]}
         spotlight={{
-          eyebrow: 'Experience system',
-          title: 'Settings should feel like a control room.',
-          description: 'This screen is designed to feel intentional in demos and daily use: a clear control surface for signal, density, and motion.',
+          eyebrow: 'Credential safety',
+          title: 'Email and phone changes are verified before they go live.',
+          description: 'Use the account controls below to request a code, verify the new destination, and then replace your sign-in details cleanly.',
           points: [
             { label: 'Notification rules', value: notificationRuleCount },
-            { label: 'Density mode', value: settings.compactMode ? 'Compact' : 'Comfortable' },
+            { label: 'Phone status', value: settings.phone_verified ? 'Verified' : settings.phone_number ? 'Pending' : 'Missing' },
           ],
         }}
         actions={
@@ -305,17 +368,59 @@ export default function Settings() {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6">
         <section className="card fade-in">
-          <h2 className="text-2xl font-bold text-emerald-950">Phone and notifications</h2>
-          <p className="mt-2 text-sm text-soft">Manage the number we can reach, then decide which messages are worth sending by email or SMS.</p>
+          <h2 className="text-2xl font-bold text-emerald-950">Contact and notifications</h2>
+          <p className="mt-2 text-sm text-soft">Change email or phone only after verification, then decide which signals deserve email, SMS, or in-app delivery.</p>
 
           <div className="mt-6 grid gap-4">
             <div className="feature-tile space-y-4 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
+                  <p className="font-semibold text-emerald-950">Email address</p>
+                  <p className="mt-1 text-sm text-soft">Update the sign-in email only after a verification code is confirmed on the new address.</p>
+                </div>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    currentUser?.email_verified ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  {currentUser?.email_verified ? 'Verified' : currentUser?.email ? 'Pending verification' : 'Missing'}
+                </span>
+              </div>
+
+              <input
+                value={settings.email}
+                onChange={(event) => setSettings((current) => ({ ...current, email: event.target.value }))}
+                className="input-field"
+                placeholder="name@example.com"
+              />
+
+              <div className="rounded-[20px] border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Verification</p>
+                <p className="mt-2 text-sm text-soft">We send a six-digit code to the new email. Your current sign-in details stay active until you confirm it.</p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button type="button" onClick={requestEmailChange} className="btn-secondary" disabled={sendingEmailCode}>
+                    {sendingEmailCode ? 'Sending code...' : 'Send email code'}
+                  </button>
+                  <input
+                    value={settings.email_code}
+                    onChange={(event) => setSettings((current) => ({ ...current, email_code: event.target.value }))}
+                    placeholder="Enter code"
+                    className="input-field max-w-[180px]"
+                  />
+                  <button type="button" onClick={confirmEmailChange} className="btn-primary" disabled={confirmingEmailCode}>
+                    {confirmingEmailCode ? 'Confirming...' : 'Confirm email'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="feature-tile space-y-4 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
                   <p className="font-semibold text-emerald-950">Phone number</p>
-                  <p className="mt-1 text-sm text-soft">Use a verified number for delivery-critical alerts and mobile-friendly account access.</p>
+                  <p className="mt-1 text-sm text-soft">Use a verified number for delivery-critical alerts and recovery-friendly sign-in options.</p>
                 </div>
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -357,26 +462,24 @@ export default function Settings() {
                 Allow SMS notifications for the rules enabled below
               </label>
 
-              {settings.phone_number ? (
-                <div className="rounded-[20px] border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Verification</p>
-                  <p className="mt-2 text-sm text-soft">Send a six-digit code to confirm this number before relying on it for critical delivery.</p>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <button type="button" onClick={requestPhoneVerification} className="btn-secondary" disabled={verifyingPhone}>
-                      {verifyingPhone ? 'Sending code...' : 'Send verification code'}
-                    </button>
-                    <input
-                      value={verificationCode}
-                      onChange={(event) => setVerificationCode(event.target.value)}
-                      placeholder="Enter code"
-                      className="input-field max-w-[180px]"
-                    />
-                    <button type="button" onClick={confirmPhoneCode} className="btn-primary" disabled={confirmingPhone}>
-                      {confirmingPhone ? 'Confirming...' : 'Verify phone'}
-                    </button>
-                  </div>
+              <div className="rounded-[20px] border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Verification</p>
+                <p className="mt-2 text-sm text-soft">Send a six-digit code to the new number before replacing the phone number you use for login and SMS delivery.</p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button type="button" onClick={requestPhoneChange} className="btn-secondary" disabled={sendingPhoneCode}>
+                    {sendingPhoneCode ? 'Sending code...' : 'Send SMS code'}
+                  </button>
+                  <input
+                    value={settings.phone_code}
+                    onChange={(event) => setSettings((current) => ({ ...current, phone_code: event.target.value }))}
+                    placeholder="Enter code"
+                    className="input-field max-w-[180px]"
+                  />
+                  <button type="button" onClick={confirmPhoneChange} className="btn-primary" disabled={confirmingPhoneCode}>
+                    {confirmingPhoneCode ? 'Confirming...' : 'Confirm phone'}
+                  </button>
                 </div>
-              ) : null}
+              </div>
             </div>
 
             <div className="feature-tile space-y-4 p-4">
@@ -435,71 +538,6 @@ export default function Settings() {
                   />
                 </label>
               ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="card fade-in">
-          <h2 className="text-2xl font-bold text-emerald-950">Experience</h2>
-          <p className="mt-2 text-sm text-soft">Control density and motion while keeping the green-forward visual system intact.</p>
-
-          <div className="mt-6 grid gap-4">
-            <label className="feature-tile flex items-start justify-between gap-4 p-4">
-              <div>
-                <p className="font-semibold text-emerald-950">Compact mode</p>
-                <p className="mt-1 text-sm text-soft">Tighten spacing for denser work sessions and faster scanning.</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.compactMode}
-                onChange={() => toggle('compactMode')}
-                className="mt-1 h-5 w-5 rounded border-emerald-200"
-              />
-            </label>
-
-            <label className="feature-tile flex items-start justify-between gap-4 p-4">
-              <div>
-                <p className="font-semibold text-emerald-950">Reduced motion</p>
-                <p className="mt-1 text-sm text-soft">Keep interactions calmer if you prefer less movement.</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.reducedMotion}
-                onChange={() => toggle('reducedMotion')}
-                className="mt-1 h-5 w-5 rounded border-emerald-200"
-              />
-            </label>
-
-            <div className="feature-tile">
-              <p className="font-semibold text-emerald-950">Visual system</p>
-              <p className="mt-1 text-sm text-soft">WorkNest now uses one consistent light theme with emerald accents across the full product.</p>
-              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Theme locked</p>
-                <p className="mt-2 text-sm text-emerald-950">Light surfaces, green actions, and consistent contrast on every page.</p>
-              </div>
-            </div>
-
-            <div className="spotlight-panel text-white">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Theme direction</p>
-              <h3 className="mt-3 text-xl font-bold">Emerald light system</h3>
-              <p className="mt-2 text-sm text-emerald-50/90">
-                The interface now stays consistently light with restrained green emphasis, soft depth, and cleaner contrast for every workspace.
-              </p>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="feature-tile">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Density</p>
-                <p className="mt-3 text-lg font-bold text-emerald-950">{settings.compactMode ? 'Compact' : 'Relaxed'}</p>
-              </div>
-              <div className="feature-tile">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Motion</p>
-                <p className="mt-3 text-lg font-bold text-emerald-950">{settings.reducedMotion ? 'Reduced' : 'Animated'}</p>
-              </div>
-              <div className="feature-tile">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Theme</p>
-                <p className="mt-3 text-lg font-bold text-emerald-950">Emerald light</p>
-              </div>
             </div>
           </div>
         </section>

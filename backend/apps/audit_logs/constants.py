@@ -23,6 +23,7 @@ class AuditAction(models.TextChoices):
     USER_LOGGED_IN = "user_logged_in", "User Logged In"
     USER_LOGGED_OUT = "user_logged_out", "User Logged Out"
     USER_LOGIN_FAILED = "user_login_failed", "User Login Failed"
+    EMAIL_UPDATED = "email_updated", "Email Updated"
     PASSWORD_RESET_REQUESTED = "password_reset_requested", "Password Reset Requested"
     PASSWORD_RESET_CONFIRMED = "password_reset_confirmed", "Password Reset Confirmed"
     GOOGLE_LOGIN_REQUESTED = "google_login_requested", "Google Login Requested"

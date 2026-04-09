@@ -101,7 +101,7 @@ export default function AdminUsers() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Admin users</p>
             <h1 className="mt-3 font-display text-4xl font-bold text-emerald-950">Manage users with account and workload context</h1>
             <p className="mt-4 max-w-3xl text-base leading-7 text-soft">
-              Review activation state, verification, team footprint, theme preference, and recent account activity.
+              Review activation state, verification, team footprint, and recent account activity.
             </p>
           </div>
 
@@ -225,7 +225,6 @@ export default function AdminUsers() {
                     <MetricRow label="Assigned tasks" value={selectedUser.stats?.assigned_tasks || 0} />
                     <MetricRow label="Completed tasks" value={selectedUser.stats?.completed_tasks || 0} />
                     <MetricRow label="Overdue tasks" value={selectedUser.stats?.overdue_tasks || 0} />
-                    <MetricRow label="Visual system" value="Emerald light" />
                     <MetricRow label="2FA state" value={selectedUser.two_factor_status || 'disabled'} />
                   </div>
                 </div>

@@ -239,19 +239,6 @@ export default function Login() {
 }
 
 function AuthHeroVisual({ visiblePhrase, emphasis, variant }) {
-  const metrics =
-    variant === 'login'
-      ? [
-          { label: 'Due today', value: '06' },
-          { label: 'In review', value: '14' },
-          { label: 'Focus score', value: '91%' },
-        ]
-      : [
-          { label: 'Setup time', value: '<10m' },
-          { label: 'Roles ready', value: '04' },
-          { label: 'Day one', value: 'Clear' },
-        ]
-
   return (
     <div className="space-y-4">
       <div className="landing-typewriter-panel max-w-none">
@@ -262,41 +249,12 @@ function AuthHeroVisual({ visiblePhrase, emphasis, variant }) {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        {metrics.map((item) => (
-          <div key={item.label} className="rounded-[20px] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.05)]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{item.value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded-[24px] border border-emerald-100 bg-[linear-gradient(180deg,#f4fbf6_0%,#ffffff_100%)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-              {variant === 'login' ? 'Delivery snapshot' : 'Workspace setup'}
-            </p>
-            <h3 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-slate-950">
-              {variant === 'login' ? 'Execution stays readable at a glance.' : 'A strong starting point from the first screen.'}
-            </h3>
-          </div>
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
-            {variant === 'login' ? 'Live' : 'Ready'}
-          </span>
-        </div>
-        <div className="mt-4 grid gap-3">
-          <div className="rounded-[18px] border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-600">
-            {variant === 'login'
-              ? 'Deadlines, owners, and recent movement stay visible before the day starts.'
-              : 'Teams begin with structure, personal users begin with focus, and both start in a calmer system.'}
-          </div>
-          <div className="rounded-[18px] border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-600">
-            {variant === 'login'
-              ? 'Your account decides where you land after sign-in.'
-              : 'Pick the right workspace at signup, then keep every task, owner, and deadline in context.'}
-          </div>
-        </div>
+      <div className="rounded-[24px] border border-slate-200 bg-white/92 px-5 py-5 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+        <p className="text-sm leading-7 text-slate-600">
+          {variant === 'login'
+            ? 'Sign in and continue from the work that already needs your attention.'
+            : 'Pick the right workspace at signup, then keep every task, owner, and deadline in context.'}
+        </p>
       </div>
     </div>
   )

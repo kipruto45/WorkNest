@@ -139,7 +139,16 @@ export const authAPI = {
   requestPasswordReset: (data) => api.post('/auth/password-reset/', data),
   confirmPasswordReset: (data) => api.post('/auth/password-reset/confirm/', data),
   getGoogleConfig: () => api.get('/auth/google/config/'),
-  getGoogleLoginUrl: (nextPath) => api.get('/auth/google/login/', { params: { redirect: 'false', next: nextPath } }),
+  getGoogleLoginUrl: (nextPath, accountType, flow = 'login', teamName = '') =>
+    api.get('/auth/google/login/', {
+      params: {
+        redirect: 'false',
+        next: nextPath,
+        account_type: accountType,
+        flow,
+        team_name: teamName || undefined,
+      },
+    }),
   authenticateGoogle: (credential) => api.post('/auth/google/auth/', { credential }),
 }
 
@@ -256,6 +265,8 @@ export const usersAPI = {
   getProfile: () => api.get('/users/me/'),
   updateProfile: (data) =>
     api.patch('/users/me/', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined),
+  requestCredentialChange: (data) => api.post('/users/me/credentials/change/request/', data),
+  confirmCredentialChange: (data) => api.post('/users/me/credentials/change/confirm/', data),
   savePhoneSettings: (data) => api.post('/users/me/phone/', data),
   updatePhoneSettings: (data) => api.patch('/users/me/phone/', data),
   requestPhoneVerification: () => api.post('/users/me/phone/verify/request/'),

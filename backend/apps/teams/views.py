@@ -56,6 +56,7 @@ from apps.teams.services import (
     update_team_announcement,
 )
 from apps.teams.models import Team, TeamAnnouncement
+from apps.users.permissions import IsConfiguredPlatformAdmin
 
 
 class TeamListCreateView(PaginatedAPIViewMixin, APIView):
@@ -103,7 +104,7 @@ class AdminTeamSearchQuerySerializer(serializers.Serializer):
 
 
 class AdminTeamSearchView(PaginatedAPIViewMixin, APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsConfiguredPlatformAdmin]
 
     @extend_schema(parameters=[AdminTeamSearchQuerySerializer], responses=TeamListSerializer(many=True))
     def get(self, request, *args, **kwargs):  # type: ignore[override]

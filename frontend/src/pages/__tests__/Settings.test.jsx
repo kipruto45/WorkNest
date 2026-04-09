@@ -12,7 +12,8 @@ const getProfile = vi.fn()
 const getNotificationPreferences = vi.fn()
 const updateNotificationPreferences = vi.fn()
 const updatePhoneSettings = vi.fn()
-const applyThemePreference = vi.fn()
+const requestCredentialChange = vi.fn()
+const confirmCredentialChange = vi.fn()
 
 const currentUser = {
   id: 'user-1',
@@ -22,7 +23,7 @@ const currentUser = {
   phone_country_code: '+254',
   phone_verified: false,
   sms_opt_in: true,
-  theme_preference: 'system',
+  email_verified: true,
 }
 
 vi.mock('react-redux', async () => {
@@ -41,23 +42,14 @@ vi.mock('../../services/api', () => ({
     updateProfile: (...args) => updateProfile(...args),
     updateNotificationPreferences: (...args) => updateNotificationPreferences(...args),
     updatePhoneSettings: (...args) => updatePhoneSettings(...args),
-    requestPhoneVerification: vi.fn(),
-    confirmPhoneVerification: vi.fn(),
+    requestCredentialChange: (...args) => requestCredentialChange(...args),
+    confirmCredentialChange: (...args) => confirmCredentialChange(...args),
   },
   unwrapData: (response) => response?.data?.data ?? response?.data ?? null,
 }))
 
 vi.mock('../../features/authSlice', () => ({
   setUser: (payload) => ({ type: 'auth/setUser', payload }),
-}))
-
-vi.mock('../../utils/theme', () => ({
-  THEME_OPTIONS: {
-    system: 'system',
-    light: 'light',
-    dark: 'dark',
-  },
-  applyThemePreference: (...args) => applyThemePreference(...args),
 }))
 
 vi.mock('react-toastify', () => ({
@@ -67,7 +59,7 @@ vi.mock('react-toastify', () => ({
   },
 }))
 
-test('Settings saves SMS preferences, channels, and phone settings together', async () => {
+test('Settings saves notification preferences and same-number SMS settings together', async () => {
   const user = userEvent.setup()
   getProfile
     .mockResolvedValueOnce({
@@ -133,5 +125,31 @@ test('Settings saves SMS preferences, channels, and phone settings together', as
       sms_opt_in: true,
     })
   )
-  expect(applyThemePreference).toHaveBeenCalled()
+})
+
+test('Settings requests email change verification before updating sign-in credentials', async () => {
+  const user = userEvent.setup()
+  getProfile.mockResolvedValueOnce({ data: { data: currentUser } })
+  getNotificationPreferences.mockResolvedValueOnce({ data: { data: { channels: { in_app: {}, email: {} } } } })
+  requestCredentialChange.mockResolvedValueOnce({ data: { data: currentUser } })
+
+  render(
+    <TestMemoryRouter>
+      <Settings />
+    </TestMemoryRouter>
+  )
+
+  await waitFor(() => expect(getProfile).toHaveBeenCalled())
+
+  const emailInputs = screen.getAllByPlaceholderText('name@example.com')
+  await user.clear(emailInputs[0])
+  await user.type(emailInputs[0], 'updated@example.com')
+  await user.click(screen.getByRole('button', { name: /Send email code/i }))
+
+  await waitFor(() =>
+    expect(requestCredentialChange).toHaveBeenCalledWith({
+      credential_type: 'email',
+      new_value: 'updated@example.com',
+    })
+  )
 })

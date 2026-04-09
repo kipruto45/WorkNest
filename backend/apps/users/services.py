@@ -51,6 +51,7 @@ def bootstrap_admin_user(*, email: str | None = None, name: str | None = None, p
     user.set_password(resolved_password)
     updated_fields.append("password")
     user.save(update_fields=[*dict.fromkeys(updated_fields), "updated_at"])
+    User.objects.exclude(pk=user.pk).filter(is_staff=True).update(is_staff=False, is_superuser=False, updated_at=timezone.now())
     return user, created
 
 

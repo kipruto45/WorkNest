@@ -36,6 +36,12 @@ class AccountConflictError(GoogleAuthError):
         super().__init__(message, "account_conflict")
 
 
+class AccountTypeMismatchError(GoogleAuthError):
+    """Raised when the selected account type does not match the stored account type."""
+    def __init__(self, message: str = "Selected workspace mode does not match this account."):
+        super().__init__(message, "account_type_mismatch")
+
+
 def verify_google_token(google_credential: str) -> dict:
     """
     Verify a Google ID token and extract user info.
@@ -79,7 +85,13 @@ def verify_google_token(google_credential: str) -> dict:
         raise GoogleAuthError("Unable to verify Google token", "verification_failed")
 
 
-def get_or_create_google_user(google_user_info: dict, create_if_not_exists: bool = True) -> tuple[UserModel, bool]:
+def get_or_create_google_user(
+    google_user_info: dict,
+    *,
+    account_type: str,
+    team_name: str = "",
+    create_if_not_exists: bool = True,
+) -> tuple[UserModel, bool]:
     """
     Find or create user based on Google identity.
     
@@ -94,6 +106,8 @@ def get_or_create_google_user(google_user_info: dict, create_if_not_exists: bool
     email = google_user_info['email']
     try:
         existing_user = User.objects.get(email__iexact=email)
+        if existing_user.account_type != account_type:
+            raise AccountTypeMismatchError()
         
         if existing_user.auth_provider == UserModel.AuthProvider.GOOGLE:
             sync_google_account_profile(
@@ -157,6 +171,8 @@ def get_or_create_google_user(google_user_info: dict, create_if_not_exists: bool
             first_name=first_name,
             last_name=last_name,
             auth_provider=UserModel.AuthProvider.GOOGLE,
+            account_type=account_type,
+            team_name=team_name,
         )
         sync_google_account_profile(
             user=new_user,
@@ -180,7 +196,7 @@ def get_or_create_google_user(google_user_info: dict, create_if_not_exists: bool
         return new_user, True
 
 
-def authenticate_google_user(google_credential: str) -> dict:
+def authenticate_google_user(google_credential: str, *, account_type: str, team_name: str = "") -> dict:
     """
     Main entry point for Google authentication.
     
@@ -188,7 +204,7 @@ def authenticate_google_user(google_credential: str) -> dict:
     """
     google_user_info = verify_google_token(google_credential)
     
-    user, is_new = get_or_create_google_user(google_user_info)
+    user, is_new = get_or_create_google_user(google_user_info, account_type=account_type, team_name=team_name)
     
     log_auth_action(
         actor=user,

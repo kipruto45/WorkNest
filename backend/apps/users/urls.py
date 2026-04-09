@@ -3,6 +3,8 @@ from django.urls import path
 from apps.users.views import (
     AdminUserDetailView,
     AdminUserSearchView,
+    CredentialChangeConfirmView,
+    CredentialChangeRequestView,
     NotificationPreferencesView,
     PhoneVerificationConfirmView,
     PhoneVerificationRequestView,
@@ -16,6 +18,8 @@ app_name = "users"
 
 urlpatterns = [
     path("me/", UserProfileView.as_view(), name="me"),
+    path("me/credentials/change/request/", CredentialChangeRequestView.as_view(), name="me-credential-change-request"),
+    path("me/credentials/change/confirm/", CredentialChangeConfirmView.as_view(), name="me-credential-change-confirm"),
     path("me/phone/", UserPhoneSettingsView.as_view(), name="me-phone"),
     path("me/phone/verify/request/", PhoneVerificationRequestView.as_view(), name="me-phone-verify-request"),
     path("me/phone/verify/confirm/", PhoneVerificationConfirmView.as_view(), name="me-phone-verify-confirm"),

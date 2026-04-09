@@ -122,9 +122,14 @@ class AuditLogServiceTests(TemporaryAuditMediaRootMixin, AuditLogFixtureMixin, T
 
     @override_settings(GOOGLE_OAUTH_CLIENT_ID="client-id", GOOGLE_OAUTH_CLIENT_SECRET="client-secret")
     def test_authentication_services_create_audit_logs(self) -> None:
-        user = create_user_account(name="Auth User", email="auth@example.com", password="StrongPass123!")
+        user = create_user_account(
+            name="Auth User",
+            email="auth@example.com",
+            password="StrongPass123!",
+            account_type="personal",
+        )
         request = RequestFactory().post("/api/v1/auth/login/", HTTP_USER_AGENT="Auth Agent", REMOTE_ADDR="127.0.0.1")
-        authenticate_user(email="auth@example.com", password="StrongPass123!", request=request)
+        authenticate_user(email="auth@example.com", password="StrongPass123!", request=request, account_type="personal")
         request_password_reset(email="auth@example.com", request=request)
         confirm_password_reset(user=user, new_password="StrongPass123!Updated")
 

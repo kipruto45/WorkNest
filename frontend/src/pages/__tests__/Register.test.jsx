@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 
 import Register from '../Register'
-import { register as registerUser } from '../../features/authSlice'
+import { hydrateCurrentUser, register as registerUser } from '../../features/authSlice'
 import { TestMemoryRouter } from '../../test/router'
 
 const dispatchMock = vi.fn((action) => (typeof action === 'function' ? action() : action))
@@ -43,6 +43,12 @@ vi.mock('../../features/authSlice', () => ({
     result.unwrap = () => result
     return result
   }),
+  hydrateCurrentUser: vi.fn(() => () => {
+    const result = Promise.resolve({ id: 'user-1', email: 'new@example.com', account_type: 'personal', is_staff: false, email_verified: true })
+    result.unwrap = () => result
+    return result
+  }),
+  setUser: (payload) => ({ type: 'auth/setUser', payload }),
 }))
 
 test('Register surfaces backend errors and field validation', async () => {
@@ -73,6 +79,11 @@ test('Register signs the user in and routes to the personal dashboard after succ
       token: 'access-token',
       user: { id: 'user-1', email: 'new@example.com', account_type: 'personal', is_staff: false, email_verified: true },
     })
+    result.unwrap = () => result
+    return result
+  })
+  hydrateCurrentUser.mockImplementationOnce(() => () => {
+    const result = Promise.resolve({ id: 'user-1', email: 'new@example.com', account_type: 'personal', is_staff: false, email_verified: true })
     result.unwrap = () => result
     return result
   })
@@ -111,6 +122,18 @@ test('Register routes team users straight into their new workspace', async () =>
         is_staff: false,
         email_verified: false,
       },
+    })
+    result.unwrap = () => result
+    return result
+  })
+  hydrateCurrentUser.mockImplementationOnce(() => () => {
+    const result = Promise.resolve({
+      id: 'user-2',
+      email: 'team@example.com',
+      account_type: 'team',
+      default_team_id: 'team-42',
+      is_staff: false,
+      email_verified: false,
     })
     result.unwrap = () => result
     return result

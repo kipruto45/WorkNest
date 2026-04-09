@@ -506,3 +506,30 @@ class PhoneVerificationRequestSerializer(serializers.Serializer):
 
 class PhoneVerificationConfirmSerializer(serializers.Serializer):
     code = serializers.CharField(min_length=4, max_length=6)
+
+
+class CredentialChangeRequestSerializer(serializers.Serializer):
+    credential_type = serializers.ChoiceField(choices=(("email", "Email"), ("phone", "Phone")))
+    new_value = serializers.CharField(required=True, allow_blank=False, max_length=255)
+    phone_country_code = serializers.CharField(required=False, allow_blank=True, max_length=8)
+
+    def validate(self, attrs: dict) -> dict:
+        credential_type = attrs["credential_type"]
+        new_value = str(attrs["new_value"]).strip()
+        if credential_type == "email":
+            serializers.EmailField().run_validation(new_value)
+            attrs["new_value"] = new_value.lower()
+            attrs["phone_country_code"] = ""
+            return attrs
+
+        try:
+            attrs["new_value"] = normalize_phone_number(new_value, attrs.get("phone_country_code"))
+        except ValueError as exc:
+            raise serializers.ValidationError({"new_value": str(exc)}) from exc
+        attrs["phone_country_code"] = attrs.get("phone_country_code") or infer_phone_country_code(attrs["new_value"])
+        return attrs
+
+
+class CredentialChangeConfirmSerializer(serializers.Serializer):
+    credential_type = serializers.ChoiceField(choices=(("email", "Email"), ("phone", "Phone")))
+    code = serializers.CharField(min_length=4, max_length=6)

@@ -14,8 +14,10 @@ class RegisterSerializerTests(TestCase):
             data={
                 "name": "Jane Again",
                 "email": "jane@example.com",
+                "phone_number": "+254712345678",
                 "password": "StrongPass123!",
                 "password_confirm": "StrongPass123!",
+                "account_type": "personal",
             }
         )
 
@@ -27,8 +29,10 @@ class RegisterSerializerTests(TestCase):
             data={
                 "name": "Jane Again",
                 "email": "jane@example.com",
+                "phone_number": "+254712345678",
                 "password": "StrongPass123!",
                 "password_confirm": "Mismatch123!",
+                "account_type": "personal",
             }
         )
 
@@ -40,13 +44,29 @@ class RegisterSerializerTests(TestCase):
             data={
                 "name": "Jane Again",
                 "email": "jane@example.com",
+                "phone_number": "+254712345678",
                 "password": "12345678",
                 "password_confirm": "12345678",
+                "account_type": "personal",
             }
         )
 
         self.assertFalse(serializer.is_valid())
         self.assertIn("password", serializer.errors)
+
+    def test_register_serializer_requires_phone_number(self) -> None:
+        serializer = RegisterSerializer(
+            data={
+                "name": "Jane Again",
+                "email": "jane@example.com",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+                "account_type": "personal",
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("phone_number", serializer.errors)
 
 
 class UserProfileUpdateSerializerTests(TestCase):

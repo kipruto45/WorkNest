@@ -15,7 +15,11 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "worknest-test-cache",
-    }
+    },
+    "throttle": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "worknest-test-throttle-cache",
+    },
 }
 
 CHANNEL_LAYERS = {

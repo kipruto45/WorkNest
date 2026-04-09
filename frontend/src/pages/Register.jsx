@@ -8,11 +8,17 @@ import { toast } from 'react-toastify'
 import AuthShell from '../components/AuthShell'
 import PasswordField from '../components/PasswordField'
 import AccountTypeCard from '../components/AccountTypeCard'
-import { register as registerUser } from '../features/authSlice'
+import { hydrateCurrentUser, register as registerUser, setUser } from '../features/authSlice'
 import { authAPI, unwrapData } from '../services/api'
 import { resolvePostAuthPath } from '../utils/authRouting'
 
 const phonePattern = /^\+254\d{9}$/
+const registerHeroPhrases = [
+  { text: 'Launch with structure.', emphasis: 'structure' },
+  { text: 'Invite the right people fast.', emphasis: 'right people' },
+  { text: 'Start tracking real work immediately.', emphasis: 'real work' },
+  { text: 'Keep every owner aligned from day one.', emphasis: 'aligned' },
+]
 
 const registerSchema = z
   .object({
@@ -45,6 +51,9 @@ export default function Register() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [formError, setFormError] = useState('')
+  const [activePhraseIndex, setActivePhraseIndex] = useState(0)
+  const [visiblePhrase, setVisiblePhrase] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -86,13 +95,43 @@ export default function Register() {
     toast.error(errorMessages[authError] || 'Sign up could not be completed.')
   }, [authError])
 
+  useEffect(() => {
+    const currentPhrase = registerHeroPhrases[activePhraseIndex].text
+    let timer
+
+    if (!isDeleting && visiblePhrase !== currentPhrase) {
+      timer = window.setTimeout(() => {
+        setVisiblePhrase(currentPhrase.slice(0, visiblePhrase.length + 1))
+      }, 50)
+    } else if (!isDeleting && visiblePhrase === currentPhrase) {
+      timer = window.setTimeout(() => {
+        setIsDeleting(true)
+      }, 1500)
+    } else if (isDeleting && visiblePhrase.length > 0) {
+      timer = window.setTimeout(() => {
+        setVisiblePhrase(currentPhrase.slice(0, visiblePhrase.length - 1))
+      }, 28)
+    } else {
+      timer = window.setTimeout(() => {
+        setIsDeleting(false)
+        setActivePhraseIndex((index) => (index + 1) % registerHeroPhrases.length)
+      }, 160)
+    }
+
+    return () => window.clearTimeout(timer)
+  }, [activePhraseIndex, isDeleting, visiblePhrase])
+
+  const activePhrase = registerHeroPhrases[activePhraseIndex]
+
   const onSubmit = async (data) => {
     setLoading(true)
     setFormError('')
     clearErrors()
     try {
+      const selectedAccountType = watch('account_type')
       const payload = {
         ...data,
+        account_type: selectedAccountType,
         email: data.email.trim(),
         phone_number: data.phone_number.trim(),
         phone_country_code: '+254',
@@ -100,7 +139,21 @@ export default function Register() {
         team_name: data.team_name?.trim() || '',
       }
       const result = await dispatch(registerUser(payload)).unwrap()
-      const destination = resolvePostAuthPath({ nextPath, user: result?.user })
+      let authenticatedUser = result?.user
+      try {
+        authenticatedUser = await dispatch(hydrateCurrentUser()).unwrap()
+      } catch (_error) {
+        authenticatedUser = result?.user
+      }
+      if (selectedAccountType === 'team' && authenticatedUser) {
+        const normalizedUser = { ...authenticatedUser, account_type: 'team' }
+        dispatch(setUser(normalizedUser))
+        authenticatedUser = normalizedUser
+      }
+      const destination = resolvePostAuthPath({
+        nextPath,
+        user: authenticatedUser,
+      })
       if (result?.user?.email && !result.user.email_verified) {
         toast.success('Account created. We also sent a verification email to help secure your account.')
       } else {
@@ -165,8 +218,16 @@ export default function Register() {
       title="Create your workspace account"
       subtitle="Create your account and start organizing work."
       compact
-      heroImageSrc="/register.jpeg"
-      heroImageAlt="WorkNest register preview"
+      shellClassName="lg:h-dvh lg:max-h-dvh lg:overflow-hidden"
+      heroLabel="WorkNest onboarding"
+      heroHeadline="Start with a workspace that already feels composed."
+      heroDescription="Set your mode, confirm your details, and start from a calmer operating system."
+      heroVisual={<RegisterHeroVisual visiblePhrase={visiblePhrase} emphasis={activePhrase.emphasis} />}
+      heroBottom={<RegisterHeroSummary />}
+      mobileHero={<AuthMobileHero label="WorkNest onboarding" title="Create your account and start with structure." phrase={visiblePhrase} emphasis={activePhrase.emphasis} />}
+      heroPanelClassName="register-brand-panel fade-in-delayed"
+      cardClassName="register-auth-card"
+      logoSubtitle="Structured signup for focused teams"
       footer={
         <p>
           Already have an account?{' '}
@@ -176,7 +237,7 @@ export default function Register() {
         </p>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-3">
         <input type="hidden" {...register('account_type')} />
 
         {formError ? (
@@ -186,9 +247,7 @@ export default function Register() {
         <div className="rounded-[22px] border border-slate-200 bg-white p-3.5 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Account type</p>
           <h3 className="mt-1.5 text-base font-semibold text-slate-950">Choose your workspace mode</h3>
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Pick the account shape that matches this signup. Google and manual registration follow the same mode.
-          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">Choose the workspace this account should open into.</p>
           <div className="mt-2.5 grid grid-cols-2 gap-2">
             <AccountTypeCard
               value="personal"
@@ -231,13 +290,13 @@ export default function Register() {
           )}
         </button>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <div className="soft-divider" />
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-soft">or</span>
           <div className="soft-divider" />
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2.5">
+        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
           <div className={`grid gap-2.5 ${isTeamAccount ? 'sm:grid-cols-2' : ''}`}>
             <div>
               <label className="mb-2 block text-sm font-semibold text-emerald-950">Full name</label>
@@ -264,7 +323,7 @@ export default function Register() {
             <div>
               <label className="mb-2 block text-sm font-semibold text-emerald-950">Phone number</label>
               <input type="text" {...register('phone_number')} className="input-field" placeholder="+254712345678" />
-              <p className="mt-2 text-xs text-soft">Use a valid number with +254 for verification and alerts.</p>
+              <p className="mt-1.5 text-xs text-soft">Use a valid number with +254 for verification and alerts.</p>
               {errors.phone_number ? <p className="mt-2 text-sm text-red-500">{errors.phone_number.message}</p> : null}
             </div>
           </div>
@@ -295,6 +354,136 @@ export default function Register() {
         </form>
       </div>
     </AuthShell>
+  )
+}
+
+function RegisterHeroVisual({ visiblePhrase, emphasis }) {
+  return (
+    <div className="space-y-4">
+      <div className="landing-typewriter-panel max-w-none">
+        <div className="landing-typewriter-label">Workspace setup</div>
+        <div className="landing-typewriter-line">
+          {renderTypedPhrase(visiblePhrase, emphasis)}
+          <span className="landing-typewriter-caret" aria-hidden="true" />
+        </div>
+      </div>
+
+      <div className="rounded-[24px] border border-slate-200 bg-white/92 px-5 py-5 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+        <div className="grid gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">What opens next</p>
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              Choose personal or team mode, confirm your details, and start in a cleaner workspace built for visible execution.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-[18px] border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+              <p className="text-sm font-semibold text-slate-950">Personal flow</p>
+              <p className="mt-1.5 text-sm leading-6 text-slate-600">Plan tasks, set timelines, and keep your own execution visible.</p>
+            </div>
+            <div className="rounded-[18px] border border-slate-200 bg-slate-50/80 px-4 py-3">
+              <p className="text-sm font-semibold text-slate-950">Team flow</p>
+              <p className="mt-1.5 text-sm leading-6 text-slate-600">Launch a shared workspace, invite members, and assign work with ownership.</p>
+            </div>
+          </div>
+
+          <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-950">Included from day one</p>
+                <p className="mt-1 text-sm text-slate-500">The account opens with the core operating layer already in place.</p>
+              </div>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                Ready
+              </span>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Identity</p>
+                <p className="mt-2 text-sm font-semibold text-slate-950">Email and phone verification</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Structure</p>
+                <p className="mt-2 text-sm font-semibold text-slate-950">Deadlines, ownership, and status</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Visibility</p>
+                <p className="mt-2 text-sm font-semibold text-slate-950">Boards, updates, and reminders</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RegisterHeroSummary() {
+  return (
+    <div className="glass-panel p-5">
+      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Workflow</p>
+      <div className="mt-3 grid gap-4 md:grid-cols-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-950">Capture</p>
+          <p className="mt-2 text-sm text-soft">Create tasks, assign owners, and set deadlines fast.</p>
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-950">Collaborate</p>
+          <p className="mt-2 text-sm text-soft">Comments, mentions, notifications, and team context stay connected.</p>
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-950">Deliver</p>
+          <p className="mt-2 text-sm text-soft">Boards, calendars, and analytics keep momentum visible.</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AuthMobileHero({ label, title, phrase, emphasis }) {
+  return (
+    <div className="register-mobile-hero fade-in">
+      <div className="stat-chip inline-flex items-center gap-2">
+        <img src="/logo_hd.png" alt="WorkNest logo" className="h-5 w-5 rounded-md object-cover" />
+        {label}
+      </div>
+      <h1 className="mt-4 font-display text-[2rem] font-bold leading-tight tracking-[-0.04em] text-slate-950">{title}</h1>
+      <div className="landing-typewriter-panel mt-4 max-w-none">
+        <div className="landing-typewriter-label">Launch mode</div>
+        <div className="landing-typewriter-line">
+          {renderTypedPhrase(phrase, emphasis)}
+          <span className="landing-typewriter-caret" aria-hidden="true" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function renderTypedPhrase(visibleText, emphasis) {
+  if (!visibleText) {
+    return <span className="text-slate-400">Launch with structure.</span>
+  }
+
+  if (!emphasis) {
+    return <span>{visibleText}</span>
+  }
+
+  const startIndex = visibleText.toLowerCase().indexOf(emphasis.toLowerCase())
+  if (startIndex === -1) {
+    return <span>{visibleText}</span>
+  }
+
+  const before = visibleText.slice(0, startIndex)
+  const highlighted = visibleText.slice(startIndex, startIndex + emphasis.length)
+  const after = visibleText.slice(startIndex + emphasis.length)
+
+  return (
+    <span>
+      {before}
+      <span className="text-emerald-700">{highlighted}</span>
+      {after}
+    </span>
   )
 }
 
