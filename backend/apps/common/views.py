@@ -61,6 +61,7 @@ class APIRootView(APIView):
 
 class HealthCheckView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = []
 
     @staticmethod
     def _json_probe_response(*, request, message: str, data: dict, status_code: int = 200) -> JsonResponse:

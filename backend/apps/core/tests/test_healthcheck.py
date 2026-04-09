@@ -3,6 +3,8 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.common.views import HealthCheckView
+
 
 class HealthCheckViewTests(TestCase):
     def test_healthcheck_returns_service_status(self) -> None:
@@ -52,3 +54,6 @@ class HealthCheckViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["data"]["version"], "v1")
         self.assertIn("/api/v1/health/", response.json()["data"]["system"]["health"])
+
+    def test_healthcheck_view_is_not_throttled(self) -> None:
+        self.assertEqual(HealthCheckView.throttle_classes, [])
