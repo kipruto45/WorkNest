@@ -138,6 +138,10 @@ export default function MyTasks() {
   }, [activeFilters])
 
   const isPersonalAccount = currentUser?.account_type === 'personal'
+  const personalWorkspaceId = useMemo(() => {
+    const personalTeam = teams.find((team) => team.is_personal)
+    return personalTeam?.id || currentUser?.default_team_id || ''
+  }, [currentUser?.default_team_id, teams])
 
   const loadTeams = useCallback(async () => {
     const response = await teamsAPI.getTeams({ page_size: 100 })
@@ -151,11 +155,11 @@ export default function MyTasks() {
         : results.find((team) => team.is_personal) || null
       setDraft((current) => ({
         ...current,
-        team_id: defaultTeam?.id || preferredTeamId || results[0]?.id || '',
+        team_id: isPersonalAccount ? '' : defaultTeam?.id || preferredTeamId || results[0]?.id || '',
         assigned_to: currentUser?.id || '',
       }))
     }
-  }, [currentUser?.default_team_id, currentUser?.id, draft.team_id])
+  }, [currentUser?.default_team_id, currentUser?.id, draft.team_id, isPersonalAccount])
 
   const loadTemplates = useCallback(async (teamId = '') => {
     const response = await tasksAPI.getTemplates(teamId ? { team: teamId, page_size: 50 } : { page_size: 50 })
@@ -196,10 +200,13 @@ export default function MyTasks() {
   }, [activeFilters, activeViewKey, loadTasks, loading])
 
   useEffect(() => {
-    if (draft.team_id) {
-      loadTemplates(draft.team_id).catch(() => setTemplates([]))
+    const templateTeamId = isPersonalAccount ? personalWorkspaceId : draft.team_id
+    if (templateTeamId) {
+      loadTemplates(templateTeamId).catch(() => setTemplates([]))
+    } else {
+      setTemplates([])
     }
-  }, [draft.team_id, loadTemplates])
+  }, [draft.team_id, isPersonalAccount, loadTemplates, personalWorkspaceId])
 
   useEffect(() => {
     const loadMembers = async () => {
@@ -229,9 +236,10 @@ export default function MyTasks() {
     })
   }, [focusMode, tasks])
 
-  const resolvedWorkspaceId = draft.team_id || currentUser?.default_team_id || teams[0]?.id || ''
-  const resolvedWorkspaceName =
-    teams.find((team) => String(team.id) === String(resolvedWorkspaceId))?.name || (isPersonalAccount ? 'Personal workspace' : 'Workspace')
+  const resolvedWorkspaceId = isPersonalAccount ? '' : draft.team_id || currentUser?.default_team_id || teams[0]?.id || ''
+  const resolvedWorkspaceName = isPersonalAccount
+    ? teams.find((team) => String(team.id) === String(personalWorkspaceId))?.name || 'Personal workspace'
+    : teams.find((team) => String(team.id) === String(resolvedWorkspaceId))?.name || 'Workspace'
 
   const stats = useMemo(() => {
     const completed = tasks.filter((task) => task.status === 'done').length
@@ -256,7 +264,7 @@ export default function MyTasks() {
 
     setDraft({
       ...initialDraft,
-      team_id: preferredWorkspaceId,
+      team_id: isPersonalAccount ? '' : preferredWorkspaceId,
       assigned_to: currentUser?.id || '',
     })
     setShowComposer(true)
@@ -412,7 +420,7 @@ export default function MyTasks() {
         .filter(Boolean)
         .join('\n\n')
       const taskPayload = {
-        ...(resolvedWorkspaceId ? { team_id: resolvedWorkspaceId } : {}),
+        ...(!isPersonalAccount && resolvedWorkspaceId ? { team_id: resolvedWorkspaceId } : {}),
         title: draft.title.trim(),
         description: combinedDescription,
         priority: draft.priority,
@@ -434,23 +442,28 @@ export default function MyTasks() {
         createTask(taskPayload)
       ).unwrap()
 
+      const templateWorkspaceId = isPersonalAccount ? personalWorkspaceId : resolvedWorkspaceId
       if (draft.save_as_template && draft.template_name.trim()) {
-        setTemplateCreating(true)
-        await tasksAPI.createTemplate({
-          team_id: resolvedWorkspaceId,
-          name: draft.template_name.trim(),
-          title: draft.title.trim(),
-          description: draft.description.trim(),
-          priority: draft.priority,
-          estimated_minutes: draft.estimated_minutes ? Number(draft.estimated_minutes) : null,
-          planned_offset_days: daysFromToday(draft.planned_for_date),
-          due_offset_days: daysFromToday(draft.due_date),
-          blocked_reason: draft.blocked_reason.trim(),
-          recurrence_pattern: draft.recurrence_pattern,
-          recurrence_interval: Number(draft.recurrence_interval || 1),
-          assigned_to: draft.assigned_to || null,
-        })
-        await loadTemplates(resolvedWorkspaceId)
+        if (!templateWorkspaceId) {
+          toast.error('Your workspace template library is unavailable right now.')
+        } else {
+          setTemplateCreating(true)
+          await tasksAPI.createTemplate({
+            team_id: templateWorkspaceId,
+            name: draft.template_name.trim(),
+            title: draft.title.trim(),
+            description: draft.description.trim(),
+            priority: draft.priority,
+            estimated_minutes: draft.estimated_minutes ? Number(draft.estimated_minutes) : null,
+            planned_offset_days: daysFromToday(draft.planned_for_date),
+            due_offset_days: daysFromToday(draft.due_date),
+            blocked_reason: draft.blocked_reason.trim(),
+            recurrence_pattern: draft.recurrence_pattern,
+            recurrence_interval: Number(draft.recurrence_interval || 1),
+            assigned_to: !isPersonalAccount && draft.assigned_to ? draft.assigned_to : null,
+          })
+          await loadTemplates(templateWorkspaceId)
+        }
       }
 
       toast.success(

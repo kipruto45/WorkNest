@@ -48,6 +48,29 @@ class SMSServiceTests(TestCase):
         self.assertEqual(delivery.status, SMSDelivery.Status.SENT)
         self.assertEqual(delivery.provider, "africas_talking")
 
+    @override_settings(SMS_PROVIDER="celcom", CELERY_TASK_ALWAYS_EAGER=False)
+    @patch(
+        "apps.integrations.sms.services.deliver_sms_message",
+        return_value={"provider": "celcom", "message_id": "msg-celcom-1", "status": "sent"},
+    )
+    @patch("apps.integrations.sms.services.threading.Thread")
+    def test_queue_sms_can_force_immediate_celcom_delivery(self, thread_mock, _deliver_sms_message) -> None:
+        with self.captureOnCommitCallbacks(execute=True):
+            delivery = queue_sms(
+                user=self.user,
+                phone_number=self.user.phone_number,
+                message_type="phone_verification",
+                message_body="Your verification code is 123456.",
+                dedupe_key="sms:test:immediate",
+                force=True,
+                deliver_immediately=True,
+            )
+
+        delivery.refresh_from_db()
+        thread_mock.assert_not_called()
+        self.assertEqual(delivery.status, SMSDelivery.Status.SENT)
+        self.assertEqual(delivery.provider, "celcom")
+
     def test_queue_sms_skips_delivery_when_user_opted_out(self) -> None:
         self.user.sms_opt_in = False
         self.user.save(update_fields=["sms_opt_in", "updated_at"])

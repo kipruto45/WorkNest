@@ -8,7 +8,8 @@ from django.test import TestCase, override_settings
 
 from apps.attachments.tests.utils import TemporaryMediaRootMixin
 from apps.integrations.storage.local import LocalStorageProvider
-from apps.integrations.storage.services import generate_private_file_url
+from apps.integrations.storage.services import generate_private_file_url, get_storage_provider, using_supabase_s3_storage
+from apps.integrations.storage.supabase_s3 import SupabaseS3StorageProvider
 
 
 class LocalStorageProviderTests(TemporaryMediaRootMixin, TestCase):
@@ -47,3 +48,20 @@ class SupabaseStorageServiceTests(TestCase):
             )
 
         self.assertEqual(url, "https://example.com/signed")
+
+
+@override_settings(
+    ATTACHMENTS_STORAGE_BACKEND="supabase_s3",
+    SUPABASE_S3_ENDPOINT="https://project.storage.supabase.co/storage/v1/s3",
+    SUPABASE_S3_REGION="eu-west-1",
+    SUPABASE_S3_ACCESS_KEY_ID="access-key",
+    SUPABASE_S3_SECRET_ACCESS_KEY="secret-key",
+    SUPABASE_S3_BUCKET="attachments",
+    SUPABASE_S3_FORCE_PATH_STYLE=True,
+)
+class SupabaseS3StorageServiceTests(TestCase):
+    def test_storage_provider_switches_to_supabase_s3(self) -> None:
+        provider = get_storage_provider()
+
+        self.assertIsInstance(provider, SupabaseS3StorageProvider)
+        self.assertTrue(using_supabase_s3_storage())

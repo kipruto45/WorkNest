@@ -24,6 +24,7 @@ env = environ.Env(
     REFRESH_TOKEN_LIFETIME_DAYS=(int, 7),
     DEFAULT_FROM_EMAIL=(str, "no-reply@example.com"),
     EMAIL_FROM_NAME=(str, "WorkNest"),
+    ADMIN_EMAIL=(str, ""),
     EMAIL_PROVIDER=(str, "smtp"),
     EMAIL_DELIVERY_MODE=(str, "sync"),
     EMAIL_BACKEND=(str, "django.core.mail.backends.console.EmailBackend"),
@@ -83,6 +84,7 @@ env = environ.Env(
     STATIC_URL=(str, "/static/"),
     MEDIA_URL=(str, "/media/"),
     FILES_URL=(str, "/files/"),
+    STORAGE_PROVIDER=(str, ""),
     ATTACHMENTS_STORAGE_BACKEND=(str, "local"),
     ATTACHMENTS_MAX_FILE_SIZE=(int, 10 * 1024 * 1024),
     ATTACHMENTS_SUPABASE_BUCKET=(str, "task-attachments"),
@@ -94,6 +96,13 @@ env = environ.Env(
     DB_PORT=(str, "5432"),
     DB_SSL_MODE=(str, ""),
     SUPABASE_SERVICE_ROLE_KEY=(str, ""),
+    SUPABASE_S3_ENDPOINT=(str, ""),
+    SUPABASE_S3_REGION=(str, "eu-west-1"),
+    SUPABASE_S3_ACCESS_KEY_ID=(str, ""),
+    SUPABASE_S3_SECRET_ACCESS_KEY=(str, ""),
+    SUPABASE_S3_BUCKET=(str, ""),
+    SUPABASE_S3_FORCE_PATH_STYLE=(bool, True),
+    SUPABASE_S3_SIGNED_URL_TTL=(int, 300),
     SUPABASE_TIMEOUT=(int, 30),
 )
 
@@ -119,6 +128,16 @@ def _merge_unique_strings(*groups: list[str]) -> list[str]:
             seen.add(candidate)
             results.append(candidate)
     return results
+
+
+def _derive_supabase_base_url_from_s3_endpoint(value: str) -> str:
+    candidate = str(value or "").strip().rstrip("/")
+    if not candidate:
+        return ""
+    suffix = "/storage/v1/s3"
+    if candidate.endswith(suffix):
+        return candidate[: -len(suffix)]
+    return candidate
 
 
 def build_database_config() -> dict:
@@ -389,6 +408,7 @@ else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 EMAIL_FROM_NAME = env("EMAIL_FROM_NAME")
 DEFAULT_FROM_EMAIL = formataddr((EMAIL_FROM_NAME, env("DEFAULT_FROM_EMAIL")))
+ADMIN_EMAIL = env("ADMIN_EMAIL", default="").strip()
 EMAIL_HOST = env("SMTP_HOST") or env("EMAIL_HOST")
 EMAIL_PORT = env("SMTP_PORT") or env("EMAIL_PORT")
 EMAIL_HOST_USER = env("SMTP_USERNAME") or env("EMAIL_HOST_USER")
@@ -400,15 +420,25 @@ SENDGRID_API_KEY = env("SENDGRID_API_KEY")
 GOOGLE_OAUTH_CLIENT_ID = env("GOOGLE_OAUTH_CLIENT_ID", default=env("GOOGLE_CLIENT_ID", default=""))
 GOOGLE_OAUTH_CLIENT_SECRET = env("GOOGLE_OAUTH_CLIENT_SECRET", default=env("GOOGLE_CLIENT_SECRET", default=""))
 GOOGLE_REDIRECT_URI = env("GOOGLE_REDIRECT_URI", default="")
-SUPABASE_URL = env("SUPABASE_URL", default="")
+SUPABASE_S3_ENDPOINT = env("SUPABASE_S3_ENDPOINT", default="")
+SUPABASE_S3_REGION = env("SUPABASE_S3_REGION", default="eu-west-1")
+SUPABASE_S3_ACCESS_KEY_ID = env("SUPABASE_S3_ACCESS_KEY_ID", default="")
+SUPABASE_S3_SECRET_ACCESS_KEY = env("SUPABASE_S3_SECRET_ACCESS_KEY", default="")
+SUPABASE_S3_BUCKET = env("SUPABASE_S3_BUCKET", default="")
+SUPABASE_S3_FORCE_PATH_STYLE = env("SUPABASE_S3_FORCE_PATH_STYLE", default=True)
+SUPABASE_S3_SIGNED_URL_TTL = env("SUPABASE_S3_SIGNED_URL_TTL", default=300)
+SUPABASE_URL = env("SUPABASE_URL", default=_derive_supabase_base_url_from_s3_endpoint(SUPABASE_S3_ENDPOINT))
 SUPABASE_SERVICE_ROLE_KEY = env("SUPABASE_SERVICE_ROLE_KEY", default="")
 SUPABASE_KEY = env("SUPABASE_KEY", default=SUPABASE_SERVICE_ROLE_KEY)
 SUPABASE_ANON_KEY = env("SUPABASE_ANON_KEY", default="")
 SUPABASE_TIMEOUT = env("SUPABASE_TIMEOUT")
-ATTACHMENTS_STORAGE_BACKEND = env("ATTACHMENTS_STORAGE_BACKEND")
+ATTACHMENTS_STORAGE_BACKEND = env(
+    "ATTACHMENTS_STORAGE_BACKEND",
+    default=env("STORAGE_PROVIDER", default="local"),
+).strip().lower() or "local"
 ATTACHMENTS_MAX_FILE_SIZE = env("ATTACHMENTS_MAX_FILE_SIZE")
-ATTACHMENTS_SUPABASE_BUCKET = env("ATTACHMENTS_SUPABASE_BUCKET")
-ATTACHMENTS_SIGNED_URL_TTL = env("ATTACHMENTS_SIGNED_URL_TTL")
+ATTACHMENTS_SUPABASE_BUCKET = env("ATTACHMENTS_SUPABASE_BUCKET", default=SUPABASE_S3_BUCKET or "task-attachments")
+ATTACHMENTS_SIGNED_URL_TTL = env("ATTACHMENTS_SIGNED_URL_TTL", default=SUPABASE_S3_SIGNED_URL_TTL)
 
 LOGGING = {
     "version": 1,

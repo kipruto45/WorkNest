@@ -9,6 +9,7 @@ from apps.integrations.constants import (
     SMS_PROVIDER_CELCOM,
     STORAGE_PROVIDER_LOCAL,
     STORAGE_PROVIDER_SUPABASE,
+    STORAGE_PROVIDER_SUPABASE_S3,
 )
 from apps.integrations.exceptions import IntegrationConfigurationError, OAuthValidationFailedError
 from apps.integrations.email.services import (
@@ -31,6 +32,7 @@ from apps.integrations.storage.services import (
     get_storage_provider,
     open_storage_file,
     upload_file_to_storage,
+    using_supabase_s3_storage,
 )
 from apps.integrations.supabase.client import SupabaseClient
 from apps.integrations.supabase.storage import SupabaseStorageClient
@@ -54,12 +56,22 @@ def validate_integrations_configuration() -> dict:
     elif sms_provider == SMS_PROVIDER_CELCOM:
         ensure_required_settings(setting_names=["CELCOM_PARTNER_ID", "CELCOM_API_KEY", "CELCOM_SHORTCODE"])
 
-    if storage_provider == STORAGE_PROVIDER_SUPABASE:
-        ensure_required_settings(setting_names=["SUPABASE_URL", "ATTACHMENTS_SUPABASE_BUCKET"])
-        if not getattr(settings, "SUPABASE_KEY", "") and not getattr(settings, "SUPABASE_SERVICE_ROLE_KEY", ""):
-            raise IntegrationConfigurationError(
-                "Supabase storage requires SUPABASE_KEY or SUPABASE_SERVICE_ROLE_KEY."
+    if storage_provider in {STORAGE_PROVIDER_SUPABASE, STORAGE_PROVIDER_SUPABASE_S3}:
+        if using_supabase_s3_storage(storage_provider):
+            ensure_required_settings(
+                setting_names=[
+                    "SUPABASE_S3_ENDPOINT",
+                    "SUPABASE_S3_ACCESS_KEY_ID",
+                    "SUPABASE_S3_SECRET_ACCESS_KEY",
+                    "SUPABASE_S3_BUCKET",
+                ]
             )
+        else:
+            ensure_required_settings(setting_names=["SUPABASE_URL", "ATTACHMENTS_SUPABASE_BUCKET"])
+            if not getattr(settings, "SUPABASE_KEY", "") and not getattr(settings, "SUPABASE_SERVICE_ROLE_KEY", ""):
+                raise IntegrationConfigurationError(
+                    "Supabase storage requires SUPABASE_KEY or SUPABASE_SERVICE_ROLE_KEY."
+                )
     elif storage_provider == STORAGE_PROVIDER_LOCAL:
         ensure_required_settings(setting_names=["MEDIA_URL"])
 

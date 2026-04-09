@@ -32,6 +32,19 @@ export default function Profile() {
       const response = await usersAPI.getProfile()
       const data = unwrapData(response)
       setProfile(data)
+      const shouldSyncAppUser =
+        data &&
+        (!currentUser ||
+          currentUser.id !== data.id ||
+          currentUser.avatar !== data.avatar ||
+          currentUser.name !== data.name ||
+          currentUser.first_name !== data.first_name ||
+          currentUser.last_name !== data.last_name ||
+          currentUser.bio !== data.bio)
+      if (shouldSyncAppUser) {
+        persistCurrentUser(data)
+        dispatch(setUser(data))
+      }
       setAvatarFile(null)
       if (avatarPreview) {
         URL.revokeObjectURL(avatarPreview)
@@ -49,7 +62,17 @@ export default function Profile() {
     } finally {
       setLoading(false)
     }
-  }, [avatarPreview, currentUser, reset])
+  }, [
+    avatarPreview,
+    currentUser?.avatar,
+    currentUser?.bio,
+    currentUser?.first_name,
+    currentUser?.id,
+    currentUser?.last_name,
+    currentUser?.name,
+    dispatch,
+    reset,
+  ])
 
   useEffect(() => {
     loadProfile()

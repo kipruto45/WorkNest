@@ -513,6 +513,7 @@ def request_phone_verification(*, user, actor=None) -> PhoneVerificationCode:
         dedupe_key=f"phone-verification:{user.id}:{verification.code}",
         actor=actor or user,
         force=True,
+        deliver_immediately=True,
         source="authentication.phone_verification",
     )
     _ensure_sms_delivery_succeeded(
@@ -640,6 +641,7 @@ def request_phone_change(*, user, new_phone_number: str, phone_country_code: str
         dedupe_key=f"credential-change-phone:{user.id}:{change_request.code}",
         actor=actor or user,
         force=True,
+        deliver_immediately=True,
         source="authentication.credential_change_phone",
     )
     _ensure_sms_delivery_succeeded(

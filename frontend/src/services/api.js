@@ -50,6 +50,8 @@ const shouldSkipAuthRefresh = (config) => {
   return PUBLIC_AUTH_PATH_PREFIXES.some((prefix) => requestPath.includes(prefix))
 }
 
+const shouldAttachAuthHeader = (config) => !shouldSkipAuthRefresh(config)
+
 const redirectToLogin = () => {
   const currentPath = `${window.location.pathname || ''}${window.location.search || ''}`
   const next = currentPath && !currentPath.startsWith('/login') ? `?next=${encodeURIComponent(currentPath)}` : ''
@@ -74,8 +76,11 @@ api.interceptors.request.use((config) => {
     config.url = normalizedUrl
   }
   const token = localStorage.getItem(CLIENT_STORAGE_KEYS.sessionAccess)
-  if (token) {
+  if (token && shouldAttachAuthHeader(config)) {
+    config.headers = config.headers ?? {}
     config.headers.Authorization = `Bearer ${token}`
+  } else if (config.headers?.Authorization) {
+    delete config.headers.Authorization
   }
   return config
 })

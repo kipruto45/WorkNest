@@ -281,12 +281,12 @@ def _deliver_email_inline(*, payload: QueuedEmailPayload, delivery: EmailDeliver
     return delivery
 
 
-def queue_email(*, payload: QueuedEmailPayload, actor=None, user=None) -> EmailDelivery:
+def queue_email(*, payload: QueuedEmailPayload, actor=None, user=None, force: bool = False, deliver_immediately: bool = False) -> EmailDelivery:
     existing = _find_existing_delivery(dedupe_key=payload.dedupe_key)
     if existing is not None:
         return existing
 
-    if _should_skip_email(user=user, email_type=payload.email_type):
+    if not force and _should_skip_email(user=user, email_type=payload.email_type):
         delivery = _create_delivery_record(
             payload=payload,
             status=EmailDelivery.Status.SKIPPED,
@@ -298,6 +298,9 @@ def queue_email(*, payload: QueuedEmailPayload, actor=None, user=None) -> EmailD
     delivery = _create_delivery_record(payload=payload)
 
     def on_commit() -> None:
+        if deliver_immediately:
+            _deliver_email_inline(payload=payload, delivery=delivery)
+            return
         _schedule_email_delivery(payload=payload, delivery=delivery)
 
     if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) or not connection.in_atomic_block:
@@ -365,6 +368,8 @@ def queue_email_verification_email(*, user, verification_url: str, actor=None) -
         payload=build_email_verification_email_payload(user=user, verification_url=verification_url),
         actor=actor or user,
         user=user,
+        force=True,
+        deliver_immediately=True,
     )
 
 
@@ -373,6 +378,8 @@ def queue_credential_change_email(*, user, new_email: str, code: str, actor=None
         payload=build_credential_change_email_payload(user=user, new_email=new_email, code=code),
         actor=actor or user,
         user=user,
+        force=True,
+        deliver_immediately=True,
     )
 
 

@@ -423,9 +423,10 @@ class TaskCreateSerializer(serializers.Serializer):
     def validate(self, attrs):
         request_user = self.context["request"].user
         team_id = attrs.get("team_id")
-        team = Team.objects.filter(pk=team_id).first() if team_id else None
-        if team is None and getattr(request_user, "account_type", User.AccountType.PERSONAL) == User.AccountType.PERSONAL:
-            membership = (
+        is_personal_account = getattr(request_user, "account_type", User.AccountType.PERSONAL) == User.AccountType.PERSONAL
+        personal_membership = None
+        if is_personal_account:
+            personal_membership = (
                 Membership.objects.select_related("team")
                 .filter(
                     user=request_user,
@@ -436,16 +437,24 @@ class TaskCreateSerializer(serializers.Serializer):
                 .order_by("team__created_at")
                 .first()
             )
-            team = membership.team if membership else None
 
-        if not team:
-            raise serializers.ValidationError({"team_id": "Selected team does not exist."})
+        team = Team.objects.filter(pk=team_id, is_archived=False).first() if team_id else None
+        membership = None
+        if team is not None:
+            membership = Membership.objects.filter(
+                team=team,
+                user=request_user,
+                status=Membership.Status.ACTIVE,
+            ).first()
 
-        membership = Membership.objects.filter(
-            team=team,
-            user=request_user,
-            status=Membership.Status.ACTIVE,
-        ).first()
+        if team is None or membership is None:
+            if personal_membership is not None:
+                team = personal_membership.team
+                membership = personal_membership
+                attrs["team_id"] = team.id
+            elif team is None:
+                raise serializers.ValidationError({"team_id": "Selected team does not exist."})
+
         if not membership:
             raise serializers.ValidationError({"team_id": "You are not a member of this team."})
 

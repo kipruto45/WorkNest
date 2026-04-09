@@ -38,6 +38,10 @@ def _get_support_email() -> str:
     return getattr(settings, "SUPPORT_EMAIL", getattr(settings, "DEFAULT_FROM_EMAIL", "support@example.com"))
 
 
+def _get_admin_sender_email() -> str:
+    return str(getattr(settings, "ADMIN_EMAIL", "") or getattr(settings, "DEFAULT_FROM_EMAIL", "") or "").strip()
+
+
 def _is_local_hostname(hostname: str | None) -> bool:
     normalized = (hostname or "").strip().lower()
     return normalized in {"", "localhost", "127.0.0.1", "0.0.0.0"} or normalized.endswith(".local")
@@ -217,6 +221,7 @@ def _build_job(
     related_object_id: str = "",
     provider_metadata: dict[str, Any] | None = None,
     headers: dict[str, str] | None = None,
+    from_email: str | None = None,
 ) -> QueuedEmailPayload:
     return QueuedEmailPayload(
         email_type=email_type,
@@ -225,6 +230,7 @@ def _build_job(
         subject=subject,
         context=context,
         metadata=metadata or {},
+        from_email=from_email,
         dedupe_key=dedupe_key,
         source=source,
         related_object_type=related_object_type,
@@ -332,6 +338,7 @@ def build_email_verification_email_payload(*, user, verification_url: str) -> Qu
         recipient_email=user.email,
         subject="Verify your email address",
         context=context,
+        from_email=_get_admin_sender_email(),
         metadata={"user_id": str(user.id)},
         dedupe_key=f"email-verification:{user.id}",
         source="authentication.email_verification",
@@ -370,6 +377,7 @@ def build_credential_change_email_payload(*, user, new_email: str, code: str) ->
         recipient_email=new_email,
         subject="Confirm your new email address",
         context=context,
+        from_email=_get_admin_sender_email(),
         metadata={"user_id": str(user.id), "new_email": new_email},
         source="authentication.credential_change_email",
         related_object_type="user",

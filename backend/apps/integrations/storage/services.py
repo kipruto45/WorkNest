@@ -2,19 +2,39 @@ from __future__ import annotations
 
 from django.conf import settings
 
-from apps.integrations.constants import DEFAULT_STORAGE_PROVIDER, STORAGE_PROVIDER_LOCAL, STORAGE_PROVIDER_SUPABASE
+from apps.integrations.constants import (
+    DEFAULT_STORAGE_PROVIDER,
+    STORAGE_PROVIDER_LOCAL,
+    STORAGE_PROVIDER_SUPABASE,
+    STORAGE_PROVIDER_SUPABASE_S3,
+)
 from apps.integrations.storage.local import LocalStorageProvider
 from apps.integrations.storage.supabase import SupabaseStorageProvider
+from apps.integrations.storage.supabase_s3 import SupabaseS3StorageProvider
 from apps.integrations.validators import validate_provider_name
+
+
+def using_supabase_s3_storage(provider_name: str | None = None) -> bool:
+    configured_provider = str(provider_name or getattr(settings, "ATTACHMENTS_STORAGE_BACKEND", DEFAULT_STORAGE_PROVIDER)).strip().lower()
+    if configured_provider == STORAGE_PROVIDER_SUPABASE_S3:
+        return True
+    return bool(
+        configured_provider == STORAGE_PROVIDER_SUPABASE
+        and getattr(settings, "SUPABASE_S3_ENDPOINT", "")
+        and getattr(settings, "SUPABASE_S3_ACCESS_KEY_ID", "")
+        and getattr(settings, "SUPABASE_S3_SECRET_ACCESS_KEY", "")
+    )
 
 
 def get_storage_provider(provider_name: str | None = None, *, bucket: str | None = None):
     resolved_provider = validate_provider_name(
         provider_name=provider_name or getattr(settings, "ATTACHMENTS_STORAGE_BACKEND", DEFAULT_STORAGE_PROVIDER),
-        supported_providers={STORAGE_PROVIDER_LOCAL, STORAGE_PROVIDER_SUPABASE},
+        supported_providers={STORAGE_PROVIDER_LOCAL, STORAGE_PROVIDER_SUPABASE, STORAGE_PROVIDER_SUPABASE_S3},
         provider_kind="storage",
     )
-    if resolved_provider == STORAGE_PROVIDER_SUPABASE:
+    if resolved_provider in {STORAGE_PROVIDER_SUPABASE, STORAGE_PROVIDER_SUPABASE_S3}:
+        if using_supabase_s3_storage(resolved_provider):
+            return SupabaseS3StorageProvider(bucket=bucket)
         return SupabaseStorageProvider(bucket=bucket)
     return LocalStorageProvider()
 

@@ -1,28 +1,17 @@
 from __future__ import annotations
 
-import json
 import os
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
-from apps.attachments.storage import LocalAttachmentStorageProvider, SupabaseAttachmentStorageProvider
+from apps.attachments.storage import (
+    LocalAttachmentStorageProvider,
+    SupabaseAttachmentStorageProvider,
+    SupabaseS3AttachmentStorageProvider,
+)
 from apps.attachments.tests.utils import TemporaryMediaRootMixin
-
-
-class DummyResponse:
-    def __init__(self, payload: dict[str, str]) -> None:
-        self.payload = payload
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        return False
-
-    def read(self):
-        return json.dumps(self.payload).encode("utf-8")
 
 
 class LocalAttachmentStorageProviderTests(TemporaryMediaRootMixin, TestCase):
@@ -52,9 +41,9 @@ class SupabaseAttachmentStorageProviderTests(TestCase):
         provider = SupabaseAttachmentStorageProvider()
 
         with patch.object(
-            provider,
-            "_request",
-            return_value=DummyResponse({"signedURL": "/storage/v1/object/sign/attachments/tasks/file.pdf?token=test"}),
+            provider.client,
+            "create_signed_url",
+            return_value="https://example.supabase.co/storage/v1/object/sign/attachments/tasks/file.pdf?token=test&download=file.pdf",
         ):
             url = provider.generate_download_url(
                 file_path="tasks/file.pdf",
@@ -64,3 +53,26 @@ class SupabaseAttachmentStorageProviderTests(TestCase):
 
         self.assertIn("token=test", url)
         self.assertIn("download=file.pdf", url)
+
+
+@override_settings(
+    SUPABASE_S3_ENDPOINT="https://project.storage.supabase.co/storage/v1/s3",
+    SUPABASE_S3_REGION="eu-west-1",
+    SUPABASE_S3_ACCESS_KEY_ID="access-key",
+    SUPABASE_S3_SECRET_ACCESS_KEY="secret-key",
+    SUPABASE_S3_BUCKET="attachments",
+    SUPABASE_S3_FORCE_PATH_STYLE=True,
+)
+class SupabaseS3AttachmentStorageProviderTests(TestCase):
+    def test_generate_download_url_includes_signed_s3_parameters(self) -> None:
+        provider = SupabaseS3AttachmentStorageProvider()
+
+        url = provider.generate_download_url(
+            file_path="tasks/file.pdf",
+            expires_in=300,
+            download_filename="file.pdf",
+        )
+
+        self.assertIn("X-Amz-Algorithm=AWS4-HMAC-SHA256", url)
+        self.assertIn("/storage/v1/s3/attachments/tasks/file.pdf", url)
+        self.assertIn("response-content-disposition=attachment", url)

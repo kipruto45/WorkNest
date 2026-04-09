@@ -14,6 +14,7 @@ from apps.integrations.email.base import EmailMessagePayload
 from apps.integrations.email.builders import (
     build_attachment_uploaded_email_payload,
     build_comment_posted_email_payload,
+    build_credential_change_email_payload,
     build_deadline_approaching_email_payload,
     build_invitation_accepted_email_payload,
     build_invitation_reminder_email_payload,
@@ -29,6 +30,7 @@ from apps.integrations.email.builders import (
 from apps.integrations.email.sendgrid import SendGridEmailProvider
 from apps.integrations.email.services import (
     get_email_provider,
+    queue_credential_change_email,
     queue_notification_email,
     queue_password_reset_email,
     queue_team_invite_email,
@@ -102,6 +104,30 @@ class EmailWorkflowTests(TestCase):
         self.assertNotIn("<html", mail.outbox[0].body.lower())
         self.assertIn("reset-password?uid=test&token=abc", mail.outbox[0].body)
         self.assertEqual(len(mail.outbox[0].alternatives), 1)
+
+    @override_settings(ADMIN_EMAIL="admin@example.com")
+    def test_credential_change_email_payload_uses_admin_sender(self) -> None:
+        payload = build_credential_change_email_payload(user=self.member, new_email="new@example.com", code="123456")
+
+        self.assertEqual(payload.from_email, "admin@example.com")
+
+    @override_settings(EMAIL_DELIVERY_MODE="async", ADMIN_EMAIL="admin@example.com")
+    def test_credential_change_email_is_sent_immediately_even_when_async_delivery_is_enabled(self) -> None:
+        self.member.notification_preferences = {"channels": {"email": {"credential_change_verification": False}}}
+        self.member.save(update_fields=["notification_preferences", "updated_at"])
+
+        delivery = queue_credential_change_email(
+            user=self.member,
+            new_email="new-login@example.com",
+            code="654321",
+            actor=self.owner,
+        )
+        delivery.refresh_from_db()
+
+        self.assertEqual(delivery.status, EmailDelivery.Status.SENT)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].from_email, "admin@example.com")
+        self.assertIn("654321", mail.outbox[0].body)
 
     def test_team_invitation_email_is_queued_and_uses_modern_template(self) -> None:
         invitation = TeamInvitation.objects.create(

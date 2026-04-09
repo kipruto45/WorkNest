@@ -5,6 +5,7 @@ import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import Layout from './components/Layout'
 import { hydrateCurrentUser } from './features/authSlice'
+import { resolvePostAuthPath } from './utils/authRouting'
 import { applyThemePreference } from './utils/theme'
 
 const Login = lazy(() => import('./pages/Login'))
@@ -58,6 +59,20 @@ function PrivateRoute({ children }) {
     return <RouteFallback />
   }
   return token ? children : <Navigate to="/login" replace />
+}
+
+function GuestRoute({ children }) {
+  const { token, user, hydrating, bootstrapped } = useSelector((state) => state.auth)
+
+  if (token && (!bootstrapped || hydrating)) {
+    return <RouteFallback />
+  }
+
+  if (token) {
+    return <Navigate to={resolvePostAuthPath({ nextPath: '/dashboard', user })} replace />
+  }
+
+  return children
 }
 
 function AdminRoute({ children }) {
@@ -126,8 +141,22 @@ function App() {
           <Route path="/security" element={<SecurityPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/support" element={<SupportPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route
+            path="/login"
+            element={
+              <GuestRoute>
+                <Login />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <GuestRoute>
+                <Register />
+              </GuestRoute>
+            }
+          />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<EmailVerificationStatus />} />

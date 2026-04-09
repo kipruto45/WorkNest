@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.http import HttpResponseRedirect
 from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import extend_schema, inline_serializer
-from rest_framework import permissions, status
+from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework import serializers
 from rest_framework.views import APIView
@@ -14,6 +14,7 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 logger = logging.getLogger(__name__)
 
+from apps.authentication.authentication import LenientJWTAuthentication
 from apps.authentication.permissions import AuthEntryPointPermission, AuthenticatedSessionPermission
 from apps.authentication.adapter import build_google_callback_url, build_google_login_url
 from apps.authentication.serializers import (
@@ -59,6 +60,11 @@ from apps.integrations.email.builders import _get_frontend_url
 from apps.users.serializers import CurrentUserSerializer
 
 User = get_user_model()
+
+
+class PublicAuthAPIView(APIView):
+    authentication_classes = [LenientJWTAuthentication]
+    permission_classes = [AuthEntryPointPermission]
 
 
 def _serialize_authenticated_user(user) -> dict:
@@ -125,8 +131,7 @@ def build_auth_response_payload(*, user, token_payload: dict, refresh_cookie_set
     }
 
 
-class RegisterView(APIView):
-    permission_classes = [AuthEntryPointPermission]
+class RegisterView(PublicAuthAPIView):
     throttle_classes = [RegisterThrottle]
 
     @extend_schema(request=RegisterSerializer, responses=AuthTokenResponseSerializer)
@@ -163,8 +168,7 @@ class RegisterView(APIView):
         return response
 
 
-class LoginView(APIView):
-    permission_classes = [AuthEntryPointPermission]
+class LoginView(PublicAuthAPIView):
     throttle_classes = [LoginThrottle]
 
     @extend_schema(request=LoginSerializer, responses=AuthTokenResponseSerializer)
@@ -222,8 +226,7 @@ class LogoutView(APIView):
         return response
 
 
-class RefreshTokenView(APIView):
-    permission_classes = [AuthEntryPointPermission]
+class RefreshTokenView(PublicAuthAPIView):
 
     @extend_schema(request=RefreshTokenSerializer, responses=AuthTokenResponseSerializer)
     def post(self, request, *args, **kwargs):  # type: ignore[override]
@@ -257,8 +260,7 @@ class RefreshTokenView(APIView):
         return response
 
 
-class PasswordResetRequestView(APIView):
-    permission_classes = [AuthEntryPointPermission]
+class PasswordResetRequestView(PublicAuthAPIView):
     throttle_classes = [PasswordResetThrottle]
 
     @extend_schema(request=PasswordResetRequestSerializer, responses=None)
@@ -273,8 +275,7 @@ class PasswordResetRequestView(APIView):
         )
 
 
-class PasswordResetConfirmView(APIView):
-    permission_classes = [AuthEntryPointPermission]
+class PasswordResetConfirmView(PublicAuthAPIView):
     throttle_classes = [PasswordResetThrottle]
 
     @extend_schema(request=PasswordResetConfirmSerializer, responses=None)
@@ -304,8 +305,7 @@ class MeView(APIView):
         )
 
 
-class EmailVerificationView(APIView):
-    permission_classes = [AuthEntryPointPermission]
+class EmailVerificationView(PublicAuthAPIView):
 
     @extend_schema(request=EmailVerificationRequestSerializer, responses=CurrentUserSerializer)
     def post(self, request, *args, **kwargs):  # type: ignore[override]
@@ -363,8 +363,7 @@ class SessionDetailView(APIView):
         )
 
 
-class GoogleOAuthConfigView(APIView):
-    permission_classes = [AuthEntryPointPermission]
+class GoogleOAuthConfigView(PublicAuthAPIView):
 
     @extend_schema(responses=GoogleOAuthConfigSerializer)
     def get(self, request, *args, **kwargs):  # type: ignore[override]
@@ -411,8 +410,7 @@ class GoogleOAuthConfigView(APIView):
             )
 
 
-class GoogleLoginView(APIView):
-    permission_classes = [AuthEntryPointPermission]
+class GoogleLoginView(PublicAuthAPIView):
 
     @extend_schema(responses=GoogleOAuthLoginSerializer)
     def get(self, request, *args, **kwargs):  # type: ignore[override]
@@ -458,8 +456,7 @@ class GoogleLoginView(APIView):
         )
 
 
-class GoogleOAuthCallbackView(APIView):
-    permission_classes = [AuthEntryPointPermission]
+class GoogleOAuthCallbackView(PublicAuthAPIView):
 
     def get(self, request, *args, **kwargs):  # type: ignore[override]
         error = request.query_params.get("error")
@@ -477,13 +474,12 @@ class GoogleOAuthCallbackView(APIView):
         return handle_google_oauth_callback(request)
 
 
-class GoogleAuthView(APIView):
+class GoogleAuthView(PublicAuthAPIView):
     """
     POST /api/v1/auth/google/
     
     Receive Google ID token from frontend, verify it, and issue JWT tokens.
     """
-    permission_classes = [AuthEntryPointPermission]
     throttle_classes = [LoginThrottle]
 
     def post(self, request, *args, **kwargs):  # type: ignore[override]

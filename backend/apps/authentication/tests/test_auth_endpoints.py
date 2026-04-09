@@ -103,6 +103,26 @@ class AuthenticationEndpointTests(APITestCase):
         )
         self.assertIsNotNone(response.data["data"]["user"]["default_team_id"])
 
+    def test_register_ignores_invalid_bearer_header_on_public_entrypoint(self) -> None:
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer stale-or-invalid-token")
+
+        response = self.client.post(
+            reverse("api_v1:authentication:register"),
+            {
+                "name": "Fresh User",
+                "email": "fresh-user@example.com",
+                "phone_number": "+254799000001",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+                "account_type": "team",
+                "team_name": "Fresh Workspace",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data["data"]["user"]["account_type"], "team")
+
     def test_register_personal_account_creates_personal_team(self) -> None:
         response = self.client.post(
             reverse("api_v1:authentication:register"),
@@ -685,6 +705,18 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertIn("accounts.google.com", response["Location"])
         self.assertIn("redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fv1%2Fauth%2Fgoogle%2Fcallback%2F", response["Location"])
         self.assertIn("state=", response["Location"])
+
+    @override_settings(GOOGLE_OAUTH_CLIENT_ID="client", GOOGLE_OAUTH_CLIENT_SECRET="secret")
+    def test_google_login_endpoint_ignores_invalid_bearer_header(self) -> None:
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer stale-or-invalid-token")
+
+        response = self.client.get(
+            reverse("api_v1:authentication:google-login"),
+            {"flow": "register", "account_type": "team", "team_name": "CUK Team"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_302_FOUND)
+        self.assertIn("accounts.google.com", response["Location"])
 
     @override_settings(GOOGLE_OAUTH_CLIENT_ID="client", GOOGLE_OAUTH_CLIENT_SECRET="secret")
     def test_google_login_endpoint_requires_account_type_for_register_flow(self) -> None:

@@ -63,9 +63,27 @@ class IntegrationServiceTests(TestCase):
     @override_settings(
         EMAIL_PROVIDER="smtp",
         DEFAULT_FROM_EMAIL="no-reply@example.com",
+        ATTACHMENTS_STORAGE_BACKEND="supabase_s3",
+        SUPABASE_S3_ENDPOINT="https://project.storage.supabase.co/storage/v1/s3",
+        SUPABASE_S3_REGION="eu-west-1",
+        SUPABASE_S3_ACCESS_KEY_ID="access-key",
+        SUPABASE_S3_SECRET_ACCESS_KEY="secret-key",
+        SUPABASE_S3_BUCKET="attachments",
+        GOOGLE_OAUTH_CLIENT_ID="",
+        GOOGLE_OAUTH_CLIENT_SECRET="",
+    )
+    def test_validate_integrations_configuration_allows_supabase_s3_credentials(self) -> None:
+        result = validate_integrations_configuration()
+
+        self.assertEqual(result["storage_provider"], "supabase")
+
+    @override_settings(
+        EMAIL_PROVIDER="smtp",
+        DEFAULT_FROM_EMAIL="no-reply@example.com",
         ATTACHMENTS_STORAGE_BACKEND="local",
         MEDIA_URL="/media/",
         SMS_ENABLED=True,
+        SMS_PROVIDER="africas_talking",
         AFRICAS_TALKING_USERNAME="sandbox",
         AFRICAS_TALKING_API_KEY="test-key",
         AFRICAS_TALKING_ENVIRONMENT="sandbox",
@@ -85,6 +103,7 @@ class IntegrationServiceTests(TestCase):
         ATTACHMENTS_STORAGE_BACKEND="local",
         MEDIA_URL="/media/",
         SMS_ENABLED=True,
+        SMS_PROVIDER="africas_talking",
         AFRICAS_TALKING_USERNAME="",
         AFRICAS_TALKING_API_KEY="",
         GOOGLE_OAUTH_CLIENT_ID="",
@@ -100,6 +119,7 @@ class IntegrationServiceTests(TestCase):
         ATTACHMENTS_STORAGE_BACKEND="local",
         MEDIA_URL="/media/",
         SMS_ENABLED=True,
+        SMS_PROVIDER="africas_talking",
         AFRICAS_TALKING_USERNAME="worknest",
         AFRICAS_TALKING_API_KEY="test-key",
         AFRICAS_TALKING_ENVIRONMENT="sandbox",

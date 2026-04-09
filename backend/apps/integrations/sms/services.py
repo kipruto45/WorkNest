@@ -315,6 +315,7 @@ def queue_sms(
     dedupe_key: str = "",
     actor=None,
     force: bool = False,
+    deliver_immediately: bool = False,
     source: str = "",
 ) -> SMSDelivery:
     existing = _find_existing_delivery(dedupe_key=dedupe_key)
@@ -381,6 +382,9 @@ def queue_sms(
     )
 
     def on_commit() -> None:
+        if deliver_immediately:
+            _deliver_sms_inline(delivery=delivery, actor=actor)
+            return
         if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
             _deliver_sms_inline(delivery=delivery, actor=actor)
             return
