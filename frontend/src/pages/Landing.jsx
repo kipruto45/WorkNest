@@ -590,166 +590,49 @@ function MetricChip({ label, value }) {
   )
 }
 
-function HeroMetricCard({ label, value, tone = 'slate' }) {
-  const toneClass =
-    tone === 'emerald'
-      ? 'landing-hero-metric-card-emerald'
-      : tone === 'amber'
-        ? 'landing-hero-metric-card-amber'
-        : ''
-
-  return (
-    <div className={`landing-hero-metric-card ${toneClass}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <div className="mt-2 flex items-end justify-between gap-3">
-        <p className="text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
-        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_6px_rgba(16,185,129,0.14)]" />
-      </div>
-    </div>
-  )
-}
-
 function HeroWorkspacePreview() {
   return (
-    <div className="landing-mockup-shell mx-auto w-full max-w-[900px]">
-      <div className="landing-mockup-glow" aria-hidden="true" />
-      <div className="landing-floating-note landing-floating-note-left">
-        <span className="landing-floating-label">Ops cadence</span>
-        <span className="landing-floating-value">Execution stays visible</span>
-      </div>
-      <div className="landing-floating-note landing-floating-note-right">
-        <span className="landing-floating-label">Ownership</span>
-        <span className="landing-floating-value">14 owners aligned</span>
-      </div>
-
+    <div className="mx-auto w-full max-w-[580px]">
       <div className={`${panelClass} relative mx-auto w-full overflow-hidden`}>
         <WindowHeader title="WorkNest workspace" path="app.worknest.com/releases" />
 
-        <div className="grid gap-5 bg-[linear-gradient(180deg,#fbfefb_0%,#f3f8f4_100%)] p-5 lg:grid-cols-[196px_minmax(0,1fr)]">
-          <aside className="rounded-[26px] border border-slate-200/85 bg-[linear-gradient(180deg,#ffffff_0%,#f7faf7_100%)] p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
-            <div className="rounded-[22px] border border-emerald-200/80 bg-[linear-gradient(180deg,#effcf4_0%,#e1f7ea_100%)] px-4 py-4 text-emerald-950">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">June release</div>
-              <div className="mt-2 text-3xl font-semibold tracking-tight">42</div>
-              <div className="mt-1 text-sm text-emerald-800">active items across the launch plan</div>
+        <div className="space-y-4 bg-[linear-gradient(180deg,#fbfefb_0%,#f3f8f4_100%)] p-4 sm:p-5">
+          <div className="rounded-[22px] border border-emerald-200/80 bg-[linear-gradient(180deg,#effcf4_0%,#e1f7ea_100%)] px-4 py-3.5 text-emerald-950">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">June release board</div>
+            <div className="mt-1.5 text-2xl font-semibold tracking-tight">42 active tasks</div>
+            <div className="mt-1 text-sm text-emerald-800">Ownership, status, and deadline visibility in one view.</div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-[18px] border border-slate-200/85 bg-white px-3.5 py-3 shadow-[0_10px_22px_rgba(15,23,42,0.04)]">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Done</div>
+              <div className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-950">128</div>
             </div>
-
-            <div className="mt-4 space-y-2">
-              <SidebarPill label="Overview" active />
-              <SidebarPill label="Team board" />
-              <SidebarPill label="Milestones" />
-              <SidebarPill label="Activity" />
+            <div className="rounded-[18px] border border-slate-200/85 bg-white px-3.5 py-3 shadow-[0_10px_22px_rgba(15,23,42,0.04)]">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Due this week</div>
+              <div className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-950">13</div>
             </div>
-
-            <div className="mt-4 rounded-[22px] border border-slate-200/80 bg-white px-4 py-4">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Delivery pace</div>
-              <div className="mt-2 flex items-end justify-between gap-3">
-                <div className="text-2xl font-semibold tracking-tight text-slate-950">92%</div>
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Healthy</div>
-              </div>
-              <div className="mt-3 h-2 rounded-full bg-slate-200">
-                <div className="h-full w-[92%] rounded-full bg-[linear-gradient(90deg,#16a34a_0%,#059669_100%)]" />
-              </div>
+            <div className="rounded-[18px] border border-slate-200/85 bg-white px-3.5 py-3 shadow-[0_10px_22px_rgba(15,23,42,0.04)]">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Blocked</div>
+              <div className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-950">02</div>
             </div>
-          </aside>
+          </div>
 
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <HeroMetricCard label="Tasks shipped" value="128" tone="emerald" />
-              <HeroMetricCard label="Due this week" value="13" tone="slate" />
-              <HeroMetricCard label="Blocked items" value="02" tone="amber" />
-            </div>
-
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.14fr)_minmax(0,0.86fr)]">
-              <div className="rounded-[26px] border border-slate-200/85 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Weekly board</div>
-                    <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">Launch readiness</h3>
-                  </div>
-                  <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
-                    On track
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <PreviewColumn
-                    title="Ready"
-                    count="14"
-                    items={[
-                      { title: 'Launch QA checklist', meta: 'Amina · Due today' },
-                      { title: 'Comms review', meta: 'Sara · Approved' },
-                    ]}
-                  />
-                  <PreviewColumn
-                    title="In progress"
-                    count="09"
-                    items={[
-                      { title: 'Migration dry run', meta: 'Daniel · 3 blockers cleared' },
-                      { title: 'Support macros', meta: 'Ivy · In review' },
-                    ]}
-                  />
-                  <PreviewColumn
-                    title="Next"
-                    count="19"
-                    items={[
-                      { title: 'Ops sign-off', meta: 'Pending owner review' },
-                      { title: 'Final release notes', meta: 'Drafting window' },
-                    ]}
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-[26px] border border-slate-200/85 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-semibold text-slate-950">Today&apos;s execution view</div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                    Live
-                  </span>
-                </div>
-                <div className="mt-4 space-y-3">
-                  <ExecutionItem title="High priority" value="07" tone="red" />
-                  <ExecutionItem title="Due this week" value="13" tone="blue" />
-                  <ExecutionItem title="Awaiting review" value="05" tone="slate" />
-                </div>
-                <div className="mt-4 rounded-2xl bg-[linear-gradient(180deg,#f8faf8_0%,#f2f7f3_100%)] px-4 py-4">
-                  <div className="flex items-center justify-between text-sm text-slate-500">
-                    <span>Delivery confidence</span>
-                    <span className="font-semibold text-slate-950">82%</span>
-                  </div>
-                  <div className="mt-3 h-2 rounded-full bg-slate-200">
-                    <div className="h-full w-[82%] rounded-full bg-[linear-gradient(90deg,#16a34a_0%,#059669_100%)]" />
-                  </div>
-                </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-[20px] border border-slate-200/80 bg-white px-4 py-3.5 shadow-[0_10px_22px_rgba(15,23,42,0.04)]">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Priority today</div>
+              <div className="mt-2 space-y-2">
+                <CompactRow title="Launch QA checklist" meta="Amina · Due today" />
+                <CompactRow title="Migration dry run" meta="Daniel · In review" />
               </div>
             </div>
-
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,0.96fr)_minmax(0,1.04fr)]">
-              <div className="rounded-[26px] border border-slate-200/85 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-950">Upcoming deadlines</div>
-                    <div className="mt-1 text-sm text-slate-500">Nothing gets buried under status noise.</div>
-                  </div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Calendar sync</div>
-                </div>
-                <div className="mt-4 space-y-3">
-                  <DeadlineRow title="Customer migration handoff" due="Today" owner="Amina" />
-                  <DeadlineRow title="Support enablement review" due="Thu" owner="Ivy" />
-                  <DeadlineRow title="Release memo" due="Fri" owner="Daniel" />
-                </div>
+            <div className="rounded-[20px] border border-slate-200/80 bg-white px-4 py-3.5 shadow-[0_10px_22px_rgba(15,23,42,0.04)]">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Delivery confidence</div>
+              <div className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-950">82%</div>
+              <div className="mt-2 h-2 rounded-full bg-slate-200">
+                <div className="h-full w-[82%] rounded-full bg-[linear-gradient(90deg,#16a34a_0%,#059669_100%)]" />
               </div>
-
-              <div className="rounded-[26px] border border-slate-200/85 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-slate-950">Team activity</div>
-                  <AvatarStack />
-                </div>
-                <div className="mt-4 space-y-3">
-                  <ActivityRow person="Maya" message="Moved migration dry run into review and tagged support." />
-                  <ActivityRow person="Amina" message="Updated launch checklist with final approval steps." />
-                  <ActivityRow person="Ivy" message="Confirmed macro rollout plan for day-one tickets." />
-                </div>
-              </div>
+              <div className="mt-2 text-xs text-slate-500">Balanced workload, 2 blockers under review.</div>
             </div>
           </div>
         </div>
@@ -1014,73 +897,11 @@ function WindowHeader({ title, path }) {
   )
 }
 
-function SidebarPill({ label, active = false }) {
+function CompactRow({ title, meta }) {
   return (
-    <div
-      className={`rounded-2xl px-4 py-3 text-sm font-medium transition-colors ${
-        active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-600'
-      }`}
-    >
-      {label}
-    </div>
-  )
-}
-
-function PreviewColumn({ title, count, items }) {
-  return (
-    <div className="rounded-[20px] border border-slate-200/80 bg-slate-50/70 p-3">
-      <div className="flex items-center justify-between">
-        <div className="text-sm font-semibold text-slate-950">{title}</div>
-        <div className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-          {count}
-        </div>
-      </div>
-      <div className="mt-3 space-y-2.5">
-        {items.map((item) => (
-          <div key={item.title} className="rounded-2xl border border-white bg-white px-3 py-3 shadow-[0_6px_18px_rgba(15,23,42,0.04)]">
-            <div className="text-sm font-medium text-slate-950">{item.title}</div>
-            <div className="mt-1 text-xs leading-5 text-slate-500">{item.meta}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function ExecutionItem({ title, value, tone }) {
-  const toneClass = {
-    red: 'bg-[#fef3f2] text-[#d92d20]',
-    blue: 'bg-emerald-50 text-emerald-700',
-    slate: 'bg-emerald-100 text-emerald-800',
-  }[tone]
-
-  return (
-    <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-      <div className="text-sm font-medium text-slate-600">{title}</div>
-      <div className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${toneClass}`}>{value}</div>
-    </div>
-  )
-}
-
-function DeadlineRow({ title, due, owner }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 bg-white px-4 py-3">
-      <div className="min-w-0">
-        <div className="truncate text-sm font-medium text-slate-950">{title}</div>
-        <div className="mt-1 text-xs text-slate-500">{owner}</div>
-      </div>
-      <div className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-        {due}
-      </div>
-    </div>
-  )
-}
-
-function ActivityRow({ person, message }) {
-  return (
-    <div className="rounded-2xl border border-slate-200/70 bg-slate-50/80 px-4 py-3">
-      <div className="text-sm font-semibold text-slate-950">{person}</div>
-      <div className="mt-1 text-sm leading-6 text-slate-600">{message}</div>
+    <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2.5">
+      <div className="truncate text-sm font-medium text-slate-950">{title}</div>
+      <div className="mt-1 text-xs text-slate-500">{meta}</div>
     </div>
   )
 }
