@@ -75,7 +75,8 @@ def normalize_phone_number(phone_number: str, country_code: str | None = None) -
     elif digits.startswith("00"):
         normalized_digits = re.sub(r"\D", "", digits[2:])
     elif digits.startswith("0"):
-        normalized_digits = f"{default_digits}{re.sub(r'\\D', '', digits[1:])}"
+        local_digits = re.sub(r"\D", "", digits[1:])
+        normalized_digits = f"{default_digits}{local_digits}"
     else:
         normalized_digits = re.sub(r"\D", "", digits)
         if default_digits and not normalized_digits.startswith(default_digits):
