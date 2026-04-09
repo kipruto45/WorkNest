@@ -80,7 +80,7 @@ export default function Settings() {
     sms_opt_in: false,
     compactMode: false,
     reducedMotion: false,
-    theme_preference: THEME_OPTIONS.system,
+    theme_preference: THEME_OPTIONS.light,
   })
 
   useEffect(() => {
@@ -124,7 +124,7 @@ export default function Settings() {
           sms_opt_in: profile?.sms_opt_in ?? current.sms_opt_in,
           compactMode: localPreferences.compactMode ?? current.compactMode,
           reducedMotion: localPreferences.reducedMotion ?? current.reducedMotion,
-          theme_preference: profile?.theme_preference || current.theme_preference,
+          theme_preference: THEME_OPTIONS.light,
         }))
       } catch (_error) {
         const localPreferences = readWorkspacePrefs()
@@ -146,7 +146,7 @@ export default function Settings() {
           sms_opt_in: currentUser?.sms_opt_in ?? current.sms_opt_in,
           compactMode: localPreferences.compactMode ?? current.compactMode,
           reducedMotion: localPreferences.reducedMotion ?? current.reducedMotion,
-          theme_preference: currentUser?.theme_preference || current.theme_preference,
+          theme_preference: THEME_OPTIONS.light,
         }))
       } finally {
         setLoading(false)
@@ -179,7 +179,7 @@ export default function Settings() {
     try {
       const requests = [
         usersAPI.updateProfile({
-          theme_preference: settings.theme_preference,
+          theme_preference: THEME_OPTIONS.light,
         }),
         usersAPI.updateNotificationPreferences({
           channels: settings.channels,
@@ -208,7 +208,7 @@ export default function Settings() {
           phone_verified: refreshedProfile.phone_verified ?? current.phone_verified,
         }))
       }
-      applyThemePreference(settings.theme_preference)
+      applyThemePreference(THEME_OPTIONS.light)
       toast.success('Preferences saved successfully.')
     } catch (error) {
       if (savedLocally) {
@@ -281,13 +281,13 @@ export default function Settings() {
             value: activeChannelCount,
             caption: 'Active channels',
           },
-          { label: 'Theme mode', value: settings.theme_preference, caption: 'Current visual system' },
+          { label: 'Visual system', value: 'emerald', caption: 'App-wide light theme' },
           { label: 'Phone status', value: settings.phone_verified ? 'Verified' : settings.phone_number ? 'Pending' : 'Missing', caption: 'SMS identity' },
         ]}
         spotlight={{
           eyebrow: 'Experience system',
           title: 'Settings should feel like a control room.',
-          description: 'This screen is designed to look intentional in demos: not just toggles, but a clear control surface for signal and atmosphere.',
+          description: 'This screen is designed to feel intentional in demos and daily use: a clear control surface for signal, density, and motion.',
           points: [
             { label: 'Notification rules', value: notificationRuleCount },
             { label: 'Density mode', value: settings.compactMode ? 'Compact' : 'Comfortable' },
@@ -471,34 +471,19 @@ export default function Settings() {
             </label>
 
             <div className="feature-tile">
-              <p className="font-semibold text-emerald-950">Theme preference</p>
-              <p className="mt-1 text-sm text-soft">Choose light, dark, or follow your system preference.</p>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                {Object.values(THEME_OPTIONS).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => {
-                      setSettings((current) => ({ ...current, theme_preference: option }))
-                      applyThemePreference(option)
-                    }}
-                    className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition-colors ${
-                      settings.theme_preference === option
-                        ? 'border-emerald-400 bg-emerald-50 text-emerald-900'
-                        : 'border-slate-200 bg-white text-slate-700'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
+              <p className="font-semibold text-emerald-950">Visual system</p>
+              <p className="mt-1 text-sm text-soft">WorkNest now uses one consistent light theme with emerald accents across the full product.</p>
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Theme locked</p>
+                <p className="mt-2 text-sm text-emerald-950">Light surfaces, green actions, and consistent contrast on every page.</p>
               </div>
             </div>
 
             <div className="spotlight-panel text-white">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">Theme direction</p>
-              <h3 className="mt-3 text-xl font-bold">Emerald glass</h3>
+              <h3 className="mt-3 text-xl font-bold">Emerald light system</h3>
               <p className="mt-2 text-sm text-emerald-50/90">
-                The current interface uses bright greens, soft gradients, airy cards, and subtle depth to keep the workspace modern and calm.
+                The interface now stays consistently light with restrained green emphasis, soft depth, and cleaner contrast for every workspace.
               </p>
             </div>
 
@@ -513,7 +498,7 @@ export default function Settings() {
               </div>
               <div className="feature-tile">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Theme</p>
-                <p className="mt-3 text-lg font-bold text-emerald-950">{settings.theme_preference}</p>
+                <p className="mt-3 text-lg font-bold text-emerald-950">Emerald light</p>
               </div>
             </div>
           </div>

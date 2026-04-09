@@ -32,14 +32,14 @@ export default function PageHero({ eyebrow, title, description, actions, aside, 
         {spotlight ? (
           <div className="spotlight-panel fade-in-delayed text-white">
             <div className="relative z-10">
-              {spotlight.eyebrow ? <div className="micro-chip border-white/10 bg-white/5 text-white/80">{spotlight.eyebrow}</div> : null}
+              {spotlight.eyebrow ? <div className="micro-chip border-white/20 bg-white/10 text-emerald-50">{spotlight.eyebrow}</div> : null}
               <h2 className="mt-4 text-[1.7rem] font-bold tracking-tight">{spotlight.title}</h2>
-              {spotlight.description ? <p className="mt-3 text-sm leading-6 text-slate-200">{spotlight.description}</p> : null}
+              {spotlight.description ? <p className="mt-3 text-sm leading-6 text-emerald-50/90">{spotlight.description}</p> : null}
               {spotlight.points?.length ? (
                 <div className="mt-5 grid gap-3">
                   {spotlight.points.map((point) => (
-                    <div key={point.label} className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">{point.label}</p>
+                    <div key={point.label} className="rounded-[22px] border border-white/15 bg-white/10 px-4 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/80">{point.label}</p>
                       <p className="mt-2 text-lg font-semibold text-white">{point.value}</p>
                     </div>
                   ))}

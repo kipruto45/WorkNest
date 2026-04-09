@@ -68,6 +68,9 @@ class IntegrationServiceTests(TestCase):
         SMS_ENABLED=True,
         AFRICAS_TALKING_USERNAME="sandbox",
         AFRICAS_TALKING_API_KEY="test-key",
+        AFRICAS_TALKING_ENVIRONMENT="sandbox",
+        SMS_USE_SANDBOX=True,
+        AFRICAS_TALKING_USE_SANDBOX=True,
         GOOGLE_OAUTH_CLIENT_ID="",
         GOOGLE_OAUTH_CLIENT_SECRET="",
     )
@@ -100,6 +103,7 @@ class IntegrationServiceTests(TestCase):
         AFRICAS_TALKING_USERNAME="worknest",
         AFRICAS_TALKING_API_KEY="test-key",
         AFRICAS_TALKING_ENVIRONMENT="sandbox",
+        SMS_USE_SANDBOX=True,
         AFRICAS_TALKING_USE_SANDBOX=True,
         GOOGLE_OAUTH_CLIENT_ID="",
         GOOGLE_OAUTH_CLIENT_SECRET="",

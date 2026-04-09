@@ -5,7 +5,7 @@ import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import Layout from './components/Layout'
 import { hydrateCurrentUser } from './features/authSlice'
-import { applyThemePreference, readStoredThemePreference } from './utils/theme'
+import { applyThemePreference } from './utils/theme'
 
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
@@ -100,8 +100,8 @@ function App() {
   }, [bootstrapped, dispatch, hydrating, token])
 
   useEffect(() => {
-    applyThemePreference(user?.theme_preference || readStoredThemePreference())
-  }, [user?.theme_preference])
+    applyThemePreference()
+  }, [])
 
   return (
     <>

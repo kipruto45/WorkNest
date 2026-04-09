@@ -168,7 +168,7 @@ export default function Profile() {
               <button
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white bg-slate-950 text-white shadow-[0_8px_20px_rgba(15,23,42,0.18)] transition-transform duration-200 hover:-translate-y-0.5"
+                className="absolute -bottom-1 -right-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white bg-emerald-700 text-white shadow-[0_8px_20px_rgba(15,118,110,0.18)] transition-transform duration-200 hover:-translate-y-0.5"
                 aria-label="Upload avatar"
               >
                 <CameraIcon className="h-4 w-4" />

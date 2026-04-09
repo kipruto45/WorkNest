@@ -225,7 +225,7 @@ export default function AdminUsers() {
                     <MetricRow label="Assigned tasks" value={selectedUser.stats?.assigned_tasks || 0} />
                     <MetricRow label="Completed tasks" value={selectedUser.stats?.completed_tasks || 0} />
                     <MetricRow label="Overdue tasks" value={selectedUser.stats?.overdue_tasks || 0} />
-                    <MetricRow label="Theme preference" value={selectedUser.theme_preference || 'system'} />
+                    <MetricRow label="Visual system" value="Emerald light" />
                     <MetricRow label="2FA state" value={selectedUser.two_factor_status || 'disabled'} />
                   </div>
                 </div>

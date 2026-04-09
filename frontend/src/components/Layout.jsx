@@ -58,7 +58,8 @@ const routeMeta = [
 ]
 
 export default function Layout() {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [isDesktop, setIsDesktop] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth >= 1024))
+  const [sidebarOpen, setSidebarOpen] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth >= 1024))
   const [searchQuery, setSearchQuery] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
@@ -111,6 +112,18 @@ export default function Layout() {
   useRealtimeNotifications()
 
   useEffect(() => {
+    const syncViewport = () => {
+      const nextIsDesktop = window.innerWidth >= 1024
+      setIsDesktop(nextIsDesktop)
+      setSidebarOpen((current) => (nextIsDesktop ? true : current && nextIsDesktop))
+    }
+
+    syncViewport()
+    window.addEventListener('resize', syncViewport)
+    return () => window.removeEventListener('resize', syncViewport)
+  }, [])
+
+  useEffect(() => {
     dispatch(fetchUnreadCount())
   }, [dispatch])
 
@@ -161,7 +174,7 @@ export default function Layout() {
           { id: 'search', label: 'Search workspace', hint: 'Find tasks, teams, and updates', to: '/search' },
           { id: 'notifications', label: 'Check notifications', hint: 'Review mentions and reminders', to: '/notifications' },
           { id: 'calendar', label: 'Open calendar', hint: 'Review planned work and deadlines', to: '/calendar' },
-          { id: 'settings', label: 'Open settings', hint: 'Adjust profile, theme, and notification controls', to: '/settings' },
+          { id: 'settings', label: 'Open settings', hint: 'Adjust profile and notification controls', to: '/settings' },
           { id: 'security', label: 'Open security', hint: 'Review sessions and devices', to: '/settings/security' },
         ]
     return base.concat(
@@ -285,12 +298,26 @@ export default function Layout() {
   }
 
   return (
-    <div className="app-shell px-3 py-3 md:px-5 md:py-5">
-      <div className="relative flex min-h-[calc(100vh-24px)] overflow-hidden rounded-[32px] border border-slate-200/90 bg-[rgba(255,255,255,0.72)] shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+    <div className="app-shell px-2 py-2 sm:px-3 sm:py-3 md:px-5 md:py-5">
+      <div className="relative flex min-h-[calc(100vh-16px)] overflow-hidden rounded-[26px] border border-slate-200/90 bg-[rgba(255,255,255,0.72)] shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:min-h-[calc(100vh-24px)] sm:rounded-[32px]">
+        {!isDesktop && sidebarOpen ? (
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setSidebarOpen(false)}
+            className="absolute inset-0 z-20 bg-emerald-950/10 backdrop-blur-sm lg:hidden"
+          />
+        ) : null}
 
         <aside
-          className={`relative z-10 border-r border-slate-200/80 bg-[rgba(250,250,247,0.86)] transition-all duration-300 ${
-            sidebarOpen ? 'w-72' : 'w-[92px]'
+          className={`absolute inset-y-0 left-0 z-30 border-r border-slate-200/80 bg-[rgba(250,250,247,0.96)] shadow-[0_24px_60px_rgba(15,23,42,0.12)] transition-all duration-300 lg:relative lg:translate-x-0 lg:bg-[rgba(250,250,247,0.86)] lg:shadow-none ${
+            isDesktop
+              ? sidebarOpen
+                ? 'w-72'
+                : 'w-[92px]'
+              : sidebarOpen
+                ? 'w-[min(86vw,18rem)] translate-x-0'
+                : 'w-[min(86vw,18rem)] -translate-x-full'
           }`}
         >
           <div className="flex h-full flex-col p-4">
@@ -366,11 +393,22 @@ export default function Layout() {
         </aside>
 
         <div className="relative z-10 flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-[rgba(246,246,242,0.8)] px-5 py-4 backdrop-blur-xl md:px-8">
+          <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-[rgba(246,246,242,0.8)] px-4 py-4 backdrop-blur-xl sm:px-5 md:px-8">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
+                <div className="mb-3 lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpen(true)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                </div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{currentRouteMeta.title}</p>
-                <h1 className="mt-1 font-display text-2xl font-bold text-slate-950">{currentRouteMeta.title}</h1>
+                <h1 className="mt-1 font-display text-xl font-bold text-slate-950 sm:text-2xl">{currentRouteMeta.title}</h1>
                 <p className="mt-2 text-sm text-slate-500">
                   {location.pathname === '/dashboard' ? `Welcome back, ${firstName}. ${currentRouteMeta.description}` : currentRouteMeta.description}
                 </p>
@@ -498,7 +536,7 @@ export default function Layout() {
             </div>
           ) : null}
 
-          <main className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-5 md:px-8 md:py-8">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-5 sm:py-5 md:px-8 md:py-8">
             <Outlet />
           </main>
         </div>
@@ -529,7 +567,7 @@ function CommandPalette({ query, loading, quickActions, tasks, teams, people, co
     quickActions.length || tasks.length || teams.length || people.length || comments.length || announcements.length || milestones.length
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-slate-950/34 px-4 py-16 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-emerald-950/10 px-4 py-16 backdrop-blur-sm" onClick={onClose}>
       <div
         className="w-full max-w-3xl overflow-hidden rounded-[30px] border border-slate-200/90 bg-[rgba(255,255,255,0.96)] shadow-[0_32px_120px_rgba(15,23,42,0.18)] backdrop-blur-xl"
         onClick={(event) => event.stopPropagation()}
@@ -708,7 +746,7 @@ function NavItem({ item, sidebarOpen }) {
       className={({ isActive }) =>
         `flex items-center gap-3 rounded-[18px] px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
           isActive
-            ? 'bg-slate-950 text-white shadow-[0_12px_24px_rgba(15,23,42,0.12)]'
+            ? 'bg-emerald-700 text-white shadow-[0_12px_24px_rgba(15,118,110,0.18)]'
             : 'text-slate-600 hover:bg-white hover:text-slate-950'
         }`
       }
@@ -735,7 +773,7 @@ function UserAvatar({ user, fallback, className = '' }) {
   }
 
   return (
-    <div className={`flex items-center justify-center bg-slate-900 font-semibold text-white ${className}`}>
+    <div className={`flex items-center justify-center bg-emerald-700 font-semibold text-white ${className}`}>
       {fallback}
     </div>
   )

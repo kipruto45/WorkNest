@@ -248,7 +248,7 @@ export default function TeamBoard() {
       </div>
 
       {showModal && canCreateTasks ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/34 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/10 px-4 backdrop-blur-sm">
           <div className="page-shell w-full max-w-xl p-6 md:p-8">
             <h3 className="font-display text-3xl font-bold text-slate-950">Create a new task</h3>
             <p className="mt-2 text-sm text-soft">Add a clear piece of work and place it at the start of the board.</p>

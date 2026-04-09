@@ -630,7 +630,7 @@ export default function TeamOverview() {
                         <span>{member.assignedCount} tasks</span>
                       </div>
                       <div className="mt-2 h-2.5 rounded-full bg-slate-100">
-                        <div className="h-2.5 rounded-full bg-slate-900 transition-all duration-700" style={{ width: member.loadWidth }} />
+                        <div className="h-2.5 rounded-full bg-emerald-700 transition-all duration-700" style={{ width: member.loadWidth }} />
                       </div>
                     </div>
                   </div>
@@ -733,7 +733,7 @@ export default function TeamOverview() {
 
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
             <VisualizationCard title="By status" items={statusItems} tone="bg-emerald-600" />
-            <VisualizationCard title="By priority" items={priorityItems} tone="bg-slate-900" />
+            <VisualizationCard title="By priority" items={priorityItems} tone="bg-emerald-700" />
           </div>
         </section>
       </div>

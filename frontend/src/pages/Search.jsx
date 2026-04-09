@@ -313,7 +313,7 @@ export default function Search() {
               onClick={() => handleTypeToggle(item.key)}
               className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                 filters.types.has(item.key)
-                  ? 'bg-emerald-900 text-white'
+                  ? 'bg-emerald-700 text-white'
                   : 'border border-emerald-100 text-emerald-900 hover:border-emerald-200'
               }`}
             >

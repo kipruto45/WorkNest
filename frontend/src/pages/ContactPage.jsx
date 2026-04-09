@@ -9,13 +9,13 @@ export default function ContactPage() {
     >
       <div className="grid gap-6 lg:grid-cols-3">
         <InfoCard title="General">
-          <a href="mailto:support@worknest.example" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
-            support@worknest.example
+          <a href="mailto:supportworknest@gmail.com" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+            supportworknest@gmail.com
           </a>
         </InfoCard>
         <InfoCard title="Support">
-          <a href="mailto:support@worknest.example" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
-            support@worknest.example
+          <a href="mailto:supportworknest@gmail.com" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+            supportworknest@gmail.com
           </a>
         </InfoCard>
         <InfoCard title="GitHub">

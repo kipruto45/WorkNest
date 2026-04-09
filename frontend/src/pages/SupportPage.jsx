@@ -19,8 +19,8 @@ export default function SupportPage() {
         </InfoCard>
 
         <InfoCard title="Support contact">
-          <a href="mailto:support@worknest.example" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
-            support@worknest.example
+          <a href="mailto:supportworknest@gmail.com" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">
+            supportworknest@gmail.com
           </a>
         </InfoCard>
       </div>

@@ -100,7 +100,7 @@ const footerColumns = [
 
 const containerClass = 'mx-auto w-full max-w-[1240px] px-6 lg:px-8'
 const primaryButtonClass =
-  'inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-[#315efb] px-5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(49,94,251,0.2)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#244ee6] hover:shadow-[0_18px_34px_rgba(49,94,251,0.24)]'
+  'inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(5,150,105,0.2)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-[0_18px_34px_rgba(5,150,105,0.24)]'
 const secondaryButtonClass =
   'inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-900 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-50'
 const panelClass =
@@ -120,7 +120,7 @@ export default function Landing() {
 
   return (
     <div className="relative isolate min-h-screen overflow-x-clip bg-[#f5f6f8] text-slate-950">
-      <div className="absolute inset-x-0 top-0 -z-10 h-[720px] bg-[radial-gradient(circle_at_top,rgba(49,94,251,0.08),transparent_32%),linear-gradient(180deg,#f8f8fa_0%,#f5f6f8_100%)]" />
+      <div className="absolute inset-x-0 top-0 -z-10 h-[720px] bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.1),transparent_32%),linear-gradient(180deg,#f8fbf8_0%,#f5f6f8_100%)]" />
 
       <header
         className={`sticky top-0 z-50 border-b transition-all duration-300 ${
@@ -176,7 +176,7 @@ export default function Landing() {
           <div className={containerClass}>
             <div className="grid items-center gap-16 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
               <div className="fade-in">
-                <div className="inline-flex items-center rounded-full border border-[#cad6ff] bg-[#eef2ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#244ee6]">
+                <div className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
                   Built for product, operations, and delivery teams
                 </div>
                 <h1 className="mt-7 max-w-[11ch] text-balance font-display text-[3.35rem] font-bold leading-[0.95] tracking-[-0.05em] text-slate-950 md:text-[4.6rem]">
@@ -200,18 +200,18 @@ export default function Landing() {
 
                 <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm text-slate-500">
                   <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-[#315efb]" />
+                    <span className="h-2 w-2 rounded-full bg-emerald-600" />
                     No credit card required
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-[#315efb]" />
+                    <span className="h-2 w-2 rounded-full bg-emerald-600" />
                     Roles, permissions, and notifications included
                   </div>
                 </div>
 
                 <div className="mt-10 rounded-2xl border border-slate-200/80 bg-white/90 px-5 py-4 shadow-[0_16px_42px_rgba(15,23,42,0.05)]">
                   <div className="flex items-start gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eef2ff] text-[#244ee6]">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
                       <SparkIcon className="h-5 w-5" />
                     </div>
                     <div>
@@ -269,7 +269,7 @@ export default function Landing() {
                     key={feature.title}
                     className="group rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_14px_42px_rgba(15,23,42,0.05)] transition-all duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-[0_20px_50px_rgba(15,23,42,0.08)]"
                   >
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef2ff] text-[#244ee6] transition-transform duration-300 group-hover:-translate-y-0.5">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 transition-transform duration-300 group-hover:-translate-y-0.5">
                       <Icon className="h-5 w-5" />
                     </div>
                     <h3 className="mt-5 max-w-[18ch] text-xl font-semibold tracking-tight text-slate-950">{feature.title}</h3>
@@ -295,7 +295,7 @@ export default function Landing() {
                 <div className="mt-9 space-y-4">
                   {workflowPoints.map((point, index) => (
                     <div key={point} className="flex gap-4 rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-4">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-semibold text-white">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-sm font-semibold text-white">
                         {index + 1}
                       </div>
                       <p className="pt-0.5 text-sm leading-7 text-slate-600">{point}</p>
@@ -329,7 +329,7 @@ export default function Landing() {
                 <div className="mt-9 space-y-4">
                   {collaborationPoints.map((point) => (
                     <div key={point} className="flex items-start gap-3">
-                      <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#eef2ff] text-[#244ee6]">
+                      <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
                         <CheckIcon className="h-3.5 w-3.5" />
                       </span>
                       <p className="text-sm leading-7 text-slate-600">{point}</p>
@@ -376,24 +376,24 @@ export default function Landing() {
 
         <section className="py-24 md:py-28">
           <div className={containerClass}>
-            <div className="overflow-hidden rounded-[34px] border border-slate-200 bg-slate-950 px-6 py-12 text-white shadow-[0_26px_64px_rgba(2,6,23,0.18)] md:px-10">
+            <div className="overflow-hidden rounded-[34px] border border-emerald-200 bg-[linear-gradient(180deg,#ecfdf5_0%,#dff7ec_100%)] px-6 py-12 text-slate-950 shadow-[0_26px_64px_rgba(15,118,110,0.12)] md:px-10">
               <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#9bb2ff]">Final CTA</p>
+                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Final CTA</p>
                   <h2 className="mt-4 max-w-[12ch] text-balance font-display text-4xl font-bold tracking-[-0.04em] md:text-[3.4rem]">
                     Give your team a calmer way to run work.
                   </h2>
-                  <p className="mt-4 max-w-[36rem] text-base leading-8 text-slate-300">
+                  <p className="mt-4 max-w-[36rem] text-base leading-8 text-slate-600">
                     Launch a structured workspace for tasks, deadlines, and collaboration without the overhead of a bloated enterprise rollout.
                   </p>
                 </div>
 
                 <div className="flex flex-wrap gap-3 lg:justify-end">
-                  <Link to="/register" className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-slate-950 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-100">
+                  <Link to="/register" className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700">
                     Create your workspace
                     <ArrowRightIcon className="h-4 w-4" />
                   </Link>
-                  <Link to="/contact" className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-white/20 px-5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-white/6">
+                  <Link to="/contact" className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-emerald-200 bg-white/70 px-5 text-sm font-semibold text-emerald-900 transition-colors duration-200 hover:bg-white">
                     Talk to us
                   </Link>
                 </div>
@@ -418,8 +418,8 @@ export default function Landing() {
               </p>
 
               <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm font-medium text-slate-500">
-                <a href="mailto:support@worknest.example" className="transition-colors hover:text-slate-950">
-                  support@worknest.example
+                <a href="mailto:supportworknest@gmail.com" className="transition-colors hover:text-slate-950">
+                  supportworknest@gmail.com
                 </a>
                 <Link to="/status" className="transition-colors hover:text-slate-950">
                   System status
@@ -478,7 +478,7 @@ function SectionIntro({ eyebrow, title, description, align = 'center' }) {
 
   return (
     <div className={wrapperClass}>
-      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#315efb]">{eyebrow}</p>
+      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p>
       <h2 className={`mt-4 text-balance font-display text-4xl font-bold tracking-[-0.04em] text-slate-950 md:text-[3rem] ${titleClass}`}>
         {title}
       </h2>
@@ -501,12 +501,12 @@ function HeroWorkspacePreview() {
     <div className={`${panelClass} mx-auto w-full max-w-[860px] overflow-hidden`}>
       <WindowHeader title="WorkNest workspace" path="app.worknest.com/releases" />
 
-      <div className="grid gap-5 bg-[linear-gradient(180deg,#fafbff_0%,#f7f8fc_100%)] p-5 lg:grid-cols-[188px_minmax(0,1fr)]">
+      <div className="grid gap-5 bg-[linear-gradient(180deg,#f8fcf8_0%,#f3f8f4_100%)] p-5 lg:grid-cols-[188px_minmax(0,1fr)]">
         <aside className="rounded-[24px] border border-slate-200/80 bg-white p-4">
-          <div className="rounded-2xl bg-slate-950 px-4 py-4 text-white">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">June release</div>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-emerald-950">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">June release</div>
             <div className="mt-2 text-3xl font-semibold tracking-tight">42</div>
-            <div className="mt-1 text-sm text-slate-300">active items across the launch plan</div>
+            <div className="mt-1 text-sm text-emerald-800">active items across the launch plan</div>
           </div>
 
           <div className="mt-4 space-y-2">
@@ -522,10 +522,10 @@ function HeroWorkspacePreview() {
             <div className="rounded-[24px] border border-slate-200/80 bg-white p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#315efb]">Weekly board</div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Weekly board</div>
                   <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">Launch readiness</h3>
                 </div>
-                <div className="rounded-full border border-[#cad6ff] bg-[#eef2ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#244ee6]">
+                <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
                   On track
                 </div>
               </div>
@@ -571,7 +571,7 @@ function HeroWorkspacePreview() {
                   <span className="font-semibold text-slate-950">82%</span>
                 </div>
                 <div className="mt-3 h-2 rounded-full bg-slate-200">
-                  <div className="h-full w-[82%] rounded-full bg-[#315efb]" />
+                  <div className="h-full w-[82%] rounded-full bg-emerald-600" />
                 </div>
               </div>
             </div>
@@ -584,7 +584,7 @@ function HeroWorkspacePreview() {
                   <div className="text-sm font-semibold text-slate-950">Upcoming deadlines</div>
                   <div className="mt-1 text-sm text-slate-500">Nothing gets buried under status noise.</div>
                 </div>
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#315efb]">Calendar sync</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Calendar sync</div>
               </div>
               <div className="mt-4 space-y-3">
                 <DeadlineRow title="Customer migration handoff" due="Today" owner="Amina" />
@@ -616,9 +616,9 @@ function WorkflowShowcase() {
     <div className="space-y-4">
       <div className={`${panelClass} overflow-hidden`}>
         <WindowHeader title="New task intake" path="workspace/intake" />
-        <div className="grid gap-4 bg-[linear-gradient(180deg,#ffffff_0%,#f8f9fd_100%)] p-5 lg:grid-cols-[minmax(0,0.98fr)_minmax(0,1.02fr)]">
+        <div className="grid gap-4 bg-[linear-gradient(180deg,#ffffff_0%,#f6fbf7_100%)] p-5 lg:grid-cols-[minmax(0,0.98fr)_minmax(0,1.02fr)]">
           <div className="rounded-[24px] border border-slate-200/80 bg-white p-5">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#315efb]">Create task</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Create task</div>
             <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">Prepare onboarding launch notes</h3>
             <p className="mt-2 text-sm leading-7 text-slate-600">
               A clean task form makes the owner, timing, and expected output obvious from the start.
@@ -638,7 +638,7 @@ function WorkflowShowcase() {
                 <div className="text-sm font-semibold text-slate-950">Assignment confirmation</div>
                 <div className="mt-1 text-sm text-slate-500">The handoff is explicit before work starts.</div>
               </div>
-              <div className="rounded-full bg-[#eef2ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#244ee6]">
+              <div className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
                 Ready
               </div>
             </div>
@@ -702,11 +702,11 @@ function CollaborationShowcase() {
     <div className="space-y-4">
       <div className={`${panelClass} overflow-hidden`}>
         <WindowHeader title="Team workspace" path="workspace/collaboration" />
-        <div className="grid gap-4 bg-[linear-gradient(180deg,#fafbff_0%,#f6f7fb_100%)] p-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="grid gap-4 bg-[linear-gradient(180deg,#f8fcf8_0%,#f4f8f5_100%)] p-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="rounded-[24px] border border-slate-200/80 bg-white p-5">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#315efb]">Delivery team</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Delivery team</div>
                 <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Launch squad</h3>
               </div>
               <AvatarStack />
@@ -790,7 +790,7 @@ function AnalyticsShowcase() {
   return (
     <div className={`${panelClass} overflow-hidden`}>
       <WindowHeader title="Insights dashboard" path="workspace/insights" />
-      <div className="space-y-4 bg-[linear-gradient(180deg,#ffffff_0%,#f8f9fd_100%)] p-5">
+      <div className="space-y-4 bg-[linear-gradient(180deg,#ffffff_0%,#f6fbf7_100%)] p-5">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <InsightCard label="Overdue tasks" value="12" tone="red" />
           <InsightCard label="Completed this week" value="184" tone="blue" />
@@ -805,7 +805,7 @@ function AnalyticsShowcase() {
                 <div className="text-sm font-semibold text-slate-950">Completion pace</div>
                 <div className="mt-1 text-sm text-slate-500">A clean weekly signal instead of report overload.</div>
               </div>
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#315efb]">Last 6 weeks</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Last 6 weeks</div>
             </div>
 
             <div className="mt-6 flex h-56 items-end justify-between gap-3">
@@ -814,7 +814,7 @@ function AnalyticsShowcase() {
                   <div className="flex w-full flex-1 items-end">
                     <div
                       className={`w-full rounded-t-[18px] ${
-                        index === 5 ? 'bg-[#315efb]' : 'bg-slate-200'
+                        index === 5 ? 'bg-emerald-600' : 'bg-emerald-100'
                       }`}
                       style={{ height: `${height}%` }}
                     />
@@ -835,8 +835,8 @@ function AnalyticsShowcase() {
               </div>
             </div>
 
-            <div className="rounded-[24px] border border-slate-200/80 bg-slate-950 p-5 text-white">
-              <div className="text-sm font-semibold text-white">Delivery summary</div>
+            <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-5 text-emerald-950">
+              <div className="text-sm font-semibold text-emerald-950">Delivery summary</div>
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <DarkMetric label="Milestones on track" value="08" />
                 <DarkMetric label="Escalations open" value="02" />
@@ -871,7 +871,7 @@ function SidebarPill({ label, active = false }) {
   return (
     <div
       className={`rounded-2xl px-4 py-3 text-sm font-medium transition-colors ${
-        active ? 'bg-[#eef2ff] text-[#244ee6]' : 'bg-slate-50 text-slate-600'
+        active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-600'
       }`}
     >
       {label}
@@ -903,8 +903,8 @@ function PreviewColumn({ title, count, items }) {
 function ExecutionItem({ title, value, tone }) {
   const toneClass = {
     red: 'bg-[#fef3f2] text-[#d92d20]',
-    blue: 'bg-[#eef2ff] text-[#244ee6]',
-    slate: 'bg-slate-100 text-slate-700',
+    blue: 'bg-emerald-50 text-emerald-700',
+    slate: 'bg-emerald-100 text-emerald-800',
   }[tone]
 
   return (
@@ -987,7 +987,7 @@ function TimelineRow({ title, date, completion }) {
         <div className="text-sm font-semibold text-slate-950">{completion}%</div>
       </div>
       <div className="mt-3 h-2 rounded-full bg-slate-200">
-        <div className="h-full rounded-full bg-[#315efb]" style={{ width: `${completion}%` }} />
+        <div className="h-full rounded-full bg-emerald-600" style={{ width: `${completion}%` }} />
       </div>
     </div>
   )
@@ -1013,7 +1013,7 @@ function RoleRow({ role, person }) {
 
 function CommentBubble({ author, role, message, subtle = false }) {
   return (
-    <div className={`rounded-[22px] px-4 py-4 ${subtle ? 'bg-slate-50' : 'bg-[#f8f9ff]'}`}>
+    <div className={`rounded-[22px] px-4 py-4 ${subtle ? 'bg-slate-50' : 'bg-emerald-50/60'}`}>
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold text-slate-950">{author}</span>
         <span className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">{role}</span>
@@ -1031,7 +1031,7 @@ function CapacityRow({ name, load, percentage }) {
         <span className="text-slate-500">{load}</span>
       </div>
       <div className="mt-2 h-2 rounded-full bg-slate-200">
-        <div className="h-full rounded-full bg-[#315efb]" style={{ width: `${percentage}%` }} />
+        <div className="h-full rounded-full bg-emerald-600" style={{ width: `${percentage}%` }} />
       </div>
     </div>
   )
@@ -1049,8 +1049,8 @@ function LaneRow({ lane, value }) {
 function InsightCard({ label, value, tone }) {
   const accent = {
     red: 'bg-[#fef3f2] text-[#d92d20]',
-    blue: 'bg-[#eef2ff] text-[#244ee6]',
-    slate: 'bg-slate-100 text-slate-700',
+    blue: 'bg-emerald-50 text-emerald-700',
+    slate: 'bg-emerald-100 text-emerald-800',
     amber: 'bg-[#fffaeb] text-[#b54708]',
   }[tone]
 
@@ -1081,9 +1081,9 @@ function WorkloadRow({ name, current, balance }) {
 
 function DarkMetric({ label, value }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
-      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</div>
-      <div className="mt-2 text-2xl font-semibold tracking-tight text-white">{value}</div>
+    <div className="rounded-2xl border border-emerald-200 bg-white/70 px-4 py-4">
+      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">{label}</div>
+      <div className="mt-2 text-2xl font-semibold tracking-tight text-emerald-950">{value}</div>
     </div>
   )
 }
@@ -1095,7 +1095,7 @@ function AvatarStack() {
         <div
           key={person}
           className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-white text-[11px] font-semibold text-white ${
-            index === 0 ? 'bg-slate-900' : index === 1 ? 'bg-[#315efb]' : 'bg-[#0f766e]'
+            index === 0 ? 'bg-emerald-800' : index === 1 ? 'bg-emerald-600' : 'bg-teal-600'
           }`}
         >
           {person}

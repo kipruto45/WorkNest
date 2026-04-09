@@ -127,7 +127,7 @@ export default function InvitationResponse() {
       footer={
         <p>
           Need help?{' '}
-          <a className="font-semibold text-emerald-700 hover:text-emerald-800" href="mailto:support@worknest.example">
+          <a className="font-semibold text-emerald-700 hover:text-emerald-800" href="mailto:supportworknest@gmail.com">
             Contact support
           </a>
         </p>

@@ -258,37 +258,37 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <section className={`${dashboardSurface} overflow-hidden`}>
-        <div className="grid gap-8 px-6 py-6 lg:grid-cols-[1.1fr,0.9fr] lg:px-8 lg:py-8">
+        <div className="grid gap-5 px-4 py-5 sm:px-6 sm:py-6 lg:grid-cols-[1.1fr,0.9fr] lg:gap-8 lg:px-8 lg:py-8">
           <div>
-            <div className="mb-5 flex items-center gap-4">
+            <div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4 sm:mb-5">
               <DashboardAvatar user={user} />
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Personal Dashboard</p>
                 <p className="mt-1 text-sm text-slate-500">Your profile updates appear here as soon as they are saved.</p>
               </div>
             </div>
-            <h1 className="mt-4 font-display text-4xl font-bold tracking-tight text-slate-950">
+            <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-slate-950 sm:mt-4 sm:text-4xl">
               Welcome back, {firstName}
             </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:mt-4 sm:text-base">
               {overdueTasks.length
                 ? `You have ${overdueTasks.length} overdue task${overdueTasks.length === 1 ? '' : 's'} and ${dueSoonTasks.length} item${dueSoonTasks.length === 1 ? '' : 's'} due soon.`
                 : `Your workload looks steady today with ${dueSoonTasks.length} task${dueSoonTasks.length === 1 ? '' : 's'} due soon and ${completedThisWeek.length} completed this week.`}
             </p>
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/tasks" className="inline-flex items-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
+            <div className="mt-5 flex flex-col gap-3 sm:mt-6 sm:flex-row sm:flex-wrap">
+              <Link to="/tasks" className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 sm:w-auto">
                 Open my tasks
               </Link>
-              <Link to="/calendar" className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50">
+              <Link to="/calendar" className="inline-flex w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-50 sm:w-auto">
                 View calendar
               </Link>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-1 xl:grid-cols-3">
             <OverviewCard
               label="Today"
               value={summary.due_today ?? dueSoonTasks.filter((task) => formatRelativeDate(task.due_date) === 'Today').length}
@@ -308,7 +308,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <MetricCard
           icon={<QueueIcon className="h-5 w-5" />}
           title="Tasks Assigned to Me"
@@ -338,7 +338,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
-        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+        <section className={`${dashboardSurface} p-4 sm:p-6 lg:p-7`}>
           <SectionHeader
             eyebrow="My Tasks"
             title="Assigned work"
@@ -383,7 +383,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+        <section className={`${dashboardSurface} p-4 sm:p-6 lg:p-7`}>
           <SectionHeader eyebrow="Productivity" title="Tasks by status" />
 
           <div className="mt-6 space-y-5">
@@ -427,7 +427,7 @@ export default function Dashboard() {
         </section>
       </div>
 
-      <section className={`${dashboardSurface} p-6 lg:p-7`}>
+      <section className={`${dashboardSurface} p-4 sm:p-6 lg:p-7`}>
         <SectionHeader
           eyebrow="My Teams"
           title="Member workspaces"
@@ -565,8 +565,8 @@ export default function Dashboard() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+      <div className="grid gap-5 sm:gap-6 xl:grid-cols-2">
+        <section className={`${dashboardSurface} p-4 sm:p-6 lg:p-7`}>
           <SectionHeader eyebrow="Continue" title="Recent task context" />
           <div className="mt-5 space-y-3">
             {continueItems.length === 0 ? (
@@ -593,7 +593,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+        <section className={`${dashboardSurface} p-4 sm:p-6 lg:p-7`}>
           <SectionHeader eyebrow="Favorites" title="Pinned workspaces and starred tasks" />
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             <div className={`${compactSurface} p-4`}>
@@ -630,7 +630,7 @@ export default function Dashboard() {
         </section>
       </div>
 
-      <section className={`${dashboardSurface} p-6 lg:p-7`}>
+      <section className={`${dashboardSurface} p-4 sm:p-6 lg:p-7`}>
         <SectionHeader eyebrow="Workspaces" title="Pinned and recent teams" />
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <div className={`${compactSurface} p-5`}>
@@ -666,8 +666,8 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[0.92fr,1.08fr]">
-        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+      <div className="grid gap-5 sm:gap-6 xl:grid-cols-[0.92fr,1.08fr]">
+        <section className={`${dashboardSurface} p-4 sm:p-6 lg:p-7`}>
           <SectionHeader eyebrow="Urgent Work" title="Overdue and near-deadline tasks" />
 
           <div className="mt-5 space-y-3">
@@ -704,7 +704,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+        <section className={`${dashboardSurface} p-4 sm:p-6 lg:p-7`}>
           <SectionHeader
             eyebrow="Notifications"
             title="Recent activity"
@@ -742,8 +742,8 @@ export default function Dashboard() {
         </section>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+      <div className="grid gap-5 sm:gap-6 xl:grid-cols-2">
+        <section className={`${dashboardSurface} p-4 sm:p-6 lg:p-7`}>
           <SectionHeader
             eyebrow="Completed This Week"
             title="Recently finished"
@@ -776,7 +776,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+        <section className={`${dashboardSurface} p-4 sm:p-6 lg:p-7`}>
           <SectionHeader
             eyebrow="Upcoming Deadlines"
             title="What is coming next"
@@ -841,25 +841,25 @@ function DashboardAvatar({ user }) {
 
 function OverviewCard({ label, value, note }) {
   return (
-    <div className={`${compactSurface} px-4 py-4`}>
+    <div className={`${compactSurface} px-3 py-3 sm:px-4 sm:py-4`}>
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className="mt-2 text-3xl font-bold tracking-tight text-slate-950">{value}</p>
-      <p className="mt-2 text-sm text-slate-600">{note}</p>
+      <p className="mt-1.5 text-2xl font-bold tracking-tight text-slate-950 sm:mt-2 sm:text-3xl">{value}</p>
+      <p className="mt-1 text-xs text-slate-600 sm:mt-2 sm:text-sm">{note}</p>
     </div>
   )
 }
 
 function MetricCard({ icon, title, value, trend, accent = 'text-emerald-700 bg-emerald-50' }) {
   return (
-    <div className={`${dashboardSurface} p-5 transition-transform duration-200 hover:-translate-y-0.5`}>
+    <div className={`${dashboardSurface} p-4 transition-transform duration-200 hover:-translate-y-0.5 sm:p-5`}>
       <div className="flex items-start justify-between gap-4">
         <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${accent}`}>
           {icon}
         </div>
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Overview</p>
       </div>
-      <p className="mt-5 text-sm font-medium text-slate-600">{title}</p>
-      <p className="mt-2 text-3xl font-bold tracking-tight text-slate-950">{value}</p>
+      <p className="mt-4 text-sm font-medium text-slate-600 sm:mt-5">{title}</p>
+      <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{value}</p>
       <p className="mt-2 text-sm text-slate-500">{trend}</p>
     </div>
   )
@@ -890,7 +890,7 @@ function TeamReference({ task }) {
 
 function SectionHeader({ eyebrow, title, action }) {
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p>
         <h2 className="mt-2 text-xl font-semibold text-slate-950">{title}</h2>

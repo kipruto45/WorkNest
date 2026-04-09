@@ -82,6 +82,7 @@ class SMSServiceTests(TestCase):
     AFRICAS_TALKING_USERNAME="sandbox",
     AFRICAS_TALKING_API_KEY="test-key",
     AFRICAS_TALKING_ENVIRONMENT="sandbox",
+    AFRICAS_TALKING_USE_SANDBOX=True,
     SMS_USE_SANDBOX=True,
 )
 class AfricasTalkingProviderTests(TestCase):
@@ -114,7 +115,13 @@ class AfricasTalkingProviderTests(TestCase):
         self.assertEqual(result["message_id"], "msg-1")
         self.assertEqual(result["status"], "sent")
 
-    @override_settings(AFRICAS_TALKING_USERNAME="worknest", AFRICAS_TALKING_API_KEY="test-key")
+    @override_settings(
+        AFRICAS_TALKING_USERNAME="worknest",
+        AFRICAS_TALKING_API_KEY="test-key",
+        AFRICAS_TALKING_ENVIRONMENT="sandbox",
+        AFRICAS_TALKING_USE_SANDBOX=True,
+        SMS_USE_SANDBOX=True,
+    )
     def test_provider_rejects_non_sandbox_username_in_sandbox_mode(self) -> None:
         with self.assertRaisesMessage(SMSConfigurationError, "Sandbox mode requires AFRICAS_TALKING_USERNAME=sandbox."):
             AfricasTalkingSMSProvider()

@@ -526,7 +526,7 @@ export default function MyTasks() {
             onClick={() => setActiveViewKey(view.key)}
             className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
               activeViewKey === view.key
-                ? 'bg-slate-900 text-white'
+                ? 'bg-emerald-700 text-white'
                 : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
             }`}
           >
@@ -550,7 +550,7 @@ export default function MyTasks() {
               type="button"
               onClick={() => handleTogglePin(view)}
               className={`rounded-full px-3 py-2 text-xs font-semibold transition-colors ${
-                view.is_pinned ? 'bg-slate-900 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                view.is_pinned ? 'bg-emerald-700 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
               {view.is_pinned ? 'Pinned' : 'Pin'}
@@ -761,7 +761,7 @@ export default function MyTasks() {
       )}
 
       {showComposer ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/10 px-4 backdrop-blur-sm">
           <div className="w-full max-w-3xl rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.16)]">
             <div className="flex items-start justify-between gap-4">
               <div>

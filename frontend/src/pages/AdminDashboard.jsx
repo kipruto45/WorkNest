@@ -424,7 +424,7 @@ export default function AdminDashboard() {
               <button
                 type="submit"
                 disabled={sending}
-                className="inline-flex items-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {sending ? 'Sending...' : 'Send notification'}
               </button>
@@ -622,7 +622,7 @@ function UserListAvatar({ user, compact = false }) {
   }
 
   return (
-    <div className={`flex items-center justify-center bg-slate-900 font-semibold text-white ${sizeClass}`}>
+    <div className={`flex items-center justify-center bg-emerald-700 font-semibold text-white ${sizeClass}`}>
       {initials}
     </div>
   )
@@ -666,7 +666,7 @@ function DistributionRow({ label, value, items }) {
         <p className="text-sm font-medium text-slate-600">{value}</p>
       </div>
       <div className="mt-3 h-2.5 rounded-full bg-slate-100">
-        <div className="h-2.5 rounded-full bg-slate-900 transition-all duration-700" style={{ width: `${(value / maxValue) * 100}%` }} />
+        <div className="h-2.5 rounded-full bg-emerald-700 transition-all duration-700" style={{ width: `${(value / maxValue) * 100}%` }} />
       </div>
     </div>
   )

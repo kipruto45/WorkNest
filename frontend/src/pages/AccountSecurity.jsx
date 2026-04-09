@@ -129,7 +129,7 @@ export default function AccountSecurity() {
           description: 'This workspace now exposes verified identity state, tracked sessions, and device inventory so stronger authentication can be layered in cleanly.',
           points: [
             { label: '2FA status', value: currentUser?.two_factor_status || 'disabled' },
-            { label: 'Theme mode', value: currentUser?.theme_preference || 'system' },
+            { label: 'Device records', value: devices.length || '0' },
           ],
         }}
       />

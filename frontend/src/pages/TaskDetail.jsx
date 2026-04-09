@@ -1453,7 +1453,7 @@ function DetailRow({ label, value }) {
 
 function CommentHistoryModal({ comment, historyItems, loading, onClose }) {
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 px-4 py-10 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-emerald-950/12 px-4 py-10 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-2xl rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_32px_120px_rgba(15,23,42,0.22)]" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>

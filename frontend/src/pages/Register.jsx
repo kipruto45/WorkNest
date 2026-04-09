@@ -143,6 +143,8 @@ export default function Register() {
     <AuthShell
       title="Create your workspace account"
       subtitle="Create your account and start organizing work with your team."
+      showPresentationSpotlight={false}
+      compact
       footer={
         <p>
           Already have an account?{' '}
@@ -155,16 +157,16 @@ export default function Register() {
         </p>
       }
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3.5">
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
         <input type="hidden" {...register('account_type')} />
         {formError ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{formError}</div>
         ) : null}
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Account type</p>
-          <h3 className="mt-2 text-lg font-semibold text-slate-950">Choose your workspace mode</h3>
-          <p className="mt-2 text-sm text-slate-500">Pick the experience that matches how you plan to work first.</p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <h3 className="mt-1.5 text-base font-semibold text-slate-950">Choose your workspace mode</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-500">Pick the starting mode that matches how you plan to work.</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
             <AccountTypeCard
               value="personal"
               selected={watch('account_type') === 'personal'}
@@ -174,8 +176,9 @@ export default function Register() {
               }}
               icon={UserIcon}
               title="Individual account"
-              description="Manage your personal tasks, schedules, and deadlines."
+              description="Manage personal tasks, schedules, and deadlines."
               helper="Focused productivity"
+              compact
             />
             <AccountTypeCard
               value="team"
@@ -186,8 +189,9 @@ export default function Register() {
               }}
               icon={TeamIcon}
               title="Team account"
-              description="Create a workspace, invite members, assign tasks, and track team progress."
+              description="Create a workspace, invite members, and track team progress."
               helper="Shared collaboration"
+              compact
             />
           </div>
           {errors.account_type ? <p className="mt-2 text-sm text-red-500">{errors.account_type.message}</p> : null}
@@ -213,42 +217,52 @@ export default function Register() {
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-soft">or</span>
           <div className="soft-divider" />
         </div>
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-emerald-950">Full name</label>
-          <input {...register('name')} className="input-field" placeholder="Alex Morgan" />
-          {errors.name ? <p className="mt-2 text-sm text-red-500">{errors.name.message}</p> : null}
-        </div>
 
-        {watch('account_type') === 'team' ? (
+        <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-emerald-950">Team name</label>
-            <input {...register('team_name')} className="input-field" placeholder="Growth Squad" />
-            {errors.team_name ? <p className="mt-2 text-sm text-red-500">{errors.team_name.message}</p> : null}
+            <label className="mb-2 block text-sm font-semibold text-emerald-950">Full name</label>
+            <input {...register('name')} className="input-field" placeholder="Alex Morgan" />
+            {errors.name ? <p className="mt-2 text-sm text-red-500">{errors.name.message}</p> : null}
           </div>
-        ) : null}
+          {watch('account_type') === 'team' ? (
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-emerald-950">Team name</label>
+              <input {...register('team_name')} className="input-field" placeholder="Growth Squad" />
+              {errors.team_name ? <p className="mt-2 text-sm text-red-500">{errors.team_name.message}</p> : null}
+            </div>
+          ) : (
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-emerald-950">Email</label>
+              <input type="email" {...register('email')} className="input-field" placeholder="name@company.com" />
+              <p className="mt-2 text-xs text-soft">Optional if you prefer to start with phone-based sign in.</p>
+              {errors.email ? <p className="mt-2 text-sm text-red-500">{errors.email.message}</p> : null}
+            </div>
+          )}
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-emerald-950">Email</label>
-          <input type="email" {...register('email')} className="input-field" placeholder="name@company.com" />
-          <p className="mt-2 text-xs text-soft">Optional if you prefer to start with phone-based sign in.</p>
-          {errors.email ? <p className="mt-2 text-sm text-red-500">{errors.email.message}</p> : null}
-        </div>
+          {watch('account_type') === 'team' ? (
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-emerald-950">Email</label>
+              <input type="email" {...register('email')} className="input-field" placeholder="name@company.com" />
+              <p className="mt-2 text-xs text-soft">Optional if you prefer to start with phone-based sign in.</p>
+              {errors.email ? <p className="mt-2 text-sm text-red-500">{errors.email.message}</p> : null}
+            </div>
+          ) : null}
 
-        <div className="grid gap-3 md:grid-cols-[140px,1fr]">
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-emerald-950">Country code</label>
-            <input {...register('phone_country_code')} className="input-field" placeholder="+254" />
-            {errors.phone_country_code ? <p className="mt-2 text-sm text-red-500">{errors.phone_country_code.message}</p> : null}
-          </div>
-          <div>
+          <div className={watch('account_type') === 'team' ? 'sm:col-span-2' : ''}>
             <label className="mb-2 block text-sm font-semibold text-emerald-950">Phone number</label>
-            <input {...register('phone_number')} className="input-field" placeholder="+254712345678" />
-            <p className="mt-2 text-xs text-soft">Optional if you prefer phone-first registration and login.</p>
-            {errors.phone_number ? <p className="mt-2 text-sm text-red-500">{errors.phone_number.message}</p> : null}
+            <div className="grid gap-2 sm:grid-cols-[112px,1fr]">
+              <div>
+                <input {...register('phone_country_code')} className="input-field" placeholder="+254" />
+                {errors.phone_country_code ? <p className="mt-2 text-sm text-red-500">{errors.phone_country_code.message}</p> : null}
+              </div>
+              <div>
+                <input {...register('phone_number')} className="input-field" placeholder="+254712345678" />
+                <p className="mt-2 text-xs text-soft">Optional if you prefer phone-first registration and login.</p>
+                {errors.phone_number ? <p className="mt-2 text-sm text-red-500">{errors.phone_number.message}</p> : null}
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
           <PasswordField
             label="Password"
             name="password"
