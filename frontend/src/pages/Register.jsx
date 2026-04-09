@@ -142,9 +142,11 @@ export default function Register() {
   return (
     <AuthShell
       title="Create your workspace account"
-      subtitle="Create your account and start organizing work with your team."
+      subtitle="Create your account and start organizing work."
       showPresentationSpotlight={false}
       compact
+      heroImageSrc="/register.jpeg"
+      heroImageAlt="WorkNest register preview"
       footer={
         <p>
           Already have an account?{' '}
@@ -157,16 +159,16 @@ export default function Register() {
         </p>
       }
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2.5">
         <input type="hidden" {...register('account_type')} />
         {formError ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{formError}</div>
         ) : null}
-        <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <div className="rounded-[22px] border border-slate-200 bg-white p-3.5 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Account type</p>
           <h3 className="mt-1.5 text-base font-semibold text-slate-950">Choose your workspace mode</h3>
-          <p className="mt-1 text-xs leading-5 text-slate-500">Pick the starting mode that matches how you plan to work.</p>
-          <div className="mt-3 grid gap-2 md:grid-cols-2">
+          <p className="mt-1 text-xs leading-5 text-slate-500">Pick the starting mode.</p>
+          <div className="mt-2.5 grid grid-cols-2 gap-2">
             <AccountTypeCard
               value="personal"
               selected={watch('account_type') === 'personal'}
@@ -212,13 +214,13 @@ export default function Register() {
           )}
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <div className="soft-divider" />
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-soft">or</span>
           <div className="soft-divider" />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-2.5 sm:grid-cols-2">
           <div>
             <label className="mb-2 block text-sm font-semibold text-emerald-950">Full name</label>
             <input {...register('name')} className="input-field" placeholder="Alex Morgan" />

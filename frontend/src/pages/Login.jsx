@@ -123,6 +123,9 @@ export default function Login() {
     <AuthShell
       title="Welcome back"
       subtitle="Sign in to continue to your tasks, teams, and recent activity."
+      showPresentationSpotlight={false}
+      heroImageSrc="/register.jpeg"
+      heroImageAlt="WorkNest workspace preview"
       footer={
         <p>
           New here?{' '}

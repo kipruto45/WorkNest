@@ -1,14 +1,23 @@
 import AppLogo from './AppLogo'
 
-export default function AuthShell({ title, subtitle, footer, children, showPresentationSpotlight = true, compact = false }) {
+export default function AuthShell({
+  title,
+  subtitle,
+  footer,
+  children,
+  showPresentationSpotlight = true,
+  compact = false,
+  heroImageSrc = '',
+  heroImageAlt = '',
+}) {
   return (
-    <div className={`app-shell relative flex min-h-dvh items-center justify-center overflow-hidden px-4 ${compact ? 'py-3 lg:py-4' : 'py-4 lg:py-6'}`}>
+    <div className={`app-shell relative flex min-h-dvh items-center justify-center overflow-hidden px-4 ${compact ? 'py-2 lg:py-3' : 'py-4 lg:py-6'}`}>
       <div className="ambient-orb -left-12 top-24 h-48 w-48 bg-emerald-400/10" />
       <div className="ambient-orb right-0 top-8 h-60 w-60 bg-emerald-300/6" />
       <div className="ambient-orb bottom-8 left-1/3 h-40 w-40 bg-slate-300/8" />
 
       <div className={`relative grid w-full ${compact ? 'max-w-6xl gap-4 lg:grid-cols-[0.96fr,1.04fr]' : 'max-w-5xl gap-6 lg:grid-cols-[1.02fr,0.98fr]'}`}>
-        <div className={`hero-panel hidden flex-col justify-between lg:flex ${compact ? 'min-h-[420px]' : 'min-h-[460px]'}`}>
+        <div className={`hero-panel hidden flex-col lg:flex ${compact ? 'min-h-[420px] gap-4' : 'min-h-[460px] justify-between'}`}>
           <div>
             <div className="stat-chip inline-flex items-center gap-2">
               <img src="/logo_hd.png" alt="WorkNest logo" className="h-5 w-5 rounded-md object-cover" />
@@ -22,7 +31,17 @@ export default function AuthShell({ title, subtitle, footer, children, showPrese
             </p>
           </div>
 
-          <div className="grid gap-4">
+          {heroImageSrc ? (
+            <div className="overflow-hidden rounded-[24px] border-2 border-emerald-300 bg-white p-2 shadow-[0_18px_42px_rgba(16,185,129,0.12)]">
+              <img
+                src={heroImageSrc}
+                alt={heroImageAlt || 'Register preview'}
+                className="h-[176px] w-full rounded-[18px] object-cover"
+              />
+            </div>
+          ) : null}
+
+          <div className={`grid ${compact ? 'gap-3' : 'gap-4'}`}>
             {showPresentationSpotlight ? (
               <div className="spotlight-panel">
                 <div className="relative z-10">
@@ -55,18 +74,18 @@ export default function AuthShell({ title, subtitle, footer, children, showPrese
           </div>
         </div>
 
-        <div className={`page-shell fade-in w-full ${compact ? 'px-4 py-5 md:px-6 md:py-6' : 'px-5 py-6 md:px-7 md:py-7'}`}>
+        <div className={`page-shell fade-in w-full ${compact ? 'px-4 py-4 md:px-5 md:py-5' : 'px-5 py-6 md:px-7 md:py-7'}`}>
           <AppLogo
             to="/login"
             imageClassName="h-9 w-9"
             titleClassName="text-sm font-semibold text-slate-800"
           />
-          <div className={compact ? 'mt-4' : 'mt-6'}>
+          <div className={compact ? 'mt-3' : 'mt-6'}>
             <h2 className="font-display text-2xl font-bold text-slate-950 md:text-3xl">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-soft">{subtitle}</p>
+            <p className={`text-soft ${compact ? 'mt-1.5 text-sm leading-5' : 'mt-2 text-sm leading-6'}`}>{subtitle}</p>
           </div>
-          <div className={compact ? 'mt-4' : 'mt-6'}>{children}</div>
-          {footer ? <div className={`${compact ? 'mt-4' : 'mt-6'} text-sm text-soft`}>{footer}</div> : null}
+          <div className={compact ? 'mt-3' : 'mt-6'}>{children}</div>
+          {footer ? <div className={`${compact ? 'mt-3' : 'mt-6'} text-sm text-soft`}>{footer}</div> : null}
         </div>
       </div>
     </div>
