@@ -57,8 +57,8 @@ export default function TeamSetup() {
           allow_manager_invites: Boolean(data.allow_manager_invites),
         })
       ).unwrap()
-      toast.success('Team workspace created. Invite your teammates next.')
-      navigate(`/teams/${team.id}/invitations?compose=1&created=1`, { replace: true })
+      toast.success('Team workspace created. Opening your team dashboard.')
+      navigate(`/teams/${team.id}/overview`, { replace: true })
     } catch (error) {
       const parsed = extractApiError(error, {
         fallbackMessage: 'Unable to create your team right now.',
@@ -111,7 +111,7 @@ export default function TeamSetup() {
             <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errors.root.message}</div>
           ) : null}
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-600">
-            We will take you straight into invitations after setup so your workspace becomes collaborative immediately.
+            We will open your team dashboard after setup so you can see team health and start assigning work immediately.
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Guided next step</span>
           </div>
           <button type="submit" disabled={saving} className="btn-primary w-full justify-center">
@@ -142,7 +142,7 @@ export default function TeamSetup() {
           <div className="rounded-[24px] border border-slate-200 bg-[#fcfcfb] p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Next up</p>
             <p className="mt-3 text-sm text-slate-600">
-              After setup, we will open your invitation workspace so you can bring in teammates before planning the first shared tasks.
+              After setup, we will open your team dashboard. From there you can invite members, assign work, and track progress in one place.
             </p>
           </div>
         </div>

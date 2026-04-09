@@ -29,6 +29,52 @@ def generate_unique_team_slug(*, name: str) -> str:
 
 
 @transaction.atomic
+def ensure_personal_workspace(*, user) -> Team:
+    membership = (
+        Membership.objects.select_related("team")
+        .filter(
+            user=user,
+            status=Membership.Status.ACTIVE,
+            team__is_personal=True,
+            team__is_archived=False,
+        )
+        .order_by("team__created_at")
+        .first()
+    )
+    if membership is not None:
+        return membership.team
+
+    existing_team = (
+        Team.objects.filter(
+            created_by=user,
+            is_personal=True,
+            is_archived=False,
+        )
+        .order_by("created_at")
+        .first()
+    )
+    if existing_team is not None:
+        Membership.objects.update_or_create(
+            team=existing_team,
+            user=user,
+            defaults={
+                "role": Membership.Role.ADMIN,
+                "status": Membership.Status.ACTIVE,
+                "invited_by": user,
+                "joined_at": timezone.now(),
+            },
+        )
+        return existing_team
+
+    identity = (getattr(user, "name", "") or getattr(user, "first_name", "") or "").strip()
+    if not identity:
+        email = str(getattr(user, "email", "") or "").strip()
+        identity = email.split("@")[0].strip() if email else "My"
+    personal_name = f"{identity}'s Personal Workspace"
+    return create_team_with_owner(created_by=user, name=personal_name, is_personal=True)
+
+
+@transaction.atomic
 def create_team_with_owner(
     *,
     created_by,

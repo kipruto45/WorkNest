@@ -30,6 +30,7 @@ from apps.tasks.services import (
     validate_task_labels,
 )
 from apps.teams.models import Team
+from apps.teams.services import ensure_personal_workspace
 
 User = get_user_model()
 
@@ -423,18 +424,28 @@ class TaskCreateSerializer(serializers.Serializer):
     def validate(self, attrs):
         request_user = self.context["request"].user
         team_id = attrs.get("team_id")
-        is_personal_account = getattr(request_user, "account_type", User.AccountType.PERSONAL) == User.AccountType.PERSONAL
-        personal_membership = None
-        if is_personal_account:
+        personal_membership = (
+            Membership.objects.select_related("team")
+            .filter(
+                user=request_user,
+                status=Membership.Status.ACTIVE,
+                team__is_personal=True,
+                team__is_archived=False,
+            )
+            .order_by("team__created_at")
+            .first()
+        )
+        if personal_membership is None and request_user.account_type == User.AccountType.PERSONAL:
+            personal_team = ensure_personal_workspace(user=request_user)
             personal_membership = (
                 Membership.objects.select_related("team")
                 .filter(
                     user=request_user,
                     status=Membership.Status.ACTIVE,
+                    team=personal_team,
                     team__is_personal=True,
                     team__is_archived=False,
                 )
-                .order_by("team__created_at")
                 .first()
             )
 

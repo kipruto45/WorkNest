@@ -75,6 +75,8 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     profile_completion = serializers.SerializerMethodField()
     account_type = serializers.SerializerMethodField()
     default_team_id = serializers.SerializerMethodField()
+    workspace_options = serializers.SerializerMethodField()
+    has_team_workspaces = serializers.SerializerMethodField()
     primary_mode = serializers.SerializerMethodField()
     onboarding_completed = serializers.SerializerMethodField()
     theme_preference = serializers.SerializerMethodField()
@@ -103,6 +105,8 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "account_type",
             "primary_mode",
             "default_team_id",
+            "workspace_options",
+            "has_team_workspaces",
             "onboarding_completed",
             "theme_preference",
             "two_factor_status",
@@ -129,6 +133,8 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "account_type",
             "primary_mode",
             "default_team_id",
+            "workspace_options",
+            "has_team_workspaces",
             "onboarding_completed",
             "theme_preference",
             "two_factor_status",
@@ -228,7 +234,23 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     def get_two_factor_status(self, obj: User) -> str:
         return getattr(obj, "two_factor_status", User.TwoFactorStatus.DISABLED)
 
+    def _ensure_personal_workspace(self, obj: User) -> None:
+        if obj.account_type != User.AccountType.PERSONAL:
+            return
+        has_personal_workspace = Membership.objects.filter(
+            user=obj,
+            status=Membership.Status.ACTIVE,
+            team__is_personal=True,
+            team__is_archived=False,
+        ).exists()
+        if has_personal_workspace:
+            return
+        from apps.teams.services import ensure_personal_workspace
+
+        ensure_personal_workspace(user=obj)
+
     def get_default_team_id(self, obj: User) -> str | None:
+        self._ensure_personal_workspace(obj)
         memberships = (
             Membership.objects.filter(user=obj, status=Membership.Status.ACTIVE)
             .select_related("team")
@@ -246,6 +268,33 @@ class CurrentUserSerializer(serializers.ModelSerializer):
 
     def get_presence(self, obj: User) -> dict:
         return build_presence_payload(obj)
+
+    def get_workspace_options(self, obj: User) -> list[dict]:
+        self._ensure_personal_workspace(obj)
+        memberships = (
+            Membership.objects.filter(user=obj, status=Membership.Status.ACTIVE, team__is_archived=False)
+            .select_related("team")
+            .order_by("-team__is_personal", "team__name", "team__created_at")
+        )
+        options: list[dict] = []
+        for membership in memberships:
+            options.append(
+                {
+                    "id": str(membership.team_id),
+                    "name": membership.team.name,
+                    "is_personal": bool(membership.team.is_personal),
+                    "my_role": membership.role,
+                }
+            )
+        return options
+
+    def get_has_team_workspaces(self, obj: User) -> bool:
+        return Membership.objects.filter(
+            user=obj,
+            status=Membership.Status.ACTIVE,
+            team__is_archived=False,
+            team__is_personal=False,
+        ).exists()
 
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):

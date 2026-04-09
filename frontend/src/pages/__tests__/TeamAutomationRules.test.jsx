@@ -7,11 +7,16 @@ import TeamAutomationRules from '../TeamAutomationRules'
 import { TestMemoryRouter } from '../../test/router'
 
 const getAutomationRules = vi.fn()
+const getTeam = vi.fn()
 
 vi.mock('../../services/api', () => ({
+  teamsAPI: {
+    getTeam: (...args) => getTeam(...args),
+  },
   tasksAPI: {
     getAutomationRules: (...args) => getAutomationRules(...args),
   },
+  unwrapData: (response) => response?.data?.data ?? null,
   unwrapResults: (response) => response?.data?.data?.results ?? [],
 }))
 
@@ -22,6 +27,14 @@ vi.mock('react-toastify', () => ({
 }))
 
 test('TeamAutomationRules renders rules', async () => {
+  getTeam.mockResolvedValueOnce({
+    data: {
+      data: {
+        id: 'team-1',
+        name: 'Product Team',
+      },
+    },
+  })
   getAutomationRules.mockResolvedValueOnce({
     data: {
       data: {

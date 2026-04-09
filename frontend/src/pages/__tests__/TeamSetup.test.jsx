@@ -50,7 +50,7 @@ beforeEach(() => {
   createTeam.mockClear()
 })
 
-test('Team setup creates a workspace and routes into invitation onboarding', async () => {
+test('Team setup creates a workspace and routes into team dashboard overview', async () => {
   authState = { user: { id: 'user-1', account_type: 'team', default_team_id: null } }
 
   render(
@@ -65,7 +65,7 @@ test('Team setup creates a workspace and routes into invitation onboarding', asy
 
   await waitFor(() => {
     expect(createTeam).toHaveBeenCalled()
-    expect(navigateMock).toHaveBeenCalledWith('/teams/team-1/invitations?compose=1&created=1', { replace: true })
+    expect(navigateMock).toHaveBeenCalledWith('/teams/team-1/overview', { replace: true })
   })
 })
 

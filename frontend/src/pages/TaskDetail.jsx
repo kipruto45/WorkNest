@@ -22,6 +22,8 @@ const allowedAttachmentExtensions = ['pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx',
 const maxAttachmentSizeBytes = 10 * 1024 * 1024
 const commentReactionOptions = ['👍', '❤️', '🎉', '👀', '🔥']
 const labelPalette = ['#10b981', '#0f766e', '#2563eb', '#7c3aed', '#f59e0b', '#ef4444']
+const panelClass = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
+const compactSurface = 'rounded-[22px] border border-slate-200 bg-[#fcfcfb]'
 
 export default function TaskDetail() {
   const { taskId } = useParams()
@@ -616,45 +618,80 @@ export default function TaskDetail() {
     assignedToId: task.assigned_to,
   })
   const canUploadAttachments = Boolean(currentRole) && !task.is_archived
+  const teamTaskPath = task.team ? `/teams/${task.team}` : '/tasks'
+  const teamOverviewPath = task.team ? `/teams/${task.team}/overview` : '/teams'
+  const teamCalendarPath = task.team ? `/teams/${task.team}/calendar` : '/calendar'
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/tasks" className="btn-secondary">
+        <Link to={teamTaskPath} className="btn-secondary">
           Back to tasks
         </Link>
-        <Link to={`/teams/${task.team}/overview`} className="btn-ghost">
+        <Link to={teamOverviewPath} className="btn-ghost">
           Open team overview
+        </Link>
+        <Link to={teamCalendarPath} className="btn-ghost">
+          Team deadlines
         </Link>
       </div>
 
-      <section className="hero-panel fade-in">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+      <section className={`${panelClass} overflow-hidden`}>
+        <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.15fr,0.85fr] lg:px-8 lg:py-8">
           <div>
             <div className="stat-chip">{toSentenceCase(task.status)}</div>
             <h1 className="mt-4 font-display text-4xl font-bold text-emerald-950">{task.title}</h1>
             <p className="mt-4 max-w-3xl text-base leading-7 text-soft">
               {task.description || 'No detailed description has been added for this task yet.'}
             </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
+                Priority: {toSentenceCase(task.priority || 'medium')}
+              </span>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                Due: {task.due_date ? formatDate(task.due_date) : 'Not set'}
+              </span>
+              <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">
+                Assignee: {task.assigned_to_data?.name || 'Unassigned'}
+              </span>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={handleToggleFavorite} className="btn-secondary" disabled={savingMetaAction === 'favorite'}>
-              {savingMetaAction === 'favorite' ? 'Saving...' : task.is_favorite ? 'Favorited' : 'Favorite'}
-            </button>
-            <button type="button" onClick={handleToggleWatch} className="btn-secondary" disabled={savingMetaAction === 'watch'}>
-              {savingMetaAction === 'watch' ? 'Saving...' : task.is_watching ? 'Watching' : 'Watch task'}
-            </button>
-            {canManage ? (
-              <button type="button" onClick={() => setIsEditing((current) => !current)} className="btn-secondary">
-                {isEditing ? 'Close editor' : 'Edit task'}
+          <div className={`${compactSurface} p-5`}>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Quick actions</p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button type="button" onClick={handleToggleFavorite} className="btn-secondary" disabled={savingMetaAction === 'favorite'}>
+                {savingMetaAction === 'favorite' ? 'Saving...' : task.is_favorite ? 'Favorited' : 'Favorite'}
               </button>
-            ) : null}
-            {canDeleteCurrentTask ? (
-              <button type="button" onClick={handleDelete} className="btn-primary">
-                Delete task
+              <button type="button" onClick={handleToggleWatch} className="btn-secondary" disabled={savingMetaAction === 'watch'}>
+                {savingMetaAction === 'watch' ? 'Saving...' : task.is_watching ? 'Watching' : 'Watch task'}
               </button>
-            ) : null}
+              {canManage ? (
+                <button type="button" onClick={() => setIsEditing((current) => !current)} className="btn-secondary">
+                  {isEditing ? 'Close editor' : 'Edit task'}
+                </button>
+              ) : null}
+              {canDeleteCurrentTask ? (
+                <button type="button" onClick={handleDelete} className="btn-primary">
+                  Delete task
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mt-4 grid gap-2 text-xs text-slate-600">
+              <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                <span>Comments</span>
+                <strong>{task.comment_count || comments.length}</strong>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                <span>Attachments</span>
+                <strong>{task.attachment_count || attachments.length}</strong>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                <span>Watchers</span>
+                <strong>{task.watchers?.length || 0}</strong>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -662,7 +699,7 @@ export default function TaskDetail() {
       <div className="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
         <div className="space-y-6">
           {isEditing && canManage ? (
-            <form onSubmit={handleSubmit(handleUpdate)} className="card grid gap-4 fade-in">
+            <form onSubmit={handleSubmit(handleUpdate)} className={`${panelClass} grid gap-4 p-6 lg:p-7`}>
               <div>
                 <label className="mb-2 block text-sm font-semibold text-emerald-950">Title</label>
                 <input {...register('title')} className="input-field" />
@@ -707,7 +744,7 @@ export default function TaskDetail() {
             </form>
           ) : null}
 
-          <section className="card fade-in">
+          <section className={`${panelClass} p-6 lg:p-7`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Conversation</p>
@@ -753,7 +790,7 @@ export default function TaskDetail() {
         </div>
 
         <div className="space-y-6">
-          <section className="card fade-in">
+          <section className={`${panelClass} p-6 lg:p-7`}>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Task metadata</p>
             <h2 className="mt-2 text-2xl font-bold text-emerald-950">Details</h2>
 
@@ -898,7 +935,7 @@ export default function TaskDetail() {
             </div>
           </section>
 
-          <section className="card fade-in">
+          <section className={`${panelClass} p-6 lg:p-7`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Dependencies</p>
@@ -990,7 +1027,7 @@ export default function TaskDetail() {
             </div>
           </section>
 
-          <section className="card fade-in">
+          <section className={`${panelClass} p-6 lg:p-7`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Time tracking</p>
@@ -1075,7 +1112,7 @@ export default function TaskDetail() {
             </div>
           </section>
 
-          <section className="card fade-in">
+          <section className={`${panelClass} p-6 lg:p-7`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Guest access</p>
@@ -1119,7 +1156,7 @@ export default function TaskDetail() {
             </div>
           </section>
 
-          <section className="card fade-in">
+          <section className={`${panelClass} p-6 lg:p-7`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Checklist</p>
@@ -1173,7 +1210,7 @@ export default function TaskDetail() {
             </form>
           </section>
 
-          <section className="card fade-in">
+          <section className={`${panelClass} p-6 lg:p-7`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Activity</p>
@@ -1205,7 +1242,7 @@ export default function TaskDetail() {
             </div>
           </section>
 
-          <section className="card fade-in">
+          <section className={`${panelClass} p-6 lg:p-7`}>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Attachments</p>
             <h2 className="mt-2 text-2xl font-bold text-emerald-950">Files</h2>
 

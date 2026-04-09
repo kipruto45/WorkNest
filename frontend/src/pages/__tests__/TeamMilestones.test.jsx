@@ -7,11 +7,16 @@ import TeamMilestones from '../TeamMilestones'
 import { TestMemoryRouter } from '../../test/router'
 
 const getMilestones = vi.fn()
+const getTeam = vi.fn()
 
 vi.mock('../../services/api', () => ({
+  teamsAPI: {
+    getTeam: (...args) => getTeam(...args),
+  },
   tasksAPI: {
     getMilestones: (...args) => getMilestones(...args),
   },
+  unwrapData: (response) => response?.data?.data ?? null,
   unwrapResults: (response) => response?.data?.data?.results ?? [],
 }))
 
@@ -22,6 +27,14 @@ vi.mock('react-toastify', () => ({
 }))
 
 test('TeamMilestones renders list', async () => {
+  getTeam.mockResolvedValueOnce({
+    data: {
+      data: {
+        id: 'team-1',
+        name: 'Product Team',
+      },
+    },
+  })
   getMilestones.mockResolvedValueOnce({
     data: {
       data: {

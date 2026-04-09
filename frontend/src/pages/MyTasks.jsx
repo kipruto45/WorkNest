@@ -148,14 +148,19 @@ export default function MyTasks() {
     const results = unwrapResults(response)
     setTeams(results)
 
-    if (!draft.team_id) {
-      const preferredTeamId = currentUser?.default_team_id || ''
-      const defaultTeam = preferredTeamId
-        ? results.find((team) => String(team.id) === String(preferredTeamId))
-        : results.find((team) => team.is_personal) || null
+    const preferredTeamId = currentUser?.default_team_id || ''
+    const preferredTeam = preferredTeamId
+      ? results.find((team) => String(team.id) === String(preferredTeamId))
+      : null
+    const defaultTeam = preferredTeam || results.find((team) => team.is_personal) || results[0] || null
+    const hasStaleTeamSelection = Boolean(
+      draft.team_id && !results.some((team) => String(team.id) === String(draft.team_id))
+    )
+
+    if (!draft.team_id || hasStaleTeamSelection) {
       setDraft((current) => ({
         ...current,
-        team_id: isPersonalAccount ? '' : defaultTeam?.id || preferredTeamId || results[0]?.id || '',
+        team_id: isPersonalAccount ? '' : defaultTeam?.id || '',
         assigned_to: currentUser?.id || '',
       }))
     }
@@ -236,7 +241,9 @@ export default function MyTasks() {
     })
   }, [focusMode, tasks])
 
-  const resolvedWorkspaceId = isPersonalAccount ? '' : draft.team_id || currentUser?.default_team_id || teams[0]?.id || ''
+  const defaultWorkspaceId = teams.find((team) => String(team.id) === String(currentUser?.default_team_id))?.id || ''
+  const fallbackWorkspaceId = defaultWorkspaceId || teams.find((team) => team.is_personal)?.id || teams[0]?.id || ''
+  const resolvedWorkspaceId = isPersonalAccount ? '' : draft.team_id || fallbackWorkspaceId
   const resolvedWorkspaceName = isPersonalAccount
     ? teams.find((team) => String(team.id) === String(personalWorkspaceId))?.name || 'Personal workspace'
     : teams.find((team) => String(team.id) === String(resolvedWorkspaceId))?.name || 'Workspace'
@@ -254,7 +261,7 @@ export default function MyTasks() {
   const highlightedTemplates = useMemo(() => templates.slice(0, 4), [templates])
 
   const handleOpenComposer = useCallback(() => {
-    const preferredWorkspaceId = draft.team_id || currentUser?.default_team_id || teams[0]?.id || ''
+    const preferredWorkspaceId = resolvedWorkspaceId || teams.find((team) => team.is_personal)?.id || teams[0]?.id || ''
     if (!preferredWorkspaceId && !isPersonalAccount) {
       toast.info(
         'Create or join a team before adding tasks.'
@@ -268,7 +275,7 @@ export default function MyTasks() {
       assigned_to: currentUser?.id || '',
     })
     setShowComposer(true)
-  }, [currentUser?.default_team_id, currentUser?.id, draft.team_id, isPersonalAccount, teams])
+  }, [currentUser?.id, isPersonalAccount, resolvedWorkspaceId, teams])
 
   useEffect(() => {
     if (loading || searchParams.get('compose') !== '1') return

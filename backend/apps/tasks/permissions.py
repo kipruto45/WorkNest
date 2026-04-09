@@ -29,20 +29,18 @@ class CanCreateTask(BaseTaskPermission):
     message = "You do not have permission to create tasks in this team."
 
     def has_permission(self, request, view):
-        if getattr(request.user, "account_type", "") == "personal":
-            has_personal_workspace = Membership.objects.filter(
-                user=request.user,
-                status=Membership.Status.ACTIVE,
-                team__is_personal=True,
-                team__is_archived=False,
-            ).exists()
-            if has_personal_workspace:
-                return True
-        
+        has_personal_workspace = Membership.objects.filter(
+            user=request.user,
+            status=Membership.Status.ACTIVE,
+            team__is_personal=True,
+            team__is_archived=False,
+        ).exists()
         team_id = request.data.get("team_id") or request.data.get("team")
         if not team_id:
             return True
         membership = self.get_membership(user=request.user, team=team_id)
+        if has_personal_workspace:
+            return True
         return bool(membership and membership.role in self.allowed_create_roles)
 
 

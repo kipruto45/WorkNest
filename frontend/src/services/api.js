@@ -302,6 +302,22 @@ export const dashboardAPI = {
   getTeamPriorityDistribution: (teamId) => api.get(`/dashboard/teams/${teamId}/priority-distribution/`),
 }
 
+export const calendarAPI = {
+  exportTasksICS: (data) => api.post('/calendar/export/ics/', data),
+  previewICSImport: (formData) =>
+    api.post('/calendar/import/preview/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  confirmImport: (data) => api.post('/calendar/import/confirm/', data),
+  getGoogleStatus: (data) => api.post('/calendar/google/status/', data),
+  connectGoogle: (data) => api.post('/calendar/google/connect/', data),
+  listGoogleCalendars: (data) => api.post('/calendar/google/calendars/', data),
+  selectGoogleCalendar: (data) => api.post('/calendar/google/select-calendar/', data),
+  disconnectGoogle: (data) => api.post('/calendar/google/disconnect/', data),
+  syncGoogleTasks: (data) => api.post('/calendar/google/sync/', data),
+  previewGoogleImport: (data) => api.post('/calendar/google/import/preview/', data),
+}
+
 export const invitationsAPI = {
   getInvitation: (token) => api.get(`/invitations/${token}/`),
   accept: (token) => api.post(`/invitations/${token}/accept/`),

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import PageHero from '../components/PageHero'
 import LoadingState from '../components/LoadingState'
 import EmptyState from '../components/EmptyState'
-import { tasksAPI, unwrapResults } from '../services/api'
-import { formatDate } from '../utils/formatters'
+import { tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { formatDate, formatRelativeDate } from '../utils/formatters'
+
+const panelClass = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
+const cardClass = 'rounded-[22px] border border-slate-200 bg-[#fcfcfb]'
 
 const statusOptions = [
   { value: 'planned', label: 'Planned' },
@@ -23,6 +25,7 @@ export default function TeamMilestones() {
   const { teamId } = useParams()
   const [searchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
+  const [team, setTeam] = useState(null)
   const [milestones, setMilestones] = useState([])
   const [draft, setDraft] = useState({
     title: '',
@@ -45,10 +48,15 @@ export default function TeamMilestones() {
   const loadMilestones = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await tasksAPI.getMilestones(teamId, { page_size: 50 })
-      setMilestones(unwrapResults(response))
+      const [teamResponse, milestonesResponse] = await Promise.all([
+        teamsAPI.getTeam(teamId),
+        tasksAPI.getMilestones(teamId, { page_size: 50 }),
+      ])
+      setTeam(unwrapData(teamResponse))
+      setMilestones(unwrapResults(milestonesResponse))
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Unable to load milestones.')
+      setTeam(null)
       setMilestones([])
     } finally {
       setLoading(false)
@@ -109,41 +117,55 @@ export default function TeamMilestones() {
     return <LoadingState label="Loading milestones" />
   }
 
+  if (!teamId) {
+    return <EmptyState title="No team selected" description="Pick a workspace to view and manage milestones." />
+  }
+
+  const nextMilestone = milestones
+    .filter((milestone) => milestone.due_date && milestone.status !== 'completed')
+    .sort((first, second) => new Date(first.due_date).getTime() - new Date(second.due_date).getTime())[0]
+
   return (
     <div className="space-y-6">
-      <PageHero
-        eyebrow="Milestones"
-        title="Plan the critical deliveries"
-        description="Milestones turn team outcomes into measurable checkpoints with visible progress."
-        stats={[
-          { label: 'Total', value: milestones.length, caption: 'Across this workspace' },
-          {
-            label: 'In progress',
-            value: stats.inProgress,
-            caption: 'Currently in motion',
-          },
-          {
-            label: 'Completed',
-            value: stats.completed,
-            caption: 'Delivered',
-          },
-        ]}
-        spotlight={{
-          eyebrow: 'Planning cadence',
-          title: highlightedMilestoneId ? 'A linked milestone is highlighted below.' : 'Milestones keep high-level delivery visible.',
-          description: 'Tie tasks to outcome checkpoints, watch completion progress, and keep the team aligned on what matters next.',
-          points: [
-            { label: 'Planned', value: stats.planned },
-            { label: 'Tracked tasks', value: milestones.reduce((total, milestone) => total + (milestone.progress?.total || 0), 0) },
-          ],
-        }}
-      />
+      <section className={`${panelClass} overflow-hidden`}>
+        <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.1fr,0.9fr] lg:px-8 lg:py-8">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Milestones</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+              {(team?.name || 'Team')} delivery checkpoints
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+              Track strategic goals, completion progress, and upcoming due dates in one planning surface.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link to={`/teams/${teamId}/overview`} className="btn-secondary">
+                Team dashboard
+              </Link>
+              <Link to={`/teams/${teamId}`} className="btn-secondary">
+                Team tasks
+              </Link>
+            </div>
+          </div>
+          <div className={`${cardClass} p-4`}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <SummaryTile label="Total milestones" value={milestones.length} note="Across this workspace" />
+              <SummaryTile label="In progress" value={stats.inProgress} note="Actively in flight" />
+              <SummaryTile label="Completed" value={stats.completed} note="Delivered checkpoints" />
+              <SummaryTile
+                label="Next due"
+                value={nextMilestone?.due_date ? formatDate(nextMilestone.due_date) : 'No date'}
+                note={nextMilestone?.due_date ? formatRelativeDate(nextMilestone.due_date) : 'Set a milestone deadline'}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <section className="card fade-in">
-        <h2 className="text-2xl font-bold text-emerald-950">Create a milestone</h2>
-        <p className="mt-2 text-sm text-soft">Capture key goals, deadlines, and outcomes for the team.</p>
+      <section className={`${panelClass} p-6 lg:p-7`}>
+        <h2 className="text-xl font-semibold text-slate-950">Create a milestone</h2>
+        <p className="mt-2 text-sm text-slate-600">Capture measurable outcomes with ownership and delivery dates.</p>
         <form onSubmit={handleCreate} className="mt-5 grid gap-4 md:grid-cols-2">
-          <label className="text-sm font-semibold text-emerald-950 md:col-span-2">
+          <label className="text-sm font-semibold text-slate-900 md:col-span-2">
             Title
             <input
               value={draft.title}
@@ -152,7 +174,7 @@ export default function TeamMilestones() {
               placeholder="Launch release readiness"
             />
           </label>
-          <label className="text-sm font-semibold text-emerald-950 md:col-span-2">
+          <label className="text-sm font-semibold text-slate-900 md:col-span-2">
             Description
             <textarea
               value={draft.description}
@@ -161,7 +183,7 @@ export default function TeamMilestones() {
               placeholder="Describe success criteria and key tasks."
             />
           </label>
-          <label className="text-sm font-semibold text-emerald-950">
+          <label className="text-sm font-semibold text-slate-900">
             Due date
             <input
               type="datetime-local"
@@ -170,7 +192,7 @@ export default function TeamMilestones() {
               className="input-field mt-2"
             />
           </label>
-          <label className="text-sm font-semibold text-emerald-950">
+          <label className="text-sm font-semibold text-slate-900">
             Status
             <select
               value={draft.status}
@@ -192,7 +214,16 @@ export default function TeamMilestones() {
         </form>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className={`${panelClass} p-6 lg:p-7`}>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Milestone registry</p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-950">Delivery checkpoints and linked work</h2>
+          </div>
+          <p className="text-sm text-slate-500">{milestones.length} total</p>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
         {milestones.length === 0 ? (
           <EmptyState
             title="No milestones yet"
@@ -202,7 +233,9 @@ export default function TeamMilestones() {
           milestones.map((milestone) => (
             <div
               key={milestone.id}
-              className={`card fade-in ${highlightedMilestoneId === String(milestone.id) ? 'border-emerald-300 shadow-[0_16px_40px_rgba(16,185,129,0.14)]' : ''}`}
+              className={`${cardClass} p-5 transition-shadow hover:shadow-[0_12px_30px_rgba(15,23,42,0.08)] ${
+                highlightedMilestoneId === String(milestone.id) ? 'border-emerald-300 shadow-[0_16px_40px_rgba(16,185,129,0.14)]' : ''
+              }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -270,7 +303,18 @@ export default function TeamMilestones() {
             </div>
           ))
         )}
+        </div>
       </section>
+    </div>
+  )
+}
+
+function SummaryTile({ label, value, note }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
+      <p className="mt-2 text-sm text-slate-500">{note}</p>
     </div>
   )
 }

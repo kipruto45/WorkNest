@@ -42,6 +42,7 @@ env = environ.Env(
     GOOGLE_CLIENT_ID=(str, ""),
     GOOGLE_CLIENT_SECRET=(str, ""),
     GOOGLE_REDIRECT_URI=(str, ""),
+    GOOGLE_CALENDAR_REDIRECT_URI=(str, ""),
     FRONTEND_URL=(str, "http://localhost:5173"),
     PUBLIC_WEBAPP_URL=(str, ""),
     BACKEND_URL=(str, "http://localhost:8000"),
@@ -420,6 +421,7 @@ SENDGRID_API_KEY = env("SENDGRID_API_KEY")
 GOOGLE_OAUTH_CLIENT_ID = env("GOOGLE_OAUTH_CLIENT_ID", default=env("GOOGLE_CLIENT_ID", default=""))
 GOOGLE_OAUTH_CLIENT_SECRET = env("GOOGLE_OAUTH_CLIENT_SECRET", default=env("GOOGLE_CLIENT_SECRET", default=""))
 GOOGLE_REDIRECT_URI = env("GOOGLE_REDIRECT_URI", default="")
+GOOGLE_CALENDAR_REDIRECT_URI = env("GOOGLE_CALENDAR_REDIRECT_URI", default="")
 SUPABASE_S3_ENDPOINT = env("SUPABASE_S3_ENDPOINT", default="")
 SUPABASE_S3_REGION = env("SUPABASE_S3_REGION", default="eu-west-1")
 SUPABASE_S3_ACCESS_KEY_ID = env("SUPABASE_S3_ACCESS_KEY_ID", default="")

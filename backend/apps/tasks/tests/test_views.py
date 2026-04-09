@@ -437,6 +437,43 @@ class TaskEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertEqual(response.data["data"]["team"], str(personal_team.id))
 
+    def test_team_account_can_create_personal_workspace_task_when_team_id_is_stale(self) -> None:
+        hybrid_user = User.objects.create_user(
+            email="hybrid@example.com",
+            password="StrongPass123!",
+            name="Hybrid User",
+            account_type=User.AccountType.TEAM,
+        )
+        personal_team = Team.objects.create(
+            name="Hybrid Personal",
+            slug="hybrid-personal",
+            description="Personal workspace",
+            created_by=hybrid_user,
+            is_personal=True,
+        )
+        Membership.objects.create(
+            user=hybrid_user,
+            team=personal_team,
+            role=Membership.Role.ADMIN,
+            status=Membership.Status.ACTIVE,
+            invited_by=hybrid_user,
+            joined_at=timezone.now(),
+        )
+        self.authenticate(hybrid_user)
+
+        response = self.client.post(
+            reverse("api_v1:tasks:list-create"),
+            {
+                "team_id": str(self.other_team.id),
+                "title": "Hybrid personal planning",
+                "priority": Task.Priority.MEDIUM,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data["data"]["team"], str(personal_team.id))
+
     def test_my_tasks_view_supports_my_day_filter(self) -> None:
         self.authenticate(self.member)
         today_task = Task.objects.create(

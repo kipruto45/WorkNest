@@ -4,10 +4,12 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'react-toastify'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
-import PageHero from '../components/PageHero'
 import { teamsAPI, unwrapData } from '../services/api'
 import { canManageMembers, resolveMembershipRole } from '../utils/permissions'
 import { formatDate, toSentenceCase } from '../utils/formatters'
+
+const panelClass = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
+const cardClass = 'rounded-[22px] border border-slate-200 bg-[#fcfcfb]'
 
 export default function TeamSettings() {
   const { teamId } = useParams()
@@ -72,6 +74,7 @@ export default function TeamSettings() {
       toast.error('Only team admins can update workspace settings.')
       return
     }
+
     setSaving(true)
     try {
       const response = await teamsAPI.updateTeam(teamId, data)
@@ -132,128 +135,146 @@ export default function TeamSettings() {
 
   return (
     <div className="space-y-6">
-      <PageHero
-        eyebrow="Team Settings"
-        title={`${team.name} workspace settings`}
-        description="Review ownership, invitation policy, naming, and lifecycle controls for this team workspace."
-        stats={[
-          { label: 'Role', value: toSentenceCase(currentRole || 'member'), caption: 'Your workspace access' },
-          { label: 'Members', value: team.member_count || 0, caption: 'Current collaborators' },
-          { label: 'Invite policy', value: team.allow_manager_invites ? 'Managers can invite' : 'Admins only', caption: 'Current policy' },
-        ]}
-        actions={
-          <>
-            <Link to={`/teams/${teamId}/overview`} className="btn-secondary">
-              Back to overview
-            </Link>
-            {canManageWorkspace ? (
-              <button type="submit" form="team-settings-form" className="btn-primary" disabled={isSubmitting || saving}>
-                {saving || isSubmitting ? 'Saving changes...' : 'Save settings'}
-              </button>
-            ) : null}
-          </>
-        }
-        aside={canManageWorkspace ? 'Admin controls enabled' : 'Read-only for your current role'}
-      />
-
-      <div className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
-        <section className="card fade-in">
-          <h2 className="text-2xl font-bold text-emerald-950">Workspace profile</h2>
-          <p className="mt-2 text-sm text-soft">Keep the team identity and invite policy current across the real backend workspace.</p>
-
-          <form id="team-settings-form" onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-emerald-950">Team name</label>
-              <input {...register('name')} disabled={!canManageWorkspace} className="input-field" />
+      <section className={`${panelClass} overflow-hidden`}>
+        <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.12fr,0.88fr] lg:px-8 lg:py-8">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Team settings</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{team.name} workspace controls</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+              Manage team profile, invitation permissions, and workspace lifecycle controls from one secure and structured page.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link to={`/teams/${teamId}/overview`} className="btn-secondary">
+                Team dashboard
+              </Link>
+              {canManageWorkspace ? (
+                <button type="submit" form="team-settings-form" className="btn-primary" disabled={isSubmitting || saving}>
+                  {saving || isSubmitting ? 'Saving changes...' : 'Save settings'}
+                </button>
+              ) : null}
             </div>
+          </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-emerald-950">Description</label>
-              <textarea {...register('description')} disabled={!canManageWorkspace} className="input-field min-h-[160px]" />
+          <div className={`${cardClass} p-4`}>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <SummaryTile label="Role" value={toSentenceCase(currentRole || 'member')} note={canManageWorkspace ? 'Admin controls enabled' : 'Read-only view'} />
+              <SummaryTile label="Members" value={team.member_count || 0} note="Current collaborators" />
+              <SummaryTile label="Invite policy" value={team.allow_manager_invites ? 'Managers can invite' : 'Admins only'} note="Workspace membership control" />
             </div>
+          </div>
+        </div>
+      </section>
 
-            <label className="feature-tile flex items-start justify-between gap-4 p-4">
-              <div>
-                <p className="font-semibold text-emerald-950">Allow manager invites</p>
-                <p className="mt-1 text-sm text-soft">Permit managers to send and manage invitations without admin involvement.</p>
-              </div>
-              <input
-                type="checkbox"
-                {...register('allow_manager_invites')}
-                disabled={!canManageWorkspace}
-                className="mt-1 h-5 w-5 rounded border-emerald-200"
-              />
+      {!canManageWorkspace ? (
+        <section className="rounded-[20px] border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-800">
+          You can view workspace settings, but only team admins can change these controls.
+        </section>
+      ) : null}
+
+      <div className="grid gap-6 xl:grid-cols-[1.12fr,0.88fr]">
+        <section className={`${panelClass} p-6 lg:p-7`}>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Workspace profile</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-950">Name, description, and invite behavior</h2>
+          <form id="team-settings-form" onSubmit={handleSubmit(onSubmit)} className="mt-5 space-y-4">
+            <label className="block text-sm font-semibold text-slate-900">
+              Team name
+              <input {...register('name')} disabled={!canManageWorkspace} className="input-field mt-2" />
+            </label>
+            <label className="block text-sm font-semibold text-slate-900">
+              Description
+              <textarea {...register('description')} disabled={!canManageWorkspace} className="input-field mt-2 min-h-[140px]" />
+            </label>
+            <label className="flex items-start gap-3 rounded-[20px] border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-700">
+              <input type="checkbox" {...register('allow_manager_invites')} disabled={!canManageWorkspace} className="mt-1 h-4 w-4 rounded border-slate-300" />
+              <span>
+                <strong>Allow manager invites</strong>
+                <span className="mt-1 block text-xs text-slate-500">
+                  When enabled, managers can send and manage invitations without admin intervention.
+                </span>
+              </span>
             </label>
           </form>
         </section>
 
-        <section className="card fade-in">
-          <h2 className="text-2xl font-bold text-emerald-950">Workspace lifecycle</h2>
-          <p className="mt-2 text-sm text-soft">Archive a finished workspace first, then delete it permanently if needed.</p>
+        <section className={`${panelClass} p-6 lg:p-7`}>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Workspace summary</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-950">Lifecycle and policy snapshot</h2>
 
-          <div className="mt-6 grid gap-4">
-            <div className="feature-tile">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Created</p>
-              <p className="mt-3 text-lg font-bold text-emerald-950">{formatDate(team.created_at)}</p>
-            </div>
-            <div className="feature-tile">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Last updated</p>
-              <p className="mt-3 text-lg font-bold text-emerald-950">{formatDate(team.updated_at)}</p>
-            </div>
-            <div className="feature-tile">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Archive state</p>
-              <p className="mt-3 text-lg font-bold text-emerald-950">{team.is_archived ? 'Archived' : 'Active workspace'}</p>
-              {team.archived_at ? <p className="mt-2 text-sm text-soft">Archived {formatDate(team.archived_at)}</p> : null}
-            </div>
+          <div className="mt-5 grid gap-3">
+            <SummaryBlock label="Created" value={formatDate(team.created_at)} />
+            <SummaryBlock label="Last updated" value={formatDate(team.updated_at)} />
+            <SummaryBlock label="Archive state" value={team.is_archived ? 'Archived workspace' : 'Active workspace'} />
+            {team.archived_at ? <SummaryBlock label="Archived on" value={formatDate(team.archived_at)} /> : null}
           </div>
 
-          <div className="mt-6 grid gap-3">
-            {canManageWorkspace ? (
-              <>
-                {!team.is_archived ? (
-                  <button type="button" onClick={handleArchive} disabled={archiving} className="btn-secondary">
-                    {archiving ? 'Archiving workspace...' : 'Archive workspace'}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100"
-                  >
-                    {deleting ? 'Deleting workspace...' : 'Delete archived workspace'}
-                  </button>
-                )}
-              </>
-            ) : (
-              <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600">
-                Only team admins can change workspace settings, archive a team, or delete an archived workspace.
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="card fade-in">
-          <h2 className="text-2xl font-bold text-emerald-950">Workflow tools</h2>
-          <p className="mt-2 text-sm text-soft">Jump to automation rules and data import/export when you need deeper control.</p>
-          <div className="mt-6 grid gap-3">
-            <Link to={`/teams/${teamId}/automation`} className="feature-tile flex items-start justify-between gap-4 p-4">
+          <div className="mt-5 grid gap-3">
+            <Link to={`/teams/${teamId}/automation`} className={`${cardClass} flex items-start justify-between gap-3 p-4 transition-colors hover:bg-white`}>
               <div>
-                <p className="font-semibold text-emerald-950">Automation rules</p>
-                <p className="mt-1 text-sm text-soft">Define triggers and actions for your workflow.</p>
+                <p className="text-sm font-semibold text-slate-900">Automation rules</p>
+                <p className="mt-1 text-sm text-slate-500">Configure workflow triggers and actions.</p>
               </div>
-              <span className="text-xs font-semibold text-emerald-700">Open</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Open</span>
             </Link>
-            <Link to={`/teams/${teamId}/import-export`} className="feature-tile flex items-start justify-between gap-4 p-4">
+            <Link to={`/teams/${teamId}/import-export`} className={`${cardClass} flex items-start justify-between gap-3 p-4 transition-colors hover:bg-white`}>
               <div>
-                <p className="font-semibold text-emerald-950">Import / Export</p>
-                <p className="mt-1 text-sm text-soft">Move CSV task data in or out safely.</p>
+                <p className="text-sm font-semibold text-slate-900">Import / Export</p>
+                <p className="mt-1 text-sm text-slate-500">Move workspace data safely in or out.</p>
               </div>
-              <span className="text-xs font-semibold text-emerald-700">Open</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Open</span>
             </Link>
           </div>
         </section>
       </div>
+
+      <section className={`${panelClass} p-6 lg:p-7`}>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">Danger zone</p>
+        <h2 className="mt-2 text-xl font-semibold text-slate-950">Archive or permanently remove workspace</h2>
+        <p className="mt-2 text-sm text-slate-600">
+          Archive first to prevent active usage. Permanent deletion is only available for archived workspaces and cannot be undone.
+        </p>
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          {canManageWorkspace ? (
+            <>
+              {!team.is_archived ? (
+                <button type="button" onClick={handleArchive} disabled={archiving} className="btn-secondary">
+                  {archiving ? 'Archiving workspace...' : 'Archive workspace'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100"
+                >
+                  {deleting ? 'Deleting workspace...' : 'Delete archived workspace'}
+                </button>
+              )}
+            </>
+          ) : (
+            <span className="rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-600">Admin access required</span>
+          )}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function SummaryTile({ label, value, note }) {
+  return (
+    <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-2 text-xl font-semibold text-slate-950">{value}</p>
+      <p className="mt-2 text-sm text-slate-500">{note}</p>
+    </div>
+  )
+}
+
+function SummaryBlock({ label, value }) {
+  return (
+    <div className={`${cardClass} p-4`}>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-2 text-base font-semibold text-slate-900">{value}</p>
     </div>
   )
 }

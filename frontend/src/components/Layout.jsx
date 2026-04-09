@@ -6,11 +6,13 @@ import { fetchUnreadCount } from '../features/notificationsSlice'
 import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications'
 import { getInitials } from '../utils/formatters'
 import { commonAPI, unwrapData } from '../services/api'
+import { CLIENT_STORAGE_KEYS } from '../utils/clientConfig'
 import AppLogo from './AppLogo'
 
 const personalNav = [
   { label: 'Dashboard', to: '/dashboard', icon: HomeIcon },
   { label: 'My Tasks', to: '/tasks', icon: QueueIcon },
+  { label: 'Teams', to: '/teams', icon: PeopleIcon },
   { label: 'Calendar', to: '/calendar', icon: CalendarIcon },
   { label: 'Notifications', to: '/notifications', icon: BellIcon },
 ]
@@ -39,6 +41,9 @@ const routeMeta = [
   { match: /^\/tasks\/.+/, title: 'Task Detail', description: 'Review the task details and timeline.' },
   { match: /^\/teams\/[^/]+$/, title: 'Team Tasks', description: 'Board view of active team work.' },
   { match: /^\/teams\/[^/]+\/overview/, title: 'Team Dashboard', description: 'Team progress, workload, and priorities.' },
+  { match: /^\/teams\/[^/]+\/calendar/, title: 'Team Calendar', description: 'Deadlines, due-soon work, and schedule visibility.' },
+  { match: /^\/teams\/[^/]+\/announcements/, title: 'Announcements', description: 'Team communication, updates, and shared messages.' },
+  { match: /^\/teams\/[^/]+\/activity/, title: 'Activity Log', description: 'Recent team actions and collaboration timeline.' },
   { match: /^\/teams\/[^/]+\/members/, title: 'Team Members', description: 'Manage roles, access, and collaboration.' },
   { match: /^\/teams\/[^/]+\/invitations/, title: 'Invitations', description: 'Invite teammates and track responses.' },
   { match: /^\/teams\/[^/]+\/milestones/, title: 'Milestones', description: 'Delivery checkpoints and progress tracking.' },
@@ -56,6 +61,37 @@ const routeMeta = [
   { match: /^\/admin\/communications/, title: 'Admin Communication', description: 'Broadcast updates to users, teams, or the full platform.' },
   { match: /^\/admin(?:\/.*)?$/, title: 'Admin Dashboard', description: 'High-level platform visibility across usage, activity, and system health.' },
 ]
+
+function readWorkspacePrefs() {
+  try {
+    const rawValue = localStorage.getItem(CLIENT_STORAGE_KEYS.workspacePrefs)
+    if (!rawValue) return {}
+    const parsed = JSON.parse(rawValue)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch (_error) {
+    return {}
+  }
+}
+
+function writeWorkspacePrefs(nextWorkspace) {
+  try {
+    const current = readWorkspacePrefs()
+    localStorage.setItem(
+      CLIENT_STORAGE_KEYS.workspacePrefs,
+      JSON.stringify({
+        ...current,
+        lastWorkspace: nextWorkspace,
+      })
+    )
+  } catch (_error) {
+    // Ignore local storage write failures in private browsing modes.
+  }
+}
+
+function parseRouteTeamId(pathname) {
+  const match = String(pathname || '').match(/^\/teams\/([^/]+)/)
+  return match ? match[1] : ''
+}
 
 export default function Layout() {
   const [isDesktop, setIsDesktop] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth >= 1024))
@@ -88,18 +124,73 @@ export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   const isAdminRoute = location.pathname.startsWith('/admin')
-  const isTeamAccount = user?.account_type === 'team'
-  const defaultTeamId = user?.default_team_id
-  const teamBasePath = defaultTeamId ? `/teams/${defaultTeamId}` : '/team-setup'
-  const teamNav = defaultTeamId
+  const routeTeamId = useMemo(() => parseRouteTeamId(location.pathname), [location.pathname])
+  const workspaceEntries = useMemo(() => {
+    const raw = Array.isArray(user?.workspace_options) ? user.workspace_options : []
+    const normalized = raw
+      .filter((item) => item?.id)
+      .map((item) => ({
+        id: String(item.id),
+        name: item.name || 'Workspace',
+        isPersonal: Boolean(item.is_personal),
+        role: item.my_role || '',
+      }))
+
+    if (!normalized.some((item) => item.isPersonal)) {
+      normalized.unshift({
+        id: 'personal',
+        name: 'Personal workspace',
+        isPersonal: true,
+        role: 'admin',
+      })
+    }
+    if (user?.default_team_id && !normalized.some((item) => item.id === String(user.default_team_id))) {
+      normalized.push({
+        id: String(user.default_team_id),
+        name: 'Team workspace',
+        isPersonal: false,
+        role: user?.account_type === 'team' ? 'admin' : '',
+      })
+    }
+    return normalized
+  }, [user?.workspace_options, user?.default_team_id, user?.account_type])
+  const teamWorkspaces = useMemo(() => workspaceEntries.filter((item) => !item.isPersonal), [workspaceEntries])
+  const [workspaceValue, setWorkspaceValue] = useState('personal')
+  const showWorkspaceSwitcher = !isAdminRoute && workspaceEntries.length > 1
+
+  useEffect(() => {
+    if (routeTeamId) {
+      const nextValue = `team:${routeTeamId}`
+      setWorkspaceValue(nextValue)
+      writeWorkspacePrefs(nextValue)
+      return
+    }
+    const storedWorkspace = String(readWorkspacePrefs().lastWorkspace || '').trim()
+    if (storedWorkspace.startsWith('team:')) {
+      const storedTeamId = storedWorkspace.slice(5)
+      if (teamWorkspaces.some((item) => item.id === storedTeamId)) {
+        setWorkspaceValue(storedWorkspace)
+        return
+      }
+    }
+    setWorkspaceValue('personal')
+  }, [routeTeamId, teamWorkspaces])
+
+  const selectedWorkspaceTeamId = workspaceValue.startsWith('team:') ? workspaceValue.slice(5) : ''
+  const activeTeamId = routeTeamId || selectedWorkspaceTeamId || user?.default_team_id || ''
+  const isTeamWorkspace = !isAdminRoute && Boolean(activeTeamId)
+  const teamBasePath = activeTeamId ? `/teams/${activeTeamId}` : '/team-setup'
+  const teamNav = activeTeamId
     ? [
         { label: 'Dashboard', to: `${teamBasePath}/overview`, icon: HomeIcon },
         { label: 'Tasks', to: teamBasePath, icon: QueueIcon },
         { label: 'Milestones', to: `${teamBasePath}/milestones`, icon: FlagIcon },
         { label: 'Members', to: `${teamBasePath}/members`, icon: PeopleIcon },
         { label: 'Invitations', to: `${teamBasePath}/invitations`, icon: MailIcon },
+        { label: 'Calendar', to: `${teamBasePath}/calendar`, icon: CalendarIcon },
+        { label: 'Announcements', to: `${teamBasePath}/announcements`, icon: MegaphoneIcon },
+        { label: 'Activity', to: `${teamBasePath}/activity`, icon: AuditIcon },
         { label: 'Automation', to: `${teamBasePath}/automation`, icon: AutomateIcon },
-        { label: 'Calendar', to: '/calendar', icon: CalendarIcon },
         { label: 'Notifications', to: '/notifications', icon: BellIcon },
         { label: 'Settings', to: `${teamBasePath}/settings`, icon: SettingsIcon },
       ]
@@ -133,15 +224,15 @@ export default function Layout() {
     () => routeMeta.find((entry) => entry.match.test(location.pathname)) || routeMeta[0],
     [location.pathname]
   )
-  const visiblePrimaryNav = isAdminRoute ? adminPrimaryNav : isTeamAccount ? teamNav : personalNav
+  const visiblePrimaryNav = isAdminRoute ? adminPrimaryNav : isTeamWorkspace ? teamNav : personalNav
   const visibleSecondaryNav = useMemo(() => {
     if (isAdminRoute) return []
-    const items = isTeamAccount ? [] : [...secondaryNav]
+    const items = [...secondaryNav]
     if (user?.is_staff) {
       items.unshift({ label: 'Admin', to: '/admin', icon: AuditIcon })
     }
     return items
-  }, [isAdminRoute, isTeamAccount, user?.is_staff])
+  }, [isAdminRoute, user?.is_staff])
 
   const handleLogout = () => {
     dispatch(logout())
@@ -155,8 +246,22 @@ export default function Layout() {
     navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search')
   }
 
+  const handleWorkspaceSwitch = (event) => {
+    const nextValue = event.target.value
+    setWorkspaceValue(nextValue)
+    writeWorkspacePrefs(nextValue)
+    if (nextValue === 'personal') {
+      navigate('/dashboard')
+      return
+    }
+    if (nextValue.startsWith('team:')) {
+      const nextTeamId = nextValue.slice(5)
+      navigate(`/teams/${nextTeamId}/overview`)
+    }
+  }
+
   const quickActions = useMemo(() => {
-    const base = isTeamAccount
+    const base = isTeamWorkspace
       ? [
           { id: 'dashboard', label: 'Open team dashboard', hint: 'Review team progress', to: `${teamBasePath}/overview` },
           { id: 'tasks', label: 'Open team tasks', hint: 'Track team delivery', to: teamBasePath },
@@ -164,7 +269,9 @@ export default function Layout() {
           { id: 'milestones', label: 'Review milestones', hint: 'Check delivery checkpoints', to: `${teamBasePath}/milestones` },
           { id: 'members', label: 'Review members', hint: 'See team roster', to: `${teamBasePath}/members` },
           { id: 'invitations', label: 'Invite teammates', hint: 'Manage invitations', to: `${teamBasePath}/invitations` },
-          { id: 'calendar', label: 'Open calendar', hint: 'Review team deadlines', to: '/calendar' },
+          { id: 'calendar', label: 'Open calendar', hint: 'Review team deadlines', to: `${teamBasePath}/calendar` },
+          { id: 'announcements', label: 'Open announcements', hint: 'Share updates and messages', to: `${teamBasePath}/announcements` },
+          { id: 'activity', label: 'Open activity log', hint: 'Review team timeline', to: `${teamBasePath}/activity` },
           { id: 'settings', label: 'Open settings', hint: 'Adjust account and notification preferences', to: '/settings' },
         ]
       : [
@@ -180,7 +287,7 @@ export default function Layout() {
     return base.concat(
       user?.is_staff ? [{ id: 'admin', label: 'Open admin dashboard', hint: 'Platform-wide visibility', to: '/admin' }] : []
     )
-  }, [isTeamAccount, teamBasePath, user?.is_staff])
+  }, [isTeamWorkspace, teamBasePath, user?.is_staff])
 
   const headerSearchGroups = useMemo(
     () =>
@@ -412,6 +519,31 @@ export default function Layout() {
                 <p className="mt-2 text-sm text-slate-500">
                   {location.pathname === '/dashboard' ? `Welcome back, ${firstName}. ${currentRouteMeta.description}` : currentRouteMeta.description}
                 </p>
+                {showWorkspaceSwitcher ? (
+                  <div className="mt-4 max-w-sm">
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      Active workspace
+                      <select
+                        value={workspaceValue}
+                        onChange={handleWorkspaceSwitch}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
+                      >
+                        {workspaceEntries
+                          .filter((item) => item.isPersonal)
+                          .map((item) => (
+                            <option key={item.id} value="personal">
+                              Personal workspace
+                            </option>
+                          ))}
+                        {teamWorkspaces.map((team) => (
+                          <option key={team.id} value={`team:${team.id}`}>
+                            {team.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
               </div>
 
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">

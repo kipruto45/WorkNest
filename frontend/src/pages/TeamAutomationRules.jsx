@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import PageHero from '../components/PageHero'
 import LoadingState from '../components/LoadingState'
 import EmptyState from '../components/EmptyState'
-import { tasksAPI, unwrapResults } from '../services/api'
+import { tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { toSentenceCase } from '../utils/formatters'
+
+const panelClass = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
+const cardClass = 'rounded-[22px] border border-slate-200 bg-[#fcfcfb]'
 
 const triggerOptions = [
   { value: 'task_created', label: 'Task created' },
@@ -28,6 +31,7 @@ const actionOptions = [
 export default function TeamAutomationRules() {
   const { teamId } = useParams()
   const [loading, setLoading] = useState(true)
+  const [team, setTeam] = useState(null)
   const [rules, setRules] = useState([])
   const [draft, setDraft] = useState({
     name: '',
@@ -42,10 +46,15 @@ export default function TeamAutomationRules() {
   const loadRules = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await tasksAPI.getAutomationRules(teamId, { page_size: 50 })
-      setRules(unwrapResults(response))
+      const [teamResponse, rulesResponse] = await Promise.all([
+        teamsAPI.getTeam(teamId),
+        tasksAPI.getAutomationRules(teamId, { page_size: 50 }),
+      ])
+      setTeam(unwrapData(teamResponse))
+      setRules(unwrapResults(rulesResponse))
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Unable to load automation rules.')
+      setTeam(null)
       setRules([])
     } finally {
       setLoading(false)
@@ -115,23 +124,45 @@ export default function TeamAutomationRules() {
     return <LoadingState label="Loading automation rules" />
   }
 
+  const activeRules = rules.filter((rule) => rule.is_active).length
+  const pausedRules = rules.filter((rule) => !rule.is_active).length
+
   return (
     <div className="space-y-6">
-      <PageHero
-        eyebrow="Automation"
-        title="Let the workflow move on its own"
-        description="Create lightweight rules that respond to key events without adding process overhead."
-        stats={[
-          { label: 'Active rules', value: rules.filter((rule) => rule.is_active).length, caption: 'Running now' },
-          { label: 'Paused rules', value: rules.filter((rule) => !rule.is_active).length, caption: 'Currently disabled' },
-        ]}
-      />
+      <section className={`${panelClass} overflow-hidden`}>
+        <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.1fr,0.9fr] lg:px-8 lg:py-8">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Automation</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+              {(team?.name || 'Team')} workflow rules
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+              Build event-based automations to reduce manual follow-up and keep execution consistent.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link to={`/teams/${teamId}/overview`} className="btn-secondary">
+                Team dashboard
+              </Link>
+              <Link to={`/teams/${teamId}/activity`} className="btn-secondary">
+                Activity log
+              </Link>
+            </div>
+          </div>
+          <div className={`${cardClass} p-4`}>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <SummaryTile label="Rules" value={rules.length} note="Configured total" />
+              <SummaryTile label="Active" value={activeRules} note="Running now" />
+              <SummaryTile label="Paused" value={pausedRules} note="Disabled manually" />
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <section className="card fade-in">
-        <h2 className="text-2xl font-bold text-emerald-950">Create a rule</h2>
-        <p className="mt-2 text-sm text-soft">Use a clear When/Then structure to keep automation understandable.</p>
+      <section className={`${panelClass} p-6 lg:p-7`}>
+        <h2 className="text-xl font-semibold text-slate-950">Create a rule</h2>
+        <p className="mt-2 text-sm text-slate-600">Use a clear when/then structure with explicit JSON conditions and payload.</p>
         <form onSubmit={handleCreate} className="mt-5 grid gap-4 md:grid-cols-2">
-          <label className="text-sm font-semibold text-emerald-950 md:col-span-2">
+          <label className="text-sm font-semibold text-slate-900 md:col-span-2">
             Rule name
             <input
               value={draft.name}
@@ -140,7 +171,7 @@ export default function TeamAutomationRules() {
               placeholder="Notify admins when a task is overdue"
             />
           </label>
-          <label className="text-sm font-semibold text-emerald-950">
+          <label className="text-sm font-semibold text-slate-900">
             Trigger
             <select
               value={draft.trigger_type}
@@ -154,7 +185,7 @@ export default function TeamAutomationRules() {
               ))}
             </select>
           </label>
-          <label className="text-sm font-semibold text-emerald-950">
+          <label className="text-sm font-semibold text-slate-900">
             Action
             <select
               value={draft.action_type}
@@ -168,7 +199,7 @@ export default function TeamAutomationRules() {
               ))}
             </select>
           </label>
-          <label className="text-sm font-semibold text-emerald-950 md:col-span-1">
+          <label className="text-sm font-semibold text-slate-900 md:col-span-1">
             Conditions (JSON)
             <textarea
               value={draft.conditions}
@@ -176,7 +207,7 @@ export default function TeamAutomationRules() {
               className="input-field mt-2 min-h-[120px] font-mono text-xs"
             />
           </label>
-          <label className="text-sm font-semibold text-emerald-950 md:col-span-1">
+          <label className="text-sm font-semibold text-slate-900 md:col-span-1">
             Action payload (JSON)
             <textarea
               value={draft.action_payload}
@@ -184,7 +215,7 @@ export default function TeamAutomationRules() {
               className="input-field mt-2 min-h-[120px] font-mono text-xs"
             />
           </label>
-          <label className="flex items-center gap-2 text-sm font-semibold text-emerald-950">
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-900">
             <input
               type="checkbox"
               checked={draft.is_active}
@@ -200,23 +231,42 @@ export default function TeamAutomationRules() {
         </form>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className={`${panelClass} p-6 lg:p-7`}>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Rules library</p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-950">Current automation coverage</h2>
+          </div>
+          <p className="text-sm text-slate-500">{rules.length} rules</p>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
         {rules.length === 0 ? (
           <EmptyState title="No rules yet" description="Create your first automation to reduce manual coordination." />
         ) : (
           rules.map((rule) => (
-            <div key={rule.id} className="card fade-in">
+            <div key={rule.id} className={`${cardClass} p-5 transition-shadow hover:shadow-[0_12px_30px_rgba(15,23,42,0.08)]`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                    {rule.trigger_type?.replaceAll('_', ' ')}
+                    {toSentenceCase(rule.trigger_type?.replaceAll('_', ' '))}
                   </p>
                   <h3 className="mt-2 text-xl font-semibold text-emerald-950">{rule.name}</h3>
-                  <p className="mt-2 text-sm text-soft">Action: {rule.action_type?.replaceAll('_', ' ')}</p>
+                  <p className="mt-2 text-sm text-slate-600">Action: {toSentenceCase(rule.action_type?.replaceAll('_', ' '))}</p>
                 </div>
                 <button type="button" onClick={() => handleDelete(rule)} className="btn-ghost">
                   Delete
                 </button>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Conditions</p>
+                  <pre className="mt-2 overflow-x-auto text-xs text-slate-600">{JSON.stringify(rule.conditions || {}, null, 2)}</pre>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Payload</p>
+                  <pre className="mt-2 overflow-x-auto text-xs text-slate-600">{JSON.stringify(rule.action_payload || {}, null, 2)}</pre>
+                </div>
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <button type="button" onClick={() => handleToggle(rule)} className="btn-secondary">
@@ -229,7 +279,18 @@ export default function TeamAutomationRules() {
             </div>
           ))
         )}
+        </div>
       </section>
+    </div>
+  )
+}
+
+function SummaryTile({ label, value, note }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
+      <p className="mt-2 text-sm text-slate-500">{note}</p>
     </div>
   )
 }

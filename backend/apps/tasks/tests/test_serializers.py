@@ -172,3 +172,72 @@ class TaskSerializerTests(TestCase):
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertEqual(serializer.validated_data["team"], personal_team)
+
+    def test_create_serializer_for_team_account_falls_back_to_personal_workspace(self) -> None:
+        personal_team = Team.objects.create(
+            name="Owner Personal Team Account",
+            slug="owner-personal-team-account",
+            description="Personal",
+            created_by=self.owner,
+            is_personal=True,
+        )
+        Membership.objects.create(
+            user=self.owner,
+            team=personal_team,
+            role=Membership.Role.ADMIN,
+            status=Membership.Status.ACTIVE,
+            invited_by=self.owner,
+            joined_at=timezone.now(),
+        )
+
+        request = self.factory.post("/api/v1/tasks/")
+        request.user = self.owner
+        request.user.account_type = User.AccountType.TEAM
+        serializer = TaskCreateSerializer(
+            data={
+                "team_id": str(self.outsider.id),
+                "title": "Team account personal follow-up",
+                "priority": Task.Priority.MEDIUM,
+            },
+            context={"request": request},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["team"], personal_team)
+
+    def test_create_serializer_auto_creates_personal_workspace_for_personal_account(self) -> None:
+        personal_user = User.objects.create_user(
+            email="legacy-personal@example.com",
+            password="StrongPass123!",
+            name="Legacy Personal",
+            account_type=User.AccountType.PERSONAL,
+        )
+        stale_team = Team.objects.create(
+            name="Legacy Team",
+            slug="legacy-team",
+            description="Legacy",
+            created_by=self.owner,
+            is_personal=False,
+        )
+
+        request = self.factory.post("/api/v1/tasks/")
+        request.user = personal_user
+        serializer = TaskCreateSerializer(
+            data={
+                "team_id": str(stale_team.id),
+                "title": "Recovered personal task",
+                "priority": Task.Priority.MEDIUM,
+            },
+            context={"request": request},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        resolved_team = serializer.validated_data["team"]
+        self.assertTrue(resolved_team.is_personal)
+        self.assertTrue(
+            Membership.objects.filter(
+                user=personal_user,
+                team=resolved_team,
+                status=Membership.Status.ACTIVE,
+            ).exists()
+        )

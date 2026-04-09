@@ -1,16 +1,20 @@
-import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import PageHero from '../components/PageHero'
-import LoadingState from '../components/LoadingState'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import EmptyState from '../components/EmptyState'
+import LoadingState from '../components/LoadingState'
 import { auditLogsAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
-import { formatDate, toSentenceCase } from '../utils/formatters'
+import { formatDate, formatRelativeDate, toSentenceCase } from '../utils/formatters'
+
+const panelClass = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
+const cardClass = 'rounded-[22px] border border-slate-200 bg-[#fcfcfb]'
 
 export default function TeamActivity() {
   const { teamId } = useParams()
   const [loading, setLoading] = useState(true)
   const [team, setTeam] = useState(null)
   const [logs, setLogs] = useState([])
+  const [query, setQuery] = useState('')
+  const [actionFilter, setActionFilter] = useState('all')
 
   useEffect(() => {
     const loadLogs = async () => {
@@ -18,7 +22,7 @@ export default function TeamActivity() {
       try {
         const [teamResponse, logsResponse] = await Promise.all([
           teamsAPI.getTeam(teamId),
-          auditLogsAPI.getForTeam(teamId),
+          auditLogsAPI.getForTeam(teamId, { page_size: 120 }),
         ])
         setTeam(unwrapData(teamResponse))
         setLogs(unwrapResults(logsResponse))
@@ -30,64 +34,125 @@ export default function TeamActivity() {
     loadLogs()
   }, [teamId])
 
+  const actionOptions = useMemo(() => {
+    const unique = new Set(logs.map((log) => String(log.action || '').toLowerCase()).filter(Boolean))
+    return [...unique]
+  }, [logs])
+
+  const filteredLogs = useMemo(() => {
+    const input = query.trim().toLowerCase()
+    return logs.filter((log) => {
+      const action = String(log.action || '').toLowerCase()
+      if (actionFilter !== 'all' && action !== actionFilter) return false
+      if (!input) return true
+      const haystack = `${log.target_repr || ''} ${log.actor?.name || ''} ${log.target_type || ''} ${log.action || ''}`
+      return haystack.toLowerCase().includes(input)
+    })
+  }, [actionFilter, logs, query])
+
+  const recentActors = new Set(filteredLogs.map((log) => log.actor?.id).filter(Boolean)).size
+
   if (loading || !team) {
     return <LoadingState label="Loading team activity" />
   }
 
   return (
     <div className="space-y-6">
-      <PageHero
-        eyebrow="Activity Feed"
-        title={`${team.name} audit trail`}
-        description="A reliable record of workspace actions, useful for transparency, governance, and operational memory."
-        stats={[
-          { label: 'Log entries', value: logs.length, caption: 'Auditable events' },
-          { label: 'Actors', value: new Set(logs.map((log) => log.actor?.id).filter(Boolean)).size, caption: 'Unique contributors' },
-          { label: 'Mode', value: logs.length ? 'Active' : 'Quiet', caption: 'Current stream state' },
-        ]}
-        spotlight={{
-          eyebrow: 'Transparency',
-          title: 'An activity trail that feels presentable.',
-          description: 'Instead of a plain table, the audit trail reads like a curated timeline for better storytelling during demos.',
-          points: [
-            { label: 'Latest event', value: logs[0]?.action ? toSentenceCase(logs[0].action) : 'None yet' },
-            { label: 'Purpose', value: 'Traceability' },
-          ],
-        }}
-      />
+      <section className={`${panelClass} overflow-hidden`}>
+        <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.1fr,0.9fr] lg:px-8 lg:py-8">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Activity log</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{team.name} team timeline</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+              Review task updates, membership changes, and workspace actions in a structured chronological stream.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link to={`/teams/${teamId}/overview`} className="btn-secondary">
+                Team dashboard
+              </Link>
+            </div>
+          </div>
+          <div className={`${cardClass} p-4`}>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <SummaryTile label="Log entries" value={filteredLogs.length} note="In current filter scope" />
+              <SummaryTile label="Unique actors" value={recentActors} note="People making changes" />
+              <SummaryTile label="Action types" value={actionOptions.length} note="Kinds of events" />
+            </div>
+          </div>
+        </div>
+      </section>
 
-      {logs.length === 0 ? (
+      <section className={`${panelClass} p-6 lg:p-7`}>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="text-sm font-medium text-slate-600">
+            Search by actor, action, or target
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="input-field mt-2"
+              placeholder="Search timeline"
+            />
+          </label>
+          <label className="text-sm font-medium text-slate-600">
+            Filter by action
+            <select value={actionFilter} onChange={(event) => setActionFilter(event.target.value)} className="input-field mt-2">
+              <option value="all">All actions</option>
+              {actionOptions.map((action) => (
+                <option key={action} value={action}>
+                  {toSentenceCase(action)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
+
+      {filteredLogs.length === 0 ? (
         <EmptyState
-          title="No activity recorded yet"
-          description="Important team actions will appear here as members edit tasks, manage invitations, and change permissions."
+          title="No activity in this filter"
+          description="Try broadening your filters to see the full team timeline."
         />
       ) : (
-        <div className="relative space-y-4 pl-4">
-          <div className="absolute left-[11px] top-0 h-full w-px bg-emerald-200" />
-          {logs.map((log) => (
-            <div key={log.id} className="card relative fade-in">
-              <div className="absolute -left-[30px] top-6 timeline-dot" />
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <div className="stat-chip">{toSentenceCase(log.action)}</div>
-                  <h3 className="mt-3 text-lg font-bold text-emerald-950">{log.target_repr || 'Workspace item'}</h3>
-                  <p className="mt-2 text-sm text-soft">
-                    {log.actor?.name || 'System'} acted on {toSentenceCase(log.target_type || 'resource')}
-                  </p>
+        <section className={`${panelClass} p-6 lg:p-7`}>
+          <div className="relative space-y-3 pl-4">
+            <div className="absolute left-[11px] top-0 h-full w-px bg-emerald-200" />
+            {filteredLogs.map((log) => (
+              <article key={log.id} className={`${cardClass} relative p-4`}>
+                <div className="absolute -left-[24px] top-6 h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+                        {toSentenceCase(log.action || 'update')}
+                      </span>
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                        {toSentenceCase(log.target_type || 'resource')}
+                      </span>
+                    </div>
+                    <h3 className="mt-3 text-base font-semibold text-slate-900">{log.target_repr || 'Workspace item'}</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {log.actor?.name || 'System'} | {formatDate(log.created_at)}
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    {formatRelativeDate(log.created_at)}
+                  </span>
                 </div>
-                <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-                  {formatDate(log.created_at, {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              </article>
+            ))}
+          </div>
+        </section>
       )}
+    </div>
+  )
+}
+
+function SummaryTile({ label, value, note }) {
+  return (
+    <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
+      <p className="mt-2 text-sm text-slate-500">{note}</p>
     </div>
   )
 }

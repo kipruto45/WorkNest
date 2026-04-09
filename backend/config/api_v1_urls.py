@@ -136,6 +136,7 @@ urlpatterns = [
     path("invitations/", include(("apps.memberships.urls", "memberships"), namespace="memberships")),
     path("tasks/<uuid:task_id>/comments/", CommentListCreateView.as_view(), name="task-comments"),
     path("tasks/", include(("apps.tasks.urls", "tasks"), namespace="tasks")),
+    path("calendar/", include(("apps.integrations.calendar_urls", "calendar"), namespace="calendar")),
     path("comments/", include(("apps.comments.urls", "comments"), namespace="comments")),
     path("notifications/", include(("apps.notifications.urls", "notifications"), namespace="notifications")),
     path("schema/", serve_schema, name="schema"),

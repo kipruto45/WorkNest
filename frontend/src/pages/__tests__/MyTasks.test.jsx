@@ -74,6 +74,8 @@ vi.mock('../../services/api', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  currentUser.account_type = 'personal'
+  currentUser.default_team_id = 'stale-personal-team'
   getTeams.mockResolvedValue({
     data: {
       data: {
@@ -111,4 +113,43 @@ test('Personal task creation does not send a team id from the personal dashboard
 
   expect(createTaskMock.mock.calls[0][0]).not.toHaveProperty('team_id')
   expect(navigateMock).toHaveBeenCalledWith('/tasks/task-1')
+})
+
+test('Team account composer falls back to a valid workspace when default_team_id is stale', async () => {
+  const user = userEvent.setup()
+  currentUser.account_type = 'team'
+  currentUser.default_team_id = 'stale-team-id'
+  getTeams.mockResolvedValue({
+    data: {
+      data: {
+        results: [
+          { id: 'personal-team-1', name: 'Personal Workspace', is_personal: true },
+          { id: 'team-1', name: 'Core Team', is_personal: false },
+        ],
+      },
+    },
+  })
+
+  render(
+    <TestMemoryRouter>
+      <MyTasks />
+    </TestMemoryRouter>
+  )
+
+  await waitFor(() => expect(getTeams).toHaveBeenCalled())
+
+  await user.click(screen.getByRole('button', { name: /Add task/i }))
+  await user.type(screen.getByPlaceholderText('Prepare launch checklist'), 'Hybrid workspace task')
+  await user.click(screen.getByRole('button', { name: /^Create task$/i }))
+
+  await waitFor(() => {
+    expect(createTaskMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Hybrid workspace task',
+      })
+    )
+  })
+
+  expect(createTaskMock.mock.calls[0][0].team_id).toBe('personal-team-1')
+  expect(createTaskMock.mock.calls[0][0].team_id).not.toBe('stale-team-id')
 })

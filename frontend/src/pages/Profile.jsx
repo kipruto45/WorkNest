@@ -64,12 +64,7 @@ export default function Profile() {
     }
   }, [
     avatarPreview,
-    currentUser?.avatar,
-    currentUser?.bio,
-    currentUser?.first_name,
-    currentUser?.id,
-    currentUser?.last_name,
-    currentUser?.name,
+    currentUser,
     dispatch,
     reset,
   ])

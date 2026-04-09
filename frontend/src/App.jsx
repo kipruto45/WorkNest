@@ -31,6 +31,8 @@ const TeamMembers = lazy(() => import('./pages/TeamMembers'))
 const TeamInvitations = lazy(() => import('./pages/TeamInvitations'))
 const TeamAnalytics = lazy(() => import('./pages/TeamAnalytics'))
 const TeamActivity = lazy(() => import('./pages/TeamActivity'))
+const TeamCalendar = lazy(() => import('./pages/TeamCalendar'))
+const TeamAnnouncements = lazy(() => import('./pages/TeamAnnouncements'))
 const TeamSettings = lazy(() => import('./pages/TeamSettings'))
 const TeamMilestones = lazy(() => import('./pages/TeamMilestones'))
 const TeamAutomationRules = lazy(() => import('./pages/TeamAutomationRules'))
@@ -231,6 +233,8 @@ function App() {
             <Route path="teams/:teamId/invitations" element={<TeamInvitations />} />
             <Route path="teams/:teamId/analytics" element={<TeamAnalytics />} />
             <Route path="teams/:teamId/activity" element={<TeamActivity />} />
+            <Route path="teams/:teamId/calendar" element={<TeamCalendar />} />
+            <Route path="teams/:teamId/announcements" element={<TeamAnnouncements />} />
             <Route path="teams/:teamId/milestones" element={<TeamMilestones />} />
             <Route path="teams/:teamId/automation" element={<TeamAutomationRules />} />
             <Route path="teams/:teamId/import-export" element={<TeamImportExport />} />
@@ -251,7 +255,7 @@ function RouteFallback() {
     <div className="app-shell flex min-h-screen items-center justify-center bg-[#f7f8f6] px-4 py-10">
       <div className="rounded-[24px] border border-slate-200 bg-white px-6 py-5 text-center shadow-[0_12px_32px_rgba(15,23,42,0.06)]">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Loading</p>
-        <p className="mt-3 text-sm text-slate-600">Preparing your workspace…</p>
+        <p className="mt-3 text-sm text-slate-600">Preparing your workspace...</p>
       </div>
     </div>
   )

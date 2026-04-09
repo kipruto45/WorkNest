@@ -46,10 +46,10 @@ export default function Teams() {
         })
       ).unwrap()
       await dispatch(fetchTeams()).unwrap()
-      toast.success('Team created. Invite your teammates by email next.')
+      toast.success('Team created. Opening your team dashboard.')
       setShowModal(false)
       reset()
-      navigate(`/teams/${team.id}/invitations?compose=1&created=1`)
+      navigate(`/teams/${team.id}/overview`)
     } catch (error) {
       const apiError =
         typeof error === 'string'
