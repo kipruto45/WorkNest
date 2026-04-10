@@ -15,6 +15,7 @@ from django.utils.crypto import get_random_string
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_auth_action
 from apps.authentication.services import create_user_account, issue_tokens_for_user, sync_google_account_profile
+from apps.memberships.models import Membership
 from apps.users.models import User as UserModel
 
 User = get_user_model()
@@ -40,6 +41,29 @@ class AccountTypeMismatchError(GoogleAuthError):
     """Raised when the selected account type does not match the stored account type."""
     def __init__(self, message: str = "Selected workspace mode does not match this account."):
         super().__init__(message, "account_type_mismatch")
+
+
+def _matches_requested_account_type(*, user: UserModel, account_type: str) -> bool:
+    if user.account_type == account_type:
+        return True
+
+    if account_type == UserModel.AccountType.PERSONAL:
+        return Membership.objects.filter(
+            user=user,
+            status=Membership.Status.ACTIVE,
+            team__is_archived=False,
+            team__is_personal=True,
+        ).exists()
+
+    if account_type == UserModel.AccountType.TEAM:
+        return Membership.objects.filter(
+            user=user,
+            status=Membership.Status.ACTIVE,
+            team__is_archived=False,
+            team__is_personal=False,
+        ).exists()
+
+    return False
 
 
 def verify_google_token(google_credential: str) -> dict:
@@ -106,7 +130,7 @@ def get_or_create_google_user(
     email = google_user_info['email']
     try:
         existing_user = User.objects.get(email__iexact=email)
-        if existing_user.account_type != account_type:
+        if not _matches_requested_account_type(user=existing_user, account_type=account_type):
             raise AccountTypeMismatchError()
         
         if existing_user.auth_provider == UserModel.AuthProvider.GOOGLE:

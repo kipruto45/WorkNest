@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
+from unittest.mock import patch
 
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.models import AuditLog
@@ -243,6 +244,28 @@ class InvitationWorkflowTests(APITestCase):
         self.assertEqual(invitation.status, TeamInvitation.Status.REVOKED)
         self.assertIsNotNone(invitation.revoked_at)
         self.assertTrue(AuditLog.objects.filter(action=AuditAction.INVITATION_REVOKED, target_id=str(invitation.id)).exists())
+
+    @patch("apps.memberships.services.queue_invitation_reminder_email", side_effect=RuntimeError("email queue down"))
+    def test_resend_invitation_succeeds_even_when_email_queue_fails(self, _mock_queue_invitation_reminder_email) -> None:
+        invitation = self.create_invitation(email="resend-fallback@example.com")
+        self.authenticate(self.owner)
+
+        response = self.client.post(reverse("api_v1:memberships:resend", args=[invitation.id]), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        invitation.refresh_from_db()
+        self.assertEqual(invitation.status, TeamInvitation.Status.PENDING)
+
+    @patch("apps.memberships.services.queue_invitation_revoked_email", side_effect=RuntimeError("email queue down"))
+    def test_revoke_invitation_succeeds_even_when_email_queue_fails(self, _mock_queue_invitation_revoked_email) -> None:
+        invitation = self.create_invitation(email="revoke-fallback@example.com")
+        self.authenticate(self.owner)
+
+        response = self.client.post(reverse("api_v1:memberships:revoke", args=[invitation.id]), {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        invitation.refresh_from_db()
+        self.assertEqual(invitation.status, TeamInvitation.Status.REVOKED)
 
     def test_admin_can_update_invitation_role_before_acceptance(self) -> None:
         invitation = self.create_invitation(role=Membership.Role.MEMBER)

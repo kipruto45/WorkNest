@@ -19,8 +19,10 @@ from apps.authentication.models import AuthSession, CredentialChangeRequest, Ema
 from apps.authentication.services import confirm_credential_change, register_auth_session, request_email_change
 from apps.authentication.tokens import create_token_pair_for_user
 from apps.authentication.throttles import LoginThrottle, RegisterThrottle
+from apps.common.exceptions import ServiceUnavailableError
 from apps.memberships.models import Membership
 from apps.teams.models import Team
+from apps.teams.services import create_team_with_owner
 
 User = get_user_model()
 
@@ -418,6 +420,26 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertFalse(response.data["success"])
 
+    def test_login_allows_personal_mode_for_team_account_with_personal_workspace_membership(self) -> None:
+        user = User.objects.create_user(
+            email="hybrid-user@example.com",
+            password="StrongPass123!",
+            name="Hybrid User",
+            account_type=User.AccountType.TEAM,
+            primary_mode=User.AccountType.TEAM,
+        )
+        create_team_with_owner(created_by=user, name="Hybrid Team", is_personal=False)
+        create_team_with_owner(created_by=user, name="Hybrid Personal", is_personal=True)
+
+        response = self.client.post(
+            reverse("api_v1:authentication:login"),
+            {"email": user.email, "password": "StrongPass123!", "account_type": "personal"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(response.data["success"])
+
     @patch("apps.authentication.services.queue_welcome_email", side_effect=RuntimeError("smtp unavailable"))
     def test_register_succeeds_when_welcome_email_queueing_fails(self, _mock_queue_welcome_email) -> None:
         response = self.client.post(
@@ -438,6 +460,29 @@ class AuthenticationEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(response.data["success"])
         self.assertTrue(User.objects.filter(email="jane-welcome@example.com").exists())
+
+    @patch(
+        "apps.authentication.views.send_email_verification",
+        side_effect=ServiceUnavailableError("Verification email could not be delivered right now."),
+    )
+    def test_register_succeeds_when_email_verification_delivery_fails(self, _mock_send_email_verification) -> None:
+        response = self.client.post(
+            reverse("api_v1:authentication:register"),
+            {
+                "name": "Jane Verify",
+                "email": "jane-verify@example.com",
+                "phone_number": "+254712345681",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+                "account_type": "personal",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["data"]["email_verification_delivery"]["status"], "failed")
+        self.assertTrue(User.objects.filter(email="jane-verify@example.com").exists())
 
     @patch("apps.authentication.views.CurrentUserSerializer", side_effect=RuntimeError("serializer unavailable"))
     def test_register_succeeds_when_current_user_serialization_fails(self, _mock_serializer) -> None:

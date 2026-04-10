@@ -95,7 +95,7 @@ export default function TeamOverview() {
           dashboardAPI.getTeamWorkload(teamId),
           dashboardAPI.getTeamStatusDistribution(teamId),
           dashboardAPI.getTeamPriorityDistribution(teamId),
-          dashboardAPI.getTeamCalendar(teamId, { page_size: 40 }),
+          dashboardAPI.getTeamCalendar(teamId),
           dashboardAPI.getTeamActivity(teamId),
           teamsAPI.getAnnouncements(teamId, { page_size: 10 }),
           teamsAPI.getTeamMembers(teamId, { page_size: 50 }),

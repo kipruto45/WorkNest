@@ -5,6 +5,15 @@ import { API_BASE_URL, CLIENT_STORAGE_KEYS } from '../utils/clientConfig.js'
 const API_URL = API_BASE_URL
 const PUBLIC_AUTH_PATH_PREFIXES = ['/auth/login/', '/auth/register/', '/auth/password-reset/', '/auth/google/']
 let refreshRequest = null
+const DEFAULT_API_TIMEOUT_MS = 12000
+
+const resolveApiTimeoutMs = () => {
+  const rawTimeout = Number(import.meta?.env?.VITE_API_TIMEOUT_MS)
+  if (!Number.isFinite(rawTimeout) || rawTimeout <= 0) {
+    return DEFAULT_API_TIMEOUT_MS
+  }
+  return Math.floor(rawTimeout)
+}
 
 const normalizeBaseUrl = (value) => {
   if (!value) return ''
@@ -28,6 +37,7 @@ const buildApiUrl = (url, baseUrl) => {
 const api = axios.create({
   baseURL: '',
   withCredentials: true,
+  timeout: resolveApiTimeoutMs(),
   headers: {
     'Content-Type': 'application/json',
   },

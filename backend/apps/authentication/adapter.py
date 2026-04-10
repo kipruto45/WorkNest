@@ -19,6 +19,7 @@ from apps.authentication.services import (
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_auth_action
 from apps.integrations.email.builders import _get_frontend_url
+from apps.memberships.models import Membership
 from apps.users.serializers import CurrentUserSerializer
 from apps.users.models import User as UserModel
 
@@ -95,6 +96,31 @@ def parse_google_oauth_state(raw_state: str | None) -> dict[str, str]:
     result["flow"] = flow if flow in {"login", "register"} else "login"
     result["team_name"] = str(payload.get("team_name", "")).strip()
     return result
+
+
+def _matches_requested_account_type(*, user: UserModel, account_type: str) -> bool:
+    if not account_type:
+        return True
+    if user.account_type == account_type:
+        return True
+
+    if account_type == UserModel.AccountType.PERSONAL:
+        return Membership.objects.filter(
+            user=user,
+            status=Membership.Status.ACTIVE,
+            team__is_archived=False,
+            team__is_personal=True,
+        ).exists()
+
+    if account_type == UserModel.AccountType.TEAM:
+        return Membership.objects.filter(
+            user=user,
+            status=Membership.Status.ACTIVE,
+            team__is_archived=False,
+            team__is_personal=False,
+        ).exists()
+
+    return False
 
 
 def _auth_entry_path(flow: str) -> str:
@@ -244,7 +270,7 @@ def find_or_create_google_user(
     resolved_account_type = account_type or UserModel.AccountType.PERSONAL
     try:
         user = User.objects.get(email__iexact=email)
-        if account_type and user.account_type != account_type:
+        if account_type and not _matches_requested_account_type(user=user, account_type=account_type):
             raise GoogleOAuthCallbackError(
                 "account_type_mismatch",
                 "Selected workspace mode does not match this account.",

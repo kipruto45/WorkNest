@@ -86,26 +86,52 @@ def _ensure_target_is_not_active_member(*, team, email: str) -> None:
 
 
 def _send_invitation_email(*, invitation: TeamInvitation) -> None:
-    delivery = queue_team_invite_email(
-        invitation=invitation,
-        actor=invitation.invited_by,
-        deliver_immediately=True,
-    )
+    try:
+        delivery = queue_team_invite_email(
+            invitation=invitation,
+            actor=invitation.invited_by,
+            deliver_immediately=True,
+        )
+    except Exception:
+        logger.exception(
+            "team_invitation_email_queue_failed",
+            extra={"team_id": str(invitation.team_id), "invitation_id": str(invitation.id)},
+        )
+        return
+
     if delivery.status in {EmailDelivery.Status.FAILED, EmailDelivery.Status.SKIPPED}:
-        raise ValidationError(
-            {"email": [delivery.last_error or "Invitation email could not be delivered right now."]}
+        logger.warning(
+            "team_invitation_email_delivery_failed",
+            extra={
+                "team_id": str(invitation.team_id),
+                "invitation_id": str(invitation.id),
+                "delivery_status": delivery.status,
+            },
         )
 
 
 def _send_invitation_reminder(*, invitation: TeamInvitation) -> None:
-    delivery = queue_invitation_reminder_email(
-        invitation=invitation,
-        actor=invitation.invited_by,
-        deliver_immediately=True,
-    )
+    try:
+        delivery = queue_invitation_reminder_email(
+            invitation=invitation,
+            actor=invitation.invited_by,
+            deliver_immediately=True,
+        )
+    except Exception:
+        logger.exception(
+            "team_invitation_reminder_queue_failed",
+            extra={"team_id": str(invitation.team_id), "invitation_id": str(invitation.id)},
+        )
+        return
+
     if delivery.status in {EmailDelivery.Status.FAILED, EmailDelivery.Status.SKIPPED}:
-        raise ValidationError(
-            {"email": [delivery.last_error or "Invitation reminder email could not be delivered right now."]}
+        logger.warning(
+            "team_invitation_reminder_delivery_failed",
+            extra={
+                "team_id": str(invitation.team_id),
+                "invitation_id": str(invitation.id),
+                "delivery_status": delivery.status,
+            },
         )
 
 
@@ -124,7 +150,13 @@ def _notify_inviter_of_acceptance(*, invitation: TeamInvitation, actor) -> None:
     from apps.notifications.services import notify_invitation_accepted
 
     notify_invitation_accepted(invitation=invitation, recipient_user=invitation.invited_by)
-    queue_invitation_accepted_email(invitation=invitation, recipient_user=invitation.invited_by, actor=actor)
+    try:
+        queue_invitation_accepted_email(invitation=invitation, recipient_user=invitation.invited_by, actor=actor)
+    except Exception:
+        logger.exception(
+            "team_invitation_accepted_email_queue_failed",
+            extra={"team_id": str(invitation.team_id), "invitation_id": str(invitation.id), "actor_id": str(actor.id)},
+        )
 
 
 def _notify_inviter_of_decline(*, invitation: TeamInvitation, actor) -> None:
@@ -351,7 +383,13 @@ def revoke_team_invitation(*, invitation: TeamInvitation, actor) -> TeamInvitati
     invitation.status = TeamInvitation.Status.REVOKED
     invitation.revoked_at = timezone.now()
     invitation.save(update_fields=["status", "revoked_at", "updated_at"])
-    queue_invitation_revoked_email(invitation=invitation, actor=actor)
+    try:
+        queue_invitation_revoked_email(invitation=invitation, actor=actor)
+    except Exception:
+        logger.exception(
+            "team_invitation_revoked_email_queue_failed",
+            extra={"team_id": str(invitation.team_id), "invitation_id": str(invitation.id), "actor_id": str(actor.id)},
+        )
 
     log_membership_action(
         actor=actor,

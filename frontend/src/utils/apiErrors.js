@@ -1,5 +1,6 @@
 const DEFAULT_MESSAGES = Object.freeze({
   network: 'Could not connect to the server.',
+  timeout: 'The request timed out. Please try again.',
   unauthorized: 'Your session expired. Please log in again.',
   forbidden: 'You do not have permission to perform this action.',
   notFound: 'The requested resource was not found.',
@@ -75,13 +76,14 @@ export const extractApiError = (error, overrides = {}) => {
   const requestId = payload?.request_id ?? null
   const errors = payload?.errors && typeof payload.errors === 'object' ? payload.errors : payload?.errors ?? null
   const flattenedMessages = collectMessages(errors)
+  const timedOut = !error?.response && (error?.code === 'ECONNABORTED' || /timed?\s*out/i.test(String(error?.message || '')))
 
   if (!error?.response) {
     return {
       status,
       requestId,
       errors,
-      message: overrides.networkMessage || DEFAULT_MESSAGES.network,
+      message: timedOut ? overrides.timeoutMessage || DEFAULT_MESSAGES.timeout : overrides.networkMessage || DEFAULT_MESSAGES.network,
       fieldErrors: errors && typeof errors === 'object' && !Array.isArray(errors) ? errors : {},
       isNetworkError: true,
     }

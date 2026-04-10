@@ -49,6 +49,13 @@ test('extractApiError returns a network-specific fallback when no response is av
   assert.equal(result.isNetworkError, true)
 })
 
+test('extractApiError returns timeout-specific fallback when request times out', () => {
+  const result = extractApiError({ code: 'ECONNABORTED', message: 'timeout of 20000ms exceeded' })
+
+  assert.equal(result.message, 'The request timed out. Please try again.')
+  assert.equal(result.isNetworkError, true)
+})
+
 test('extractApiError maps server failures to a clean fallback message', () => {
   const error = {
     response: {

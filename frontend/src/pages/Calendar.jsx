@@ -37,7 +37,7 @@ export default function Calendar() {
     setLoading(true)
     try {
       const [eventsResponse, statusResponse] = await Promise.all([
-        dashboardAPI.getPersonalCalendar({ page_size: 200 }),
+        dashboardAPI.getPersonalCalendar(),
         calendarAPI.getGoogleStatus({ scope: 'personal' }),
       ])
       const eventPayload = unwrapData(eventsResponse)

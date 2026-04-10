@@ -242,7 +242,9 @@ def _schedule_email_delivery(*, payload: QueuedEmailPayload, delivery: EmailDeli
             _deliver_email_inline(payload=payload, delivery=delivery)
             return
 
-    _deliver_email_background(delivery_id=str(delivery.id), payload_data=payload.to_dict())
+    # In sync mode, deliver inline so user-triggered flows (verification, invites,
+    # admin notifications) are confirmed immediately.
+    _deliver_email_inline(payload=payload, delivery=delivery)
 
 
 def _deliver_email_inline(*, payload: QueuedEmailPayload, delivery: EmailDelivery) -> EmailDelivery:
@@ -281,7 +283,15 @@ def _deliver_email_inline(*, payload: QueuedEmailPayload, delivery: EmailDeliver
     return delivery
 
 
-def queue_email(*, payload: QueuedEmailPayload, actor=None, user=None, force: bool = False, deliver_immediately: bool = False) -> EmailDelivery:
+def queue_email(
+    *,
+    payload: QueuedEmailPayload,
+    actor=None,
+    user=None,
+    force: bool = False,
+    deliver_immediately: bool = False,
+    defer_delivery: bool = False,
+) -> EmailDelivery:
     if not force:
         existing = _find_existing_delivery(dedupe_key=payload.dedupe_key)
         if existing is not None:
@@ -301,6 +311,9 @@ def queue_email(*, payload: QueuedEmailPayload, actor=None, user=None, force: bo
     def on_commit() -> None:
         if deliver_immediately:
             _deliver_email_inline(payload=payload, delivery=delivery)
+            return
+        if defer_delivery:
+            _deliver_email_background(delivery_id=str(delivery.id), payload_data=payload.to_dict())
             return
         _schedule_email_delivery(payload=payload, delivery=delivery)
 
@@ -364,13 +377,21 @@ def queue_password_reset_email(*, user, reset_url: str, actor=None, expires_in_m
     )
 
 
-def queue_email_verification_email(*, user, verification_url: str, actor=None) -> EmailDelivery:
+def queue_email_verification_email(
+    *,
+    user,
+    verification_url: str,
+    actor=None,
+    deliver_immediately: bool = True,
+    defer_delivery: bool = False,
+) -> EmailDelivery:
     return queue_email(
         payload=build_email_verification_email_payload(user=user, verification_url=verification_url),
         actor=actor or user,
         user=user,
         force=True,
-        deliver_immediately=True,
+        deliver_immediately=deliver_immediately,
+        defer_delivery=defer_delivery,
     )
 
 
@@ -437,7 +458,11 @@ def send_invitation_revoked_email(*, invitation=None, team=None, recipient_email
 
 
 def queue_invitation_revoked_email(*, invitation, actor=None) -> EmailDelivery:
-    return queue_email(payload=build_invitation_revoked_email_payload(invitation=invitation, actor=actor), actor=actor or invitation.invited_by)
+    return queue_email(
+        payload=build_invitation_revoked_email_payload(invitation=invitation, actor=actor),
+        actor=actor or invitation.invited_by,
+        deliver_immediately=True,
+    )
 
 
 def send_notification_email(*, notification) -> dict[str, Any]:
@@ -457,6 +482,7 @@ def queue_admin_communication_email(*, communication, recipient, actor=None) -> 
         payload=build_admin_communication_email_payload(communication=communication, recipient=recipient, actor=actor),
         actor=actor,
         user=recipient,
+        deliver_immediately=True,
     )
 
 
@@ -464,8 +490,19 @@ def send_welcome_email(*, user, dashboard_url: str | None = None) -> dict[str, A
     return deliver_prepared_email(payload=build_welcome_email_payload(user=user, dashboard_url=dashboard_url))
 
 
-def queue_welcome_email(*, user, actor=None, dashboard_url: str | None = None) -> EmailDelivery:
-    return queue_email(payload=build_welcome_email_payload(user=user, dashboard_url=dashboard_url), actor=actor or user, user=user)
+def queue_welcome_email(
+    *,
+    user,
+    actor=None,
+    dashboard_url: str | None = None,
+    defer_delivery: bool = False,
+) -> EmailDelivery:
+    return queue_email(
+        payload=build_welcome_email_payload(user=user, dashboard_url=dashboard_url),
+        actor=actor or user,
+        user=user,
+        defer_delivery=defer_delivery,
+    )
 
 
 def send_task_assigned_email(*, task, assigner, assignee) -> dict[str, Any]:
@@ -528,6 +565,7 @@ def queue_invitation_accepted_email(*, invitation, recipient_user, actor) -> Ema
         payload=build_invitation_accepted_email_payload(invitation=invitation, recipient_user=recipient_user, actor=actor),
         actor=actor,
         user=recipient_user,
+        deliver_immediately=True,
     )
 
 

@@ -153,11 +153,6 @@ export default function Register() {
       }
       const result = await dispatch(registerUser(payload)).unwrap()
       let authenticatedUser = result?.user
-      try {
-        authenticatedUser = await dispatch(hydrateCurrentUser()).unwrap()
-      } catch (_error) {
-        authenticatedUser = result?.user
-      }
       if (selectedAccountType === 'team' && authenticatedUser) {
         const normalizedUser = { ...authenticatedUser, account_type: 'team' }
         dispatch(setUser(normalizedUser))
@@ -173,6 +168,7 @@ export default function Register() {
         toast.success('Account created successfully.')
       }
       navigate(destination, { replace: true })
+      dispatch(hydrateCurrentUser())
     } catch (error) {
       const normalizedError = typeof error === 'string' ? { message: error } : error || {}
       const fieldErrors = normalizedError.fieldErrors || {}

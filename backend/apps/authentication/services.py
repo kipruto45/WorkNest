@@ -56,10 +56,41 @@ def _normalize_auth_phone(phone_number: str, country_code: str | None = None) ->
     return normalize_phone_number(phone_number=phone_number, country_code=country_code)
 
 
+def _user_has_workspace_mode(*, user, account_type: str) -> bool:
+    from apps.memberships.models import Membership
+
+    if account_type == UserModel.AccountType.PERSONAL:
+        if getattr(user, "account_type", UserModel.AccountType.PERSONAL) == UserModel.AccountType.PERSONAL:
+            return True
+        return Membership.objects.filter(
+            user=user,
+            status=Membership.Status.ACTIVE,
+            team__is_archived=False,
+            team__is_personal=True,
+        ).exists()
+
+    if account_type == UserModel.AccountType.TEAM:
+        if getattr(user, "account_type", UserModel.AccountType.PERSONAL) == UserModel.AccountType.TEAM:
+            return True
+        return Membership.objects.filter(
+            user=user,
+            status=Membership.Status.ACTIVE,
+            team__is_archived=False,
+            team__is_personal=False,
+        ).exists()
+
+    return False
+
+
 def validate_selected_account_type(*, user, account_type: str) -> None:
     if not account_type:
         return
-    if getattr(user, "account_type", UserModel.AccountType.PERSONAL) != account_type:
+
+    normalized_account_type = str(account_type or "").strip().lower()
+    if normalized_account_type not in {choice for choice, _label in UserModel.AccountType.choices}:
+        return
+
+    if not _user_has_workspace_mode(user=user, account_type=normalized_account_type):
         raise exceptions.AuthenticationFailed("Selected workspace mode does not match this account.")
 
 
@@ -77,7 +108,9 @@ def _safe_queue_welcome_email(*, user) -> None:
     if not getattr(user, "email", ""):
         return
     try:
-        queue_welcome_email(user=user, actor=user)
+        email_backend = str(getattr(settings, "EMAIL_BACKEND", "")).strip().lower()
+        defer_delivery = "locmem" not in email_backend and "console" not in email_backend
+        queue_welcome_email(user=user, actor=user, defer_delivery=defer_delivery)
     except Exception:
         logger.exception("Unable to queue welcome email", extra={"user_id": str(getattr(user, "pk", ""))})
 
@@ -338,7 +371,7 @@ def create_email_verification_token(*, user) -> EmailVerificationToken:
     )
 
 
-def send_email_verification(*, user, actor=None):
+def send_email_verification(*, user, actor=None, defer_delivery: bool = False):
     if user.email_verified or not user.email:
         return None
     token = create_email_verification_token(user=user)
@@ -346,6 +379,8 @@ def send_email_verification(*, user, actor=None):
         user=user,
         verification_url=_get_email_verification_link(token=token.token),
         actor=actor or user,
+        deliver_immediately=not defer_delivery,
+        defer_delivery=defer_delivery,
     )
     _ensure_email_delivery_succeeded(
         delivery=delivery,

@@ -34,6 +34,7 @@ env = environ.Env(
     EMAIL_HOST_PASSWORD=(str, ""),
     EMAIL_USE_TLS=(bool, False),
     EMAIL_USE_SSL=(bool, False),
+    EMAIL_TIMEOUT=(int, 10),
     SMTP_HOST=(str, ""),
     SMTP_PORT=(int, 0),
     SMTP_USERNAME=(str, ""),
@@ -416,6 +417,7 @@ EMAIL_HOST_USER = env("SMTP_USERNAME") or env("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = env("SMTP_PASSWORD") or env("EMAIL_HOST_PASSWORD")
 EMAIL_USE_TLS = env("EMAIL_USE_TLS")
 EMAIL_USE_SSL = env("EMAIL_USE_SSL")
+EMAIL_TIMEOUT = env("EMAIL_TIMEOUT")
 SENDGRID_API_KEY = env("SENDGRID_API_KEY")
 
 GOOGLE_OAUTH_CLIENT_ID = env("GOOGLE_OAUTH_CLIENT_ID", default=env("GOOGLE_CLIENT_ID", default=""))

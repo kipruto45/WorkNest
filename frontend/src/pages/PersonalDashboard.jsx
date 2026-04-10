@@ -25,7 +25,7 @@ export default function PersonalDashboard() {
           dashboardAPI.getPersonalSummary(),
           dashboardAPI.getPersonalTasks({ page_size: 6 }),
           dashboardAPI.getPersonalOverdue({ page_size: 4 }),
-          dashboardAPI.getPersonalCalendar({ page_size: 6 }),
+          dashboardAPI.getPersonalCalendar(),
           notificationsAPI.getNotifications({ page_size: 4 }),
         ])
 

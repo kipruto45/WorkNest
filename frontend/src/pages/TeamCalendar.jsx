@@ -51,7 +51,7 @@ export default function TeamCalendar() {
 
     const [teamResult, calendarResult, statusResult] = await Promise.allSettled([
       teamsAPI.getTeam(teamId),
-      dashboardAPI.getTeamCalendar(teamId, { page_size: 200 }),
+      dashboardAPI.getTeamCalendar(teamId),
       calendarAPI.getGoogleStatus({ scope: 'team', team_id: teamId }),
     ])
 

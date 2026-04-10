@@ -55,6 +55,7 @@ from apps.authentication.services import (
 from apps.authentication.throttles import LoginThrottle, PasswordResetThrottle, RegisterThrottle
 from apps.audit_logs.constants import AuditAction
 from apps.audit_logs.services import build_audit_metadata, log_auth_action
+from apps.common.exceptions import ServiceUnavailableError
 from apps.common.responses import error_response, success_response
 from apps.integrations.email.builders import _get_frontend_url
 from apps.users.serializers import CurrentUserSerializer
@@ -156,14 +157,30 @@ class RegisterView(PublicAuthAPIView):
         )
         token_payload = issue_tokens_for_user(user=user)
         register_auth_session(user=user, token_payload=token_payload, request=request)
+        email_delivery_status = {"status": "not_required", "last_error": ""}
         if not user.email_verified:
-            send_email_verification(user=user)
+            try:
+                delivery = send_email_verification(user=user, defer_delivery=True)
+                email_delivery_status = {
+                    "status": getattr(delivery, "status", "queued"),
+                    "last_error": getattr(delivery, "last_error", ""),
+                }
+            except ServiceUnavailableError as exc:
+                logger.warning(
+                    "register_email_verification_delivery_failed",
+                    extra={"user_id": str(user.id), "email": user.email, "detail": str(exc.detail)},
+                )
+                email_delivery_status = {
+                    "status": "failed",
+                    "last_error": str(exc.detail),
+                }
         response = success_response(
             request=request,
             message="Registration completed successfully.",
             data=build_auth_response_payload(user=user, token_payload=token_payload, refresh_cookie_set=False),
             status_code=status.HTTP_201_CREATED,
         )
+        response.data["data"]["email_verification_delivery"] = email_delivery_status
         response.data["data"]["tokens"]["refresh_cookie_set"] = try_set_refresh_cookie(response, token_payload["refresh"])
         return response
 
