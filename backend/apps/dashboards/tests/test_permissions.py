@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIRequestFactory, APITestCase
 
-from apps.dashboards.permissions import CanViewTeamDashboard, IsActiveTeamMember
+from apps.dashboards.permissions import CanViewTeamAnalytics, CanViewTeamDashboard, IsActiveTeamMember
 from apps.memberships.models import Membership
 from apps.teams.models import Team
 
@@ -13,6 +13,7 @@ class DashboardPermissionTests(APITestCase):
         self.factory = APIRequestFactory()
         self.owner = User.objects.create_user(email="owner@example.com", password="StrongPass123!", name="Owner")
         self.member = User.objects.create_user(email="member@example.com", password="StrongPass123!", name="Member")
+        self.manager = User.objects.create_user(email="manager@example.com", password="StrongPass123!", name="Manager")
         self.outsider = User.objects.create_user(email="outsider@example.com", password="StrongPass123!", name="Outsider")
         self.team = Team.objects.create(
             name="Analytics",
@@ -24,6 +25,13 @@ class DashboardPermissionTests(APITestCase):
             team=self.team,
             user=self.member,
             role=Membership.Role.MEMBER,
+            status=Membership.Status.ACTIVE,
+            invited_by=self.owner,
+        )
+        Membership.objects.create(
+            team=self.team,
+            user=self.manager,
+            role=Membership.Role.MANAGER,
             status=Membership.Status.ACTIVE,
             invited_by=self.owner,
         )
@@ -56,3 +64,14 @@ class DashboardPermissionTests(APITestCase):
 
         self.assertFalse(IsActiveTeamMember().has_permission(request, None))
 
+    def test_member_is_blocked_from_team_analytics_permission(self) -> None:
+        request = self.factory.get("/api/v1/dashboard/teams/test/activity/")
+        request.user = self.member
+
+        self.assertFalse(CanViewTeamAnalytics().has_object_permission(request, None, self.team))
+
+    def test_manager_has_team_analytics_permission(self) -> None:
+        request = self.factory.get("/api/v1/dashboard/teams/test/activity/")
+        request.user = self.manager
+
+        self.assertTrue(CanViewTeamAnalytics().has_object_permission(request, None, self.team))

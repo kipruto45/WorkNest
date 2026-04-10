@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import LoadingState from '../components/LoadingState'
 import EmptyState from '../components/EmptyState'
+import Forbidden from './Forbidden'
 import { tasksAPI, teamsAPI, unwrapData } from '../services/api'
+import { resolveMembershipRole } from '../utils/permissions'
 
 const panelClass = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
 const cardClass = 'rounded-[22px] border border-slate-200 bg-[#fcfcfb]'
@@ -111,6 +113,10 @@ export default function TeamImportExport() {
 
   if (initialLoading) {
     return <LoadingState label="Loading import and export tools" />
+  }
+
+  if (resolveMembershipRole(team) !== 'admin') {
+    return <Forbidden />
   }
 
   return (

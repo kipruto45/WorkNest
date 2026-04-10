@@ -106,6 +106,7 @@ class TeamDetailSerializer(serializers.ModelSerializer):
     created_by = UserPublicSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
     my_membership = serializers.SerializerMethodField()
+    my_capabilities = serializers.SerializerMethodField()
     is_pinned = serializers.SerializerMethodField()
 
     class Meta:
@@ -122,6 +123,7 @@ class TeamDetailSerializer(serializers.ModelSerializer):
             "created_by",
             "member_count",
             "my_membership",
+            "my_capabilities",
             "is_pinned",
             "created_at",
             "updated_at",
@@ -144,6 +146,34 @@ class TeamDetailSerializer(serializers.ModelSerializer):
             "role": membership.role,
             "status": membership.status,
             "joined_at": membership.joined_at,
+        }
+
+    def get_my_capabilities(self, obj: Team) -> dict:
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return {}
+
+        membership = obj.memberships.filter(
+            user=request.user,
+            status=Membership.Status.ACTIVE,
+        ).first()
+        if not membership:
+            return {}
+
+        role = membership.role
+        is_admin = role == Membership.Role.ADMIN
+        is_manager = role == Membership.Role.MANAGER
+        is_member = role == Membership.Role.MEMBER
+
+        return {
+            "can_create_tasks": is_admin or is_manager or is_member,
+            "can_manage_tasks": is_admin or is_manager,
+            "can_manage_members": is_admin,
+            "can_manage_invitations": is_admin or (is_manager and bool(obj.allow_manager_invites)),
+            "can_manage_settings": is_admin,
+            "can_view_analytics": is_admin or is_manager,
+            "can_post_announcements": is_admin,
+            "can_manage_workspace": is_admin,
         }
 
     def get_member_count(self, obj: Team) -> int:

@@ -41,7 +41,7 @@ class RealtimeCommentSerializer(serializers.Serializer):
     comment_id = serializers.UUIDField(source="id")
     task_id = serializers.UUIDField()
     team_id = serializers.UUIDField()
-    parent_id = serializers.UUIDField(source="parent_id", allow_null=True)
+    parent_id = serializers.UUIDField(allow_null=True)
     content = serializers.CharField()
     is_deleted = serializers.BooleanField()
     author = RealtimeUserSummarySerializer(allow_null=True)

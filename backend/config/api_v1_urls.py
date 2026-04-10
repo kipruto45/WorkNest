@@ -134,6 +134,7 @@ urlpatterns = [
     path("users/", include(("apps.users.urls", "users"), namespace="users")),
     path("teams/", include(("apps.teams.urls", "teams"), namespace="teams")),
     path("invitations/", include(("apps.memberships.urls", "memberships"), namespace="memberships")),
+    path("invitations/", include(("apps.memberships.invite_links_urls", "invite_links"), namespace="invite_links")),
     path("tasks/<uuid:task_id>/comments/", CommentListCreateView.as_view(), name="task-comments"),
     path("tasks/", include(("apps.tasks.urls", "tasks"), namespace="tasks")),
     path("calendar/", include(("apps.integrations.calendar_urls", "calendar"), namespace="calendar")),

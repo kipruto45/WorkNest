@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from pathlib import Path
 from email.utils import formataddr
 
@@ -20,6 +20,7 @@ env = environ.Env(
     HEALTH_REQUIRE_CACHE=(bool, False),
     REDIS_HOST=(str, "localhost"),
     REDIS_PORT=(int, 6379),
+    REDIS_SSL_CERT_REQS=(str, "CERT_REQUIRED"),
     ACCESS_TOKEN_LIFETIME_MINUTES=(int, 15),
     REFRESH_TOKEN_LIFETIME_DAYS=(int, 7),
     DEFAULT_FROM_EMAIL=(str, "no-reply@example.com"),
@@ -117,6 +118,35 @@ def _parse_host_from_url(value: str) -> str:
         return ""
     parsed = urlparse(candidate if "://" in candidate else f"https://{candidate}")
     return (parsed.hostname or "").strip()
+
+
+_ALLOWED_REDIS_SSL_CERT_REQS = {"CERT_REQUIRED", "CERT_OPTIONAL", "CERT_NONE"}
+
+
+def _normalize_redis_ssl_cert_reqs(value: str) -> str:
+    candidate = str(value or "").strip().upper()
+    if candidate in _ALLOWED_REDIS_SSL_CERT_REQS:
+        return candidate
+    return "CERT_REQUIRED"
+
+
+def _append_url_query_param(*, url: str, key: str, value: str) -> str:
+    parsed = urlparse(url)
+    params = parse_qsl(parsed.query, keep_blank_values=True)
+    if any(existing_key == key for existing_key, _existing_value in params):
+        return url
+    params.append((key, value))
+    return urlunparse(parsed._replace(query=urlencode(params)))
+
+
+def _normalize_redis_connection_url(url: str, *, ssl_cert_reqs: str) -> str:
+    candidate = str(url or "").strip()
+    if not candidate:
+        return candidate
+    parsed = urlparse(candidate)
+    if parsed.scheme != "rediss":
+        return candidate
+    return _append_url_query_param(url=candidate, key="ssl_cert_reqs", value=_normalize_redis_ssl_cert_reqs(ssl_cert_reqs))
 
 
 def _merge_unique_strings(*groups: list[str]) -> list[str]:
@@ -370,7 +400,11 @@ CSRF_TRUSTED_ORIGINS = _merge_unique_strings(env("CSRF_TRUSTED_ORIGINS"), _deriv
 
 REDIS_HOST = env("REDIS_HOST")
 REDIS_PORT = env("REDIS_PORT")
-REDIS_URL = env("REDIS_URL", default=f"redis://{REDIS_HOST}:{REDIS_PORT}/1")
+REDIS_SSL_CERT_REQS = _normalize_redis_ssl_cert_reqs(env("REDIS_SSL_CERT_REQS"))
+REDIS_URL = _normalize_redis_connection_url(
+    env("REDIS_URL", default=f"redis://{REDIS_HOST}:{REDIS_PORT}/1"),
+    ssl_cert_reqs=REDIS_SSL_CERT_REQS,
+)
 
 CACHES = {
     "default": {
@@ -390,8 +424,14 @@ CHANNEL_LAYERS = {
     }
 }
 
-CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=f"redis://{REDIS_HOST}:{REDIS_PORT}/0")
-CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=CELERY_BROKER_URL)
+CELERY_BROKER_URL = _normalize_redis_connection_url(
+    env("CELERY_BROKER_URL", default=f"redis://{REDIS_HOST}:{REDIS_PORT}/0"),
+    ssl_cert_reqs=REDIS_SSL_CERT_REQS,
+)
+CELERY_RESULT_BACKEND = _normalize_redis_connection_url(
+    env("CELERY_RESULT_BACKEND", default=CELERY_BROKER_URL),
+    ssl_cert_reqs=REDIS_SSL_CERT_REQS,
+)
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"

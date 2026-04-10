@@ -304,6 +304,7 @@ export const dashboardAPI = {
   getCompletedThisWeek: (params) => api.get('/dashboard/me/completed-this-week/', { params }),
   getPersonalCalendar: (params) => api.get('/dashboard/me/calendar/', { params }),
   getTeamSummary: (teamId) => api.get(`/dashboard/teams/${teamId}/summary/`),
+  getTeamMemberOverview: (teamId) => api.get(`/dashboard/teams/${teamId}/member-overview/`),
   getTeamActivity: (teamId) => api.get(`/dashboard/teams/${teamId}/activity/`),
   getTeamProgress: (teamId) => api.get(`/dashboard/teams/${teamId}/progress/`),
   getTeamCalendar: (teamId, params) => api.get(`/dashboard/teams/${teamId}/calendar/`, { params }),
@@ -334,6 +335,13 @@ export const invitationsAPI = {
   decline: (token) => api.post(`/invitations/${token}/decline/`),
   resend: (invitationId) => api.post(`/invitations/${invitationId}/resend/`),
   revoke: (invitationId) => api.post(`/invitations/${invitationId}/revoke/`),
+  getInviteLinks: (teamId) => api.get(`/invitations/${teamId}/invite-links/`),
+  createInviteLink: (teamId, data) => api.post(`/invitations/${teamId}/invite-links/`, data),
+  revokeInviteLink: (teamId, linkId) => api.post(`/invitations/${teamId}/invite-links/${linkId}/revoke/`),
+  regenerateInviteLink: (teamId, linkId) => api.post(`/invitations/${teamId}/invite-links/${linkId}/regenerate/`),
+  copyInviteLink: (teamId, linkId) => api.post(`/invitations/${teamId}/invite-links/${linkId}/copy/`),
+  resolveInviteLink: (token) => api.get(`/invitations/resolve/${token}/`),
+  acceptInviteLink: (token) => api.post(`/invitations/accept/${token}/`),
 }
 
 export const auditLogsAPI = {

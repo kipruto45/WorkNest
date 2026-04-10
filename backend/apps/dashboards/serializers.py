@@ -5,6 +5,8 @@ from rest_framework import serializers
 from apps.notifications.serializers import NotificationListSerializer
 from apps.tasks.constants import TASK_ORDERING_FIELDS
 from apps.tasks.models import Task
+from apps.tasks.serializers import TaskListSerializer
+from apps.teams.serializers import TeamAnnouncementSerializer
 
 
 class StrictQuerySerializer(serializers.Serializer):
@@ -138,6 +140,38 @@ class TeamDashboardSummarySerializer(serializers.Serializer):
     status_distribution = StatusDistributionItemSerializer(many=True)
     priority_distribution = PriorityDistributionItemSerializer(many=True)
     member_activity = MemberActivitySerializer(many=True)
+
+
+class MemberSnapshotSerializer(serializers.Serializer):
+    user_id = serializers.UUIDField()
+    name = serializers.CharField()
+    email = serializers.EmailField()
+    avatar = serializers.CharField(allow_blank=True, allow_null=True)
+    role = serializers.CharField()
+    assigned_tasks = serializers.IntegerField()
+    completed_tasks = serializers.IntegerField()
+    open_tasks = serializers.IntegerField()
+    overdue_tasks = serializers.IntegerField()
+    comment_count = serializers.IntegerField()
+    completion_rate = serializers.FloatField()
+    last_activity_at = serializers.DateTimeField(allow_null=True)
+
+
+class TeamMemberOverviewSerializer(serializers.Serializer):
+    team_context = serializers.DictField()
+    welcome = serializers.DictField()
+    my_progress = serializers.DictField()
+    my_assigned_tasks = TaskListSerializer(many=True)
+    due_today = TaskListSerializer(many=True)
+    due_soon = TaskListSerializer(many=True)
+    overdue = TaskListSerializer(many=True)
+    calendar_preview = DashboardCalendarEventSerializer(many=True)
+    recent_activity = NotificationListSerializer(many=True)
+    notifications_preview = NotificationListSerializer(many=True)
+    notifications_unread_count = serializers.IntegerField()
+    members_snapshot = MemberSnapshotSerializer(many=True)
+    latest_announcement = TeamAnnouncementSerializer(allow_null=True)
+    announcements_count = serializers.IntegerField()
 
 
 class AdminGrowthPointSerializer(serializers.Serializer):

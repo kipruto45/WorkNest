@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.db.models import QuerySet
 
-from apps.memberships.models import Membership, TeamInvitation
+from apps.memberships.models import Membership, TeamInvitation, TeamInviteLink
 
 
 def get_active_team_members(*, team) -> QuerySet[Membership]:
@@ -54,3 +54,31 @@ def get_invitation_by_token(*, token: str) -> TeamInvitation | None:
 
 def get_invitation_by_id(*, invitation_id) -> TeamInvitation | None:
     return TeamInvitation.objects.filter(id=invitation_id).select_related("team", "invited_by").first()
+
+
+def get_team_invite_links(*, team) -> QuerySet[TeamInviteLink]:
+    return TeamInviteLink.objects.filter(team=team).select_related("team", "created_by")
+
+
+def get_team_invite_link_by_id(*, team, invite_link_id) -> TeamInviteLink | None:
+    return (
+        TeamInviteLink.objects.filter(team=team, id=invite_link_id)
+        .select_related("team", "created_by")
+        .first()
+    )
+
+
+def get_team_invite_link_by_token(*, token: str) -> TeamInviteLink | None:
+    return TeamInviteLink.objects.filter(token=token).select_related("team", "created_by").first()
+
+
+def get_invite_link_by_id(*, invite_link_id) -> TeamInviteLink | None:
+    return TeamInviteLink.objects.filter(id=invite_link_id).select_related("team", "created_by").first()
+
+
+def get_invite_link_by_id(*, invite_link_id) -> TeamInviteLink | None:
+    return TeamInviteLink.objects.filter(id=invite_link_id).select_related("team", "created_by").first()
+
+
+def get_invite_link_by_id(*, invite_link_id) -> TeamInviteLink | None:
+    return TeamInviteLink.objects.filter(id=invite_link_id).select_related("team", "created_by").first()

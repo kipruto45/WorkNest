@@ -192,6 +192,8 @@ class InvitationWorkflowTests(APITestCase):
         self.assertTrue(
             Membership.objects.filter(team=self.team, user=self.invited_user, status=Membership.Status.ACTIVE).exists()
         )
+        membership = Membership.objects.get(team=self.team, user=self.invited_user)
+        self.assertEqual(membership.role, invitation.role)
         self.assertTrue(
             Notification.objects.filter(
                 user=self.owner,

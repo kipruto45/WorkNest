@@ -7,6 +7,7 @@ import { hydrateCurrentUser, logout } from '../features/authSlice'
 import { invitationsAPI, unwrapData } from '../services/api'
 import { extractApiError } from '../utils/apiErrors'
 import { formatDate, toSentenceCase } from '../utils/formatters'
+import { CLIENT_STORAGE_KEYS } from '../utils/clientConfig'
 import {
   deriveInvitationViewState,
   resolveInvitationSubtitle,
@@ -16,6 +17,19 @@ import { buildInvitationAuthHref, buildInvitationPath } from '../utils/invitatio
 
 const panelClass = 'rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)]'
 const mutedPanel = 'rounded-[22px] border border-slate-200 bg-[#fcfcfb] p-4'
+
+function rememberMemberOnboarding(teamId) {
+  if (!teamId || typeof window === 'undefined') return
+  try {
+    const raw = localStorage.getItem(CLIENT_STORAGE_KEYS.memberOnboardingTeams)
+    const parsed = raw ? JSON.parse(raw) : {}
+    const next = parsed && typeof parsed === 'object' ? parsed : {}
+    next[String(teamId)] = true
+    localStorage.setItem(CLIENT_STORAGE_KEYS.memberOnboardingTeams, JSON.stringify(next))
+  } catch (_error) {
+    // Ignore storage failures.
+  }
+}
 
 export default function InvitationResponse() {
   const { token: routeToken = '' } = useParams()
@@ -92,6 +106,11 @@ export default function InvitationResponse() {
         toast.success('Invitation accepted.')
         setInvitation((current) => (current ? { ...current, status: 'accepted' } : current))
         if (team?.id) {
+          if (String(invitation?.role || '').toLowerCase() === 'member') {
+            rememberMemberOnboarding(team.id)
+            navigate(`/teams/${team.id}/overview?onboarding=member`, { replace: true })
+            return
+          }
           navigate(`/teams/${team.id}/overview`, { replace: true })
           return
         }

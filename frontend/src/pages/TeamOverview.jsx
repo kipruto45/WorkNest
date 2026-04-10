@@ -1,10 +1,12 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useSelector } from 'react-redux'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import Forbidden from './Forbidden'
-import { auditLogsAPI, dashboardAPI, tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { auditLogsAPI, dashboardAPI, notificationsAPI, tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { CLIENT_STORAGE_KEYS } from '../utils/clientConfig'
 import { clampPercent, formatDate, formatRelativeDate, getInitials, toSentenceCase } from '../utils/formatters'
 import { canCreateTask, canManageInvitations, canManageMembers, resolveMembershipRole } from '../utils/permissions'
 
@@ -26,8 +28,59 @@ const priorityPalette = {
   urgent: 'bg-rose-600',
 }
 
+function buildTaskBuckets(tasks = []) {
+  return tasks.reduce(
+    (accumulator, task) => {
+      const status = String(task?.status || '').toLowerCase()
+      if (status === 'in_progress') {
+        accumulator.in_progress.push(task)
+      } else if (status === 'in_review') {
+        accumulator.in_review.push(task)
+      } else if (status === 'done') {
+        accumulator.done.push(task)
+      } else {
+        accumulator.todo.push(task)
+      }
+      return accumulator
+    },
+    {
+      todo: [],
+      in_progress: [],
+      in_review: [],
+      done: [],
+    }
+  )
+}
+
+function readMemberOnboardingTeams() {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(CLIENT_STORAGE_KEYS.memberOnboardingTeams)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch (_error) {
+    return {}
+  }
+}
+
+function clearMemberOnboardingTeam(teamId) {
+  if (typeof window === 'undefined' || !teamId) return
+  try {
+    const current = readMemberOnboardingTeams()
+    if (!current[String(teamId)]) return
+    delete current[String(teamId)]
+    localStorage.setItem(CLIENT_STORAGE_KEYS.memberOnboardingTeams, JSON.stringify(current))
+  } catch (_error) {
+    // Ignore storage failures.
+  }
+}
+
 export default function TeamOverview() {
   const { teamId } = useParams()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const currentUser = useSelector((state) => state.auth?.user || null)
   const [loading, setLoading] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
   const [fetchError, setFetchError] = useState('')
@@ -41,6 +94,8 @@ export default function TeamOverview() {
   const [calendarItems, setCalendarItems] = useState([])
   const [activityEntries, setActivityEntries] = useState([])
   const [announcements, setAnnouncements] = useState([])
+  const [memberNotifications, setMemberNotifications] = useState([])
+  const [memberAssignedTasks, setMemberAssignedTasks] = useState([])
   const [members, setMembers] = useState([])
   const [taskBuckets, setTaskBuckets] = useState(emptyBuckets)
   const [milestones, setMilestones] = useState([])
@@ -48,6 +103,7 @@ export default function TeamOverview() {
   const [savingAnnouncement, setSavingAnnouncement] = useState(false)
   const [pinningTeam, setPinningTeam] = useState(false)
   const [workspaceQuery, setWorkspaceQuery] = useState('')
+  const [showMemberOnboarding, setShowMemberOnboarding] = useState(false)
   const deferredWorkspaceQuery = useDeferredValue(workspaceQuery.trim().toLowerCase())
 
   useEffect(() => {
@@ -74,6 +130,70 @@ export default function TeamOverview() {
         }
 
         setTeam(teamData)
+        setMemberAssignedTasks([])
+
+        if (membershipRole === 'member') {
+          const memberOverviewResponse = await dashboardAPI.getTeamMemberOverview(teamId)
+          const memberOverview = unwrapData(memberOverviewResponse) || {}
+          const assignedTasks = Array.isArray(memberOverview.my_assigned_tasks) ? memberOverview.my_assigned_tasks : []
+          const memberProgress = memberOverview.my_progress || {}
+          const welcome = memberOverview.welcome || {}
+          const memberCalendarPreview = Array.isArray(memberOverview.calendar_preview) ? memberOverview.calendar_preview : []
+          const memberRecentActivity = Array.isArray(memberOverview.recent_activity) ? memberOverview.recent_activity : []
+          const memberSnapshots = Array.isArray(memberOverview.members_snapshot) ? memberOverview.members_snapshot : []
+
+          setSummary({
+            total_tasks: memberProgress.total ?? assignedTasks.length,
+            completed_tasks: memberProgress.completed ?? 0,
+            pending_tasks: memberProgress.pending ?? 0,
+            overdue_tasks: memberProgress.overdue ?? 0,
+            completion_rate: memberProgress.completion_rate ?? 0,
+            due_soon_tasks: welcome.due_this_week ?? 0,
+          })
+          setProgress({
+            completed_tasks: memberProgress.completed ?? 0,
+            pending_tasks: memberProgress.pending ?? 0,
+            overdue_tasks: memberProgress.overdue ?? 0,
+            completion_rate: memberProgress.completion_rate ?? 0,
+          })
+          setWorkload([])
+          setStatuses([])
+          setPriorities([])
+          setMilestones([])
+          setMemberAssignedTasks(assignedTasks)
+          setTaskBuckets(buildTaskBuckets(assignedTasks))
+          setCalendarItems(memberCalendarPreview)
+          setAnnouncements(memberOverview.latest_announcement ? [memberOverview.latest_announcement] : [])
+          setMemberNotifications(Array.isArray(memberOverview.notifications_preview) ? memberOverview.notifications_preview : [])
+          setMembers(
+            memberSnapshots.map((member, index) => ({
+              id: member.user_id || `member-snapshot-${index}`,
+              role: member.role,
+              joined_at: member.last_activity_at,
+              assigned_tasks: Number(member.assigned_tasks || 0),
+              completed_tasks: Number(member.completed_tasks || 0),
+              overdue_tasks: Number(member.overdue_tasks || 0),
+              due_soon_tasks: Number(member.due_soon_tasks || 0),
+              user: {
+                id: member.user_id,
+                name: member.name,
+                email: member.email,
+                avatar: member.avatar,
+              },
+            }))
+          )
+          setActivityEntries(
+            memberRecentActivity.map((item, index) => ({
+              id: item.id || `member-activity-${index}`,
+              title: item.title || toSentenceCase(item.type || 'activity'),
+              subtitle: item.message || 'Workspace update',
+              createdAt: item.created_at || new Date().toISOString(),
+              actorId: item.actor?.id || null,
+              tone: activityTone(item.type || 'notification'),
+            }))
+          )
+          return
+        }
 
         const [
           summaryResult,
@@ -89,6 +209,7 @@ export default function TeamOverview() {
           timelineResult,
           auditLogsResult,
           milestoneResult,
+          notificationsResult,
         ] = await Promise.allSettled([
           dashboardAPI.getTeamSummary(teamId),
           dashboardAPI.getTeamProgress(teamId),
@@ -103,6 +224,7 @@ export default function TeamOverview() {
           teamsAPI.getTimeline(teamId, { page_size: 12 }),
           auditLogsAPI.getForTeam(teamId, { page_size: 12 }),
           tasksAPI.getMilestones(teamId, { page_size: 8 }),
+          notificationsAPI.getNotifications({ team: teamId, page_size: 8, is_read: false }),
         ])
 
         const summaryPayload = readPayload(summaryResult) || {}
@@ -117,6 +239,7 @@ export default function TeamOverview() {
         setAnnouncements(readCollection(readPayload(announcementsResult)))
         setMembers(readCollection(readPayload(membersResult)))
         setMilestones(readCollection(readPayload(milestoneResult)))
+        setMemberNotifications(readCollection(readPayload(notificationsResult)))
 
         const kanbanPayload = readPayload(kanbanResult) || {}
         setTaskBuckets({
@@ -176,9 +299,16 @@ export default function TeamOverview() {
         const assignedId = String(task.assigned_to ?? task.assigned_to_data?.id ?? task.assigned_to_data?.user?.id ?? '')
         return assignedId && userId && assignedId === userId
       })
-      const completed = assigned.filter((task) => task.status === 'done').length
-      const overdue = assigned.filter((task) => isTaskOverdue(task)).length
-      const dueSoon = assigned.filter((task) => isTaskDueSoon(task)).length
+      const assignedCount = Number.isFinite(Number(membership.assigned_tasks)) ? Number(membership.assigned_tasks) : assigned.length
+      const completedCount = Number.isFinite(Number(membership.completed_tasks))
+        ? Number(membership.completed_tasks)
+        : assigned.filter((task) => task.status === 'done').length
+      const overdueCount = Number.isFinite(Number(membership.overdue_tasks))
+        ? Number(membership.overdue_tasks)
+        : assigned.filter((task) => isTaskOverdue(task)).length
+      const dueSoonCount = Number.isFinite(Number(membership.due_soon_tasks))
+        ? Number(membership.due_soon_tasks)
+        : assigned.filter((task) => isTaskDueSoon(task)).length
       const recentEntry = activityEntries.find((entry) => {
         const actorId = String(entry.actorId ?? '')
         return actorId && actorId === userId
@@ -189,12 +319,12 @@ export default function TeamOverview() {
         user,
         role: membership.role,
         joinedAt: membership.joined_at,
-        assignedCount: assigned.length,
-        completedCount: completed,
-        overdueCount: overdue,
-        dueSoonCount: dueSoon,
+        assignedCount,
+        completedCount,
+        overdueCount,
+        dueSoonCount,
         recentActivity: recentEntry?.subtitle || 'No recent activity recorded',
-        recentActivityAt: recentEntry?.createdAt || null,
+        recentActivityAt: recentEntry?.createdAt || membership.joined_at || null,
       }
     })
 
@@ -393,6 +523,90 @@ export default function TeamOverview() {
   const canInviteMembers = canManageInvitations({ role: currentRole, allowManagerInvites: team?.allow_manager_invites })
   const canManageTeamMembers = canManageMembers(currentRole)
   const canPublishAnnouncements = currentRole === 'admin'
+  const isMemberView = currentRole === 'member'
+
+  const myAssignedTasks = useMemo(() => {
+    if (memberAssignedTasks.length) return memberAssignedTasks
+    if (!currentUser?.id) return []
+    return allTasks.filter((task) => String(task.assigned_to || task.assigned_to_data?.id || '') === String(currentUser.id))
+  }, [allTasks, currentUser?.id, memberAssignedTasks])
+
+  const myDeadlineItems = useMemo(
+    () =>
+      myAssignedTasks
+        .filter((task) => task.due_date)
+        .map((task) => ({
+          id: task.id,
+          title: task.title,
+          startAt: task.start_at || null,
+          dueDate: task.due_date,
+          priority: normalizePriorityLabel(task.priority || 'medium'),
+          status: task.status || 'todo',
+          teamName: team?.name || '',
+          assigneeName: task.assigned_to_data?.name || currentUser?.name || 'Me',
+          taskId: task.id,
+        }))
+        .sort((left, right) => new Date(left.dueDate) - new Date(right.dueDate)),
+    [currentUser?.name, myAssignedTasks, team?.name]
+  )
+
+  const myDeadlines = useMemo(
+    () => ({
+      overdue: myDeadlineItems.filter((item) => classifyDeadline(item.dueDate, item.status) === 'overdue').slice(0, 6),
+      today: myDeadlineItems.filter((item) => classifyDeadline(item.dueDate, item.status) === 'today').slice(0, 6),
+      soon: myDeadlineItems.filter((item) => classifyDeadline(item.dueDate, item.status) === 'soon').slice(0, 6),
+    }),
+    [myDeadlineItems]
+  )
+
+  const myTaskProgress = useMemo(() => {
+    const completed = myAssignedTasks.filter((task) => task.status === 'done').length
+    const inProgress = myAssignedTasks.filter((task) => task.status === 'in_progress' || task.status === 'in_review').length
+    const pending = myAssignedTasks.filter((task) => !['done', 'in_progress', 'in_review'].includes(task.status)).length
+    const overdue = myAssignedTasks.filter((task) => isTaskOverdue(task)).length
+    return {
+      total: myAssignedTasks.length,
+      completed,
+      inProgress,
+      pending,
+      overdue,
+      completionRate: clampPercent(myAssignedTasks.length ? (completed / myAssignedTasks.length) * 100 : 0),
+    }
+  }, [myAssignedTasks])
+
+  const myDueThisWeek = useMemo(() => {
+    const now = new Date()
+    const weekAhead = new Date()
+    weekAhead.setDate(now.getDate() + 7)
+    return myDeadlineItems.filter((item) => {
+      const due = new Date(item.dueDate)
+      if (Number.isNaN(due.getTime())) return false
+      return due >= now && due <= weekAhead
+    }).length
+  }, [myDeadlineItems])
+
+  useEffect(() => {
+    if (!teamId || !isMemberView) {
+      setShowMemberOnboarding(false)
+      return
+    }
+
+    const hasWelcomeParam = new URLSearchParams(location.search).get('onboarding') === 'member'
+    const pendingTeams = readMemberOnboardingTeams()
+    const hasPendingOnboarding = Boolean(pendingTeams[String(teamId)])
+    setShowMemberOnboarding(hasWelcomeParam || hasPendingOnboarding)
+  }, [isMemberView, location.search, teamId])
+
+  const dismissMemberOnboarding = () => {
+    clearMemberOnboardingTeam(teamId)
+    setShowMemberOnboarding(false)
+    const nextParams = new URLSearchParams(location.search)
+    if (nextParams.get('onboarding') === 'member') {
+      nextParams.delete('onboarding')
+      const query = nextParams.toString()
+      navigate(query ? `${location.pathname}?${query}` : location.pathname, { replace: true })
+    }
+  }
 
   const handleRetryLoad = () => {
     setRefreshTick((current) => current + 1)
@@ -491,6 +705,223 @@ export default function TeamOverview() {
           </Link>
         }
       />
+    )
+  }
+
+  if (isMemberView) {
+    const latestAnnouncement = announcements[0] || null
+
+    return (
+      <div className="space-y-6">
+        {showMemberOnboarding ? (
+          <section className="rounded-[22px] border border-emerald-200 bg-emerald-50/70 px-5 py-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Welcome to {team.name}</p>
+                <h2 className="mt-1 text-xl font-semibold text-emerald-950">You joined this team as a Member.</h2>
+                <p className="mt-2 max-w-3xl text-sm text-emerald-900/80">
+                  Your assigned tasks, due dates, announcements, and team updates are now available in this workspace.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={dismissMemberOnboarding}
+                className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700"
+              >
+                Dismiss
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        <section className={`${dashboardSurface} overflow-hidden`}>
+          <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.1fr,0.9fr] lg:px-8 lg:py-8">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Team member workspace</p>
+              <h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-slate-950">{team.name}</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+                Your execution hub in this team. Focus on assigned work, upcoming deadlines, and collaboration updates.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800">
+                  Member
+                </span>
+                <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
+                  {myTaskProgress.total} active tasks
+                </span>
+                <span className="rounded-full bg-sky-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+                  {myDueThisWeek} due this week
+                </span>
+              </div>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link to={`/teams/${teamId}?scope=mine`} className="btn-primary">
+                  View my tasks
+                </Link>
+                <Link to={`/teams/${teamId}/calendar`} className="btn-secondary">
+                  Open calendar
+                </Link>
+                <Link to={`/teams/${teamId}/announcements`} className="btn-secondary">
+                  View announcements
+                </Link>
+              </div>
+            </div>
+
+            <div className={`${compactSurface} p-5`}>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">My progress in this team</p>
+              <div className="mt-4 h-3 rounded-full bg-slate-100">
+                <div className="h-3 rounded-full bg-emerald-600" style={{ width: `${myTaskProgress.completionRate}%` }} />
+              </div>
+              <p className="mt-3 text-sm text-slate-600">
+                {myTaskProgress.completed} completed, {myTaskProgress.inProgress} in progress, {myTaskProgress.pending} pending
+              </p>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <StatStrip label="Overdue" value={myTaskProgress.overdue} tone="bg-amber-50 text-amber-700" />
+                <StatStrip label="Due soon" value={myDeadlines.soon.length + myDeadlines.today.length} tone="bg-sky-50 text-sky-700" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+          <SectionHeader eyebrow="My Assigned Tasks" title="What you should work on next" />
+          <div className="mt-5 space-y-3">
+            {myAssignedTasks.length === 0 ? (
+              <SectionEmpty title="No assigned tasks yet" description="New assignments from your team will appear here as soon as they are created." />
+            ) : (
+              myAssignedTasks.slice(0, 8).map((task) => (
+                <TaskDeadlineRow
+                  key={task.id}
+                  item={{
+                    id: task.id,
+                    title: task.title,
+                    startAt: task.start_at,
+                    dueDate: task.due_date,
+                    priority: normalizePriorityLabel(task.priority || 'medium'),
+                    status: task.status,
+                    assigneeName: task.assigned_to_data?.name || currentUser?.name || 'You',
+                    taskId: task.id,
+                  }}
+                  teamId={teamId}
+                />
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+          <SectionHeader eyebrow="Due Soon / Overdue" title="Deadlines that need attention" />
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <DeadlineGroup title="Overdue" tone="amber" items={myDeadlines.overdue} teamId={teamId} />
+            <DeadlineGroup title="Due Today" tone="sky" items={myDeadlines.today} teamId={teamId} />
+            <DeadlineGroup title="Due Soon" tone="slate" items={myDeadlines.soon} teamId={teamId} />
+          </div>
+        </section>
+
+        <div className="grid gap-6 xl:grid-cols-[1.08fr,0.92fr]">
+          <section className={`${dashboardSurface} p-6 lg:p-7`}>
+            <SectionHeader
+              eyebrow="Recent Team Activity"
+              title="Latest updates"
+              action={
+                <Link to={`/teams/${teamId}/activity`} className="text-sm font-semibold text-emerald-700">
+                  View full feed
+                </Link>
+              }
+            />
+            <div className="mt-5 space-y-3">
+              {filteredActivity.length === 0 ? (
+                <SectionEmpty title="No activity yet" description="Task changes and comments will appear here in chronological order." />
+              ) : (
+                filteredActivity.slice(0, 6).map((entry) => <ActivityRow key={entry.id} entry={entry} />)
+              )}
+            </div>
+          </section>
+
+          <section className={`${dashboardSurface} p-6 lg:p-7`}>
+            <SectionHeader
+              eyebrow="Announcements"
+              title="Latest team communication"
+              action={
+                <Link to={`/teams/${teamId}/announcements`} className="text-sm font-semibold text-emerald-700">
+                  Open announcements
+                </Link>
+              }
+            />
+            <div className="mt-5 space-y-3">
+              {latestAnnouncement ? (
+                <AnnouncementCard announcement={latestAnnouncement} />
+              ) : (
+                <SectionEmpty title="No announcements yet" description="Team leads will post important updates here." />
+              )}
+            </div>
+          </section>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[1.08fr,0.92fr]">
+          <section className={`${dashboardSurface} p-6 lg:p-7`}>
+            <SectionHeader
+              eyebrow="Team Deadlines Preview"
+              title="This week in your schedule"
+              action={
+                <Link to={`/teams/${teamId}/calendar`} className="text-sm font-semibold text-emerald-700">
+                  Open full calendar
+                </Link>
+              }
+            />
+            <div className="mt-5 space-y-3">
+              {myDeadlineItems.length === 0 ? (
+                <SectionEmpty title="No upcoming deadlines yet" description="Once your tasks include due dates, your weekly schedule will appear here." />
+              ) : (
+                myDeadlineItems.slice(0, 6).map((item) => <TaskDeadlineRow key={item.id} item={item} teamId={teamId} />)
+              )}
+            </div>
+          </section>
+
+          <section className={`${dashboardSurface} p-6 lg:p-7`}>
+            <SectionHeader
+              eyebrow="Notifications"
+              title="Unread alerts"
+              action={
+                <Link to="/notifications" className="text-sm font-semibold text-emerald-700">
+                  Open notifications
+                </Link>
+              }
+            />
+            <div className="mt-5 space-y-3">
+              {memberNotifications.length === 0 ? (
+                <SectionEmpty title="No unread notifications" description="Mentions, reminders, and status updates will appear here." />
+              ) : (
+                memberNotifications.slice(0, 6).map((notification) => (
+                  <article key={notification.id} className={`${subtleSurface} p-3`}>
+                    <p className="text-sm font-semibold text-slate-900">{notification.title || toSentenceCase(notification.type || 'Notification')}</p>
+                    <p className="mt-1 text-sm text-slate-600">{notification.message || 'You have a new workspace update.'}</p>
+                    <p className="mt-2 text-xs text-slate-500">{formatRelativeDate(notification.created_at)}</p>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+
+        <section className={`${dashboardSurface} p-6 lg:p-7`}>
+          <SectionHeader
+            eyebrow="Team Members"
+            title="Who is collaborating with you"
+            action={
+              <Link to={`/teams/${teamId}/members`} className="text-sm font-semibold text-emerald-700">
+                View members
+              </Link>
+            }
+          />
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {memberSnapshots.length === 0 ? (
+              <SectionEmpty title="No members yet" description="Team roster appears here when more collaborators join." />
+            ) : (
+              memberSnapshots.slice(0, 6).map((member) => <MemberSnapshot key={member.id} member={member} />)
+            )}
+          </div>
+        </section>
+      </div>
     )
   }
 
@@ -1162,6 +1593,25 @@ function MemberSnapshot({ member }) {
         <span className="rounded-xl bg-amber-50 px-2 py-2 text-center text-amber-700">Overdue {member.overdueCount}</span>
       </div>
     </div>
+  )
+}
+
+function TaskDeadlineRow({ item, teamId }) {
+  return (
+    <Link to={item.taskId ? `/tasks/${item.taskId}` : `/teams/${teamId}`} className={`block ${compactSurface} p-4 transition-colors hover:bg-white`}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 truncate text-sm font-semibold text-slate-950">{item.title}</p>
+        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{formatRelativeDate(item.dueDate)}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+        <span className="rounded-full bg-slate-100 px-2 py-1">{toSentenceCase(item.status || 'todo')}</span>
+        <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">{item.priority}</span>
+        <span>{item.assigneeName || 'Unassigned'}</span>
+      </div>
+      <p className="mt-2 text-xs text-slate-500">
+        Start {item.startAt ? formatDate(item.startAt) : 'Not set'} | Due {item.dueDate ? formatDate(item.dueDate) : 'Not set'}
+      </p>
+    </Link>
   )
 }
 

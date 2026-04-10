@@ -25,6 +25,23 @@ class CanViewTeamDashboard(IsActiveTeamMember):
     message = "You do not have permission to view this team dashboard."
 
 
+class CanViewTeamAnalytics(IsActiveTeamMember):
+    message = "You do not have permission to view this team analytics data."
+
+    def has_object_permission(self, request, view, obj):
+        if not super().has_object_permission(request, view, obj):
+            return False
+        team = getattr(obj, "team", obj)
+        membership = Membership.objects.filter(
+            team=team,
+            user=request.user,
+            status=Membership.Status.ACTIVE,
+        ).first()
+        if not membership:
+            return False
+        return membership.role in {Membership.Role.ADMIN, Membership.Role.MANAGER}
+
+
 class IsPlatformAdmin(permissions.BasePermission):
     message = "You do not have permission to view platform administration dashboards."
 

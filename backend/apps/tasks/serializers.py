@@ -472,6 +472,15 @@ class TaskCreateSerializer(serializers.Serializer):
         assignee_id = attrs.get("assigned_to")
         if team.is_personal and assignee_id is not None:
             raise serializers.ValidationError({"assigned_to": "Personal tasks cannot be assigned to a teammate."})
+        if (
+            membership.role == Membership.Role.MEMBER
+            and not team.is_personal
+            and assignee_id is not None
+            and str(assignee_id) != str(request_user.id)
+        ):
+            raise serializers.ValidationError(
+                {"assigned_to": "Members can only assign new team tasks to themselves."}
+            )
         if assignee_id is not None:
             assignee = User.objects.filter(pk=assignee_id, is_active=True).first()
             if not assignee or not Membership.objects.filter(

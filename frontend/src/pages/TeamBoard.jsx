@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -54,6 +54,7 @@ function priorityRank(priority) {
 
 export default function TeamBoard() {
   const { teamId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const dispatch = useDispatch()
   const { kanban } = useSelector((state) => state.tasks)
   const { teams } = useSelector((state) => state.teams)
@@ -84,7 +85,11 @@ export default function TeamBoard() {
 
   const currentTeam = teams.find((team) => team.id === teamId)
   const currentRole = resolveMembershipRole(currentTeam)
+  const isMemberRole = currentRole === 'member'
   const canCreateTasks = canCreateTask(currentRole)
+  const requestedScope = String(searchParams.get('scope') || '').toLowerCase()
+  const taskScope = isMemberRole ? 'mine' : requestedScope === 'mine' ? 'mine' : 'team'
+  const currentUserId = String(currentUser?.id || '')
 
   useEffect(() => {
     dispatch(fetchTeams())
@@ -92,6 +97,18 @@ export default function TeamBoard() {
       dispatch(fetchKanban(teamId))
     }
   }, [dispatch, teamId])
+
+  const handleScopeChange = (scope) => {
+    if (isMemberRole) return
+    const nextScope = scope === 'mine' ? 'mine' : 'team'
+    const nextParams = new URLSearchParams(searchParams)
+    if (nextScope === 'mine') {
+      nextParams.set('scope', 'mine')
+    } else {
+      nextParams.delete('scope')
+    }
+    setSearchParams(nextParams, { replace: true })
+  }
 
   useEffect(() => {
     const loadTeamMembers = async () => {
@@ -138,6 +155,9 @@ export default function TeamBoard() {
     if (assigneeFilter !== 'all') {
       items = items.filter((task) => String(task.assigned_to || '') === assigneeFilter)
     }
+    if (taskScope === 'mine' && currentUserId) {
+      items = items.filter((task) => String(task.assigned_to || '') === currentUserId)
+    }
     if (overdueOnly) {
       items = items.filter((task) => isOverdue(task))
     }
@@ -150,7 +170,7 @@ export default function TeamBoard() {
     })
 
     return items
-  }, [allTasks, assigneeFilter, overdueOnly, priorityFilter, search, sortBy, statusFilter])
+  }, [allTasks, assigneeFilter, currentUserId, overdueOnly, priorityFilter, search, sortBy, statusFilter, taskScope])
 
   const groupedByStatus = useMemo(() => {
     const groups = {
@@ -253,7 +273,7 @@ export default function TeamBoard() {
           description: combinedDescription,
           priority: newTask.priority,
           status: 'todo',
-          assigned_to: newTask.assigned_to || null,
+          assigned_to: isMemberRole ? currentUserId || null : newTask.assigned_to || null,
           start_at: combineDateTime(newTask.start_date, newTask.start_time),
           due_date: combineDateTime(newTask.due_date, newTask.due_time),
           blocked_reason: newTask.blocked_reason.trim(),
@@ -266,7 +286,7 @@ export default function TeamBoard() {
         title: '',
         description: '',
         priority: 'medium',
-        assigned_to: '',
+        assigned_to: isMemberRole ? currentUserId : '',
         start_date: '',
         start_time: '',
         due_date: '',
@@ -290,12 +310,43 @@ export default function TeamBoard() {
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
               Manage board flow, scan deadlines, and pivot between board, list, and timeline views without leaving the workspace.
             </p>
+            <div className="mt-5 inline-flex rounded-xl border border-slate-200 bg-white p-1">
+              <button
+                type="button"
+                onClick={() => handleScopeChange('mine')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors ${
+                  taskScope === 'mine' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                My tasks
+              </button>
+              {!isMemberRole ? (
+                <button
+                  type="button"
+                  onClick={() => handleScopeChange('team')}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors ${
+                    taskScope === 'team' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  Team tasks
+                </button>
+              ) : null}
+            </div>
             <div className="mt-5 flex flex-wrap gap-3">
               <Link to={`/teams/${teamId}/overview`} className="btn-secondary">
                 Team dashboard
               </Link>
               {canCreateTasks ? (
-                <button type="button" onClick={() => setShowModal(true)} className="btn-primary">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isMemberRole && currentUserId) {
+                      setNewTask((current) => ({ ...current, assigned_to: currentUserId }))
+                    }
+                    setShowModal(true)
+                  }}
+                  className="btn-primary"
+                >
                   Create task
                 </button>
               ) : null}
@@ -536,18 +587,25 @@ export default function TeamBoard() {
               </label>
               <label className="text-sm font-semibold text-slate-900">
                 Assignee
-                <select
-                  value={newTask.assigned_to}
-                  onChange={(event) => setNewTask((current) => ({ ...current, assigned_to: event.target.value }))}
-                  className="input-field mt-2"
-                >
-                  <option value="">Unassigned</option>
-                  {teamMembers.map((membership) => (
-                    <option key={membership.id} value={membership.user?.id || ''}>
-                      {membership.user?.name || membership.user?.email || 'Team member'}
-                    </option>
-                  ))}
-                </select>
+                {isMemberRole ? (
+                  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+                    {currentUser?.name || currentUser?.email || 'You'}
+                    <p className="mt-1 text-xs font-normal text-slate-500">Members can only assign newly created tasks to themselves.</p>
+                  </div>
+                ) : (
+                  <select
+                    value={newTask.assigned_to}
+                    onChange={(event) => setNewTask((current) => ({ ...current, assigned_to: event.target.value }))}
+                    className="input-field mt-2"
+                  >
+                    <option value="">Unassigned</option>
+                    {teamMembers.map((membership) => (
+                      <option key={membership.id} value={membership.user?.id || ''}>
+                        {membership.user?.name || membership.user?.email || 'Team member'}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </label>
               <label className="text-sm font-semibold text-slate-900">
                 Priority

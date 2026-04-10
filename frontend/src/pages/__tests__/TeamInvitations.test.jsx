@@ -8,6 +8,7 @@ import { TestMemoryRouter } from '../../test/router'
 
 const getTeamMock = vi.fn()
 const getInvitationsMock = vi.fn()
+const getInviteLinksMock = vi.fn()
 
 vi.mock('react-toastify', () => ({
   toast: {
@@ -26,6 +27,11 @@ vi.mock('../../services/api', () => ({
     updateTeam: vi.fn(),
   },
   invitationsAPI: {
+    getInviteLinks: (...args) => getInviteLinksMock(...args),
+    createInviteLink: vi.fn(),
+    revokeInviteLink: vi.fn(),
+    regenerateInviteLink: vi.fn(),
+    copyInviteLink: vi.fn(),
     resend: vi.fn(),
     revoke: vi.fn(),
   },
@@ -55,6 +61,7 @@ test('TeamInvitations still renders team shell when invite list fails', async ()
       },
     },
   })
+  getInviteLinksMock.mockResolvedValueOnce({ data: { data: { results: [] } } })
 
   render(
     <TestMemoryRouter initialEntries={['/teams/team-1/invitations']}>

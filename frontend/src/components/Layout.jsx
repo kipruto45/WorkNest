@@ -8,6 +8,7 @@ import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications'
 import { getInitials } from '../utils/formatters'
 import { commonAPI, unwrapData } from '../services/api'
 import { CLIENT_STORAGE_KEYS } from '../utils/clientConfig'
+import { canManageInvitations, resolveMembershipRole } from '../utils/permissions'
 import AppLogo from './AppLogo'
 
 const personalNav = [
@@ -197,20 +198,44 @@ export default function Layout() {
   const activeTeamId = routeTeamId || selectedWorkspaceTeamId || fallbackTeamId
   const isTeamWorkspace = !isAdminRoute && Boolean(activeTeamId)
   const teamBasePath = activeTeamId ? `/teams/${activeTeamId}` : '/team-setup'
+  const activeTeamWorkspace = useMemo(
+    () => teamWorkspaces.find((workspace) => workspace.id === activeTeamId) || null,
+    [teamWorkspaces, activeTeamId]
+  )
+  const activeTeamRole = resolveMembershipRole({ my_role: activeTeamWorkspace?.role })
+  const isMemberWorkspace = activeTeamRole === 'member'
+  const canAccessInvitations =
+    activeTeamRole === 'admin' ||
+    activeTeamRole === 'manager' ||
+    canManageInvitations({
+      role: activeTeamRole,
+      allowManagerInvites: Boolean(activeTeamWorkspace?.allow_manager_invites),
+    })
   const teamNav = activeTeamId
-    ? [
-        { label: 'Dashboard', to: `${teamBasePath}/overview`, icon: HomeIcon },
-        { label: 'Tasks', to: teamBasePath, icon: QueueIcon },
-        { label: 'Milestones', to: `${teamBasePath}/milestones`, icon: FlagIcon },
-        { label: 'Members', to: `${teamBasePath}/members`, icon: PeopleIcon },
-        { label: 'Invitations', to: `${teamBasePath}/invitations`, icon: MailIcon },
-        { label: 'Calendar', to: `${teamBasePath}/calendar`, icon: CalendarIcon },
-        { label: 'Announcements', to: `${teamBasePath}/announcements`, icon: MegaphoneIcon },
-        { label: 'Activity', to: `${teamBasePath}/activity`, icon: AuditIcon },
-        { label: 'Automation', to: `${teamBasePath}/automation`, icon: AutomateIcon },
-        { label: 'Notifications', to: '/notifications', icon: BellIcon },
-        { label: 'Settings', to: `${teamBasePath}/settings`, icon: SettingsIcon },
-      ]
+    ? isMemberWorkspace
+      ? [
+          { label: 'Dashboard', to: `${teamBasePath}/overview`, icon: HomeIcon },
+          { label: 'My Tasks', to: `${teamBasePath}?scope=mine`, icon: QueueIcon },
+          { label: 'Team Tasks', to: teamBasePath, icon: QueueIcon },
+          { label: 'Calendar', to: `${teamBasePath}/calendar`, icon: CalendarIcon },
+          { label: 'Announcements', to: `${teamBasePath}/announcements`, icon: MegaphoneIcon },
+          { label: 'Notifications', to: '/notifications', icon: BellIcon },
+          { label: 'Members', to: `${teamBasePath}/members`, icon: PeopleIcon },
+          { label: 'Activity', to: `${teamBasePath}/activity`, icon: AuditIcon },
+        ]
+      : [
+          { label: 'Dashboard', to: `${teamBasePath}/overview`, icon: HomeIcon },
+          { label: 'Tasks', to: teamBasePath, icon: QueueIcon },
+          { label: 'Milestones', to: `${teamBasePath}/milestones`, icon: FlagIcon },
+          { label: 'Members', to: `${teamBasePath}/members`, icon: PeopleIcon },
+          ...(canAccessInvitations ? [{ label: 'Invitations', to: `${teamBasePath}/invitations`, icon: MailIcon }] : []),
+          { label: 'Calendar', to: `${teamBasePath}/calendar`, icon: CalendarIcon },
+          { label: 'Announcements', to: `${teamBasePath}/announcements`, icon: MegaphoneIcon },
+          { label: 'Activity', to: `${teamBasePath}/activity`, icon: AuditIcon },
+          { label: 'Automation', to: `${teamBasePath}/automation`, icon: AutomateIcon },
+          { label: 'Notifications', to: '/notifications', icon: BellIcon },
+          { label: 'Settings', to: `${teamBasePath}/settings`, icon: SettingsIcon },
+        ]
     : [
         { label: 'Team Setup', to: '/team-setup', icon: HomeIcon },
         { label: 'Calendar', to: '/calendar', icon: CalendarIcon },
@@ -313,18 +338,30 @@ export default function Layout() {
 
   const quickActions = useMemo(() => {
     const base = isTeamWorkspace
-      ? [
-          { id: 'dashboard', label: 'Open team dashboard', hint: 'Review team progress', to: `${teamBasePath}/overview` },
-          { id: 'tasks', label: 'Open team tasks', hint: 'Track team delivery', to: teamBasePath },
-          { id: 'create-task', label: 'Create task', hint: 'Capture a new work item fast', to: '/tasks?compose=1' },
-          { id: 'milestones', label: 'Review milestones', hint: 'Check delivery checkpoints', to: `${teamBasePath}/milestones` },
-          { id: 'members', label: 'Review members', hint: 'See team roster', to: `${teamBasePath}/members` },
-          { id: 'invitations', label: 'Invite teammates', hint: 'Manage invitations', to: `${teamBasePath}/invitations` },
-          { id: 'calendar', label: 'Open calendar', hint: 'Review team deadlines', to: `${teamBasePath}/calendar` },
-          { id: 'announcements', label: 'Open announcements', hint: 'Share updates and messages', to: `${teamBasePath}/announcements` },
-          { id: 'activity', label: 'Open activity log', hint: 'Review team timeline', to: `${teamBasePath}/activity` },
-          { id: 'settings', label: 'Open settings', hint: 'Adjust account and notification preferences', to: '/settings' },
-        ]
+      ? isMemberWorkspace
+        ? [
+            { id: 'dashboard', label: 'Open member dashboard', hint: 'Review your assigned work', to: `${teamBasePath}/overview` },
+            { id: 'my-tasks', label: 'Open my tasks', hint: 'Focus on your assigned tasks', to: `${teamBasePath}?scope=mine` },
+            { id: 'tasks', label: 'Open team tasks', hint: 'Track shared team delivery', to: teamBasePath },
+            { id: 'calendar', label: 'Open calendar', hint: 'Review due dates and deadlines', to: `${teamBasePath}/calendar` },
+            { id: 'announcements', label: 'Open announcements', hint: 'Catch up on team updates', to: `${teamBasePath}/announcements` },
+            { id: 'activity', label: 'Open activity log', hint: 'See recent team changes', to: `${teamBasePath}/activity` },
+            { id: 'settings', label: 'Open settings', hint: 'Adjust profile and notification preferences', to: '/settings' },
+          ]
+        : [
+            { id: 'dashboard', label: 'Open team dashboard', hint: 'Review team progress', to: `${teamBasePath}/overview` },
+            { id: 'tasks', label: 'Open team tasks', hint: 'Track team delivery', to: teamBasePath },
+            { id: 'create-task', label: 'Create task', hint: 'Capture a new work item fast', to: '/tasks?compose=1' },
+            { id: 'milestones', label: 'Review milestones', hint: 'Check delivery checkpoints', to: `${teamBasePath}/milestones` },
+            { id: 'members', label: 'Review members', hint: 'See team roster', to: `${teamBasePath}/members` },
+            ...(canAccessInvitations
+              ? [{ id: 'invitations', label: 'Invite teammates', hint: 'Manage invitations', to: `${teamBasePath}/invitations` }]
+              : []),
+            { id: 'calendar', label: 'Open calendar', hint: 'Review team deadlines', to: `${teamBasePath}/calendar` },
+            { id: 'announcements', label: 'Open announcements', hint: 'Share updates and messages', to: `${teamBasePath}/announcements` },
+            { id: 'activity', label: 'Open activity log', hint: 'Review team timeline', to: `${teamBasePath}/activity` },
+            { id: 'settings', label: 'Open settings', hint: 'Adjust account and notification preferences', to: '/settings' },
+          ]
       : [
           { id: 'dashboard', label: 'Go to dashboard', hint: 'Open your personal workspace', to: '/dashboard' },
           { id: 'tasks', label: 'Open my tasks', hint: 'Jump into your execution center', to: '/tasks' },
@@ -338,7 +375,7 @@ export default function Layout() {
     return base.concat(
       user?.is_staff ? [{ id: 'admin', label: 'Open admin dashboard', hint: 'Platform-wide visibility', to: '/admin' }] : []
     )
-  }, [isTeamWorkspace, teamBasePath, user?.is_staff])
+  }, [canAccessInvitations, isMemberWorkspace, isTeamWorkspace, teamBasePath, user?.is_staff])
 
   const headerSearchGroups = useMemo(
     () =>

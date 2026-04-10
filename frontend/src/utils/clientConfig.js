@@ -36,6 +36,7 @@ export const CLIENT_STORAGE_KEYS = Object.freeze({
   sessionUser: joinKey('worknest', 'session', 'u'),
   googleAuthState: joinKey('worknest', 'auth', 'google'),
   workspacePrefs: joinKey('worknest', 'ui', 'prefs'),
+  memberOnboardingTeams: joinKey('worknest', 'teams', 'member', 'onboarding'),
   themePreference: joinKey('worknest', 'ui', 'theme'),
   savedViews: joinKey('worknest', 'tasks', 'saved', 'views'),
 })

@@ -71,6 +71,22 @@ class TaskSerializerTests(TestCase):
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
+    def test_member_create_serializer_rejects_assigning_another_teammate(self) -> None:
+        request = self.factory.post("/api/v1/tasks/")
+        request.user = self.member
+        serializer = TaskCreateSerializer(
+            data={
+                "team_id": str(self.team.id),
+                "title": "Member task",
+                "priority": Task.Priority.MEDIUM,
+                "assigned_to": str(self.owner.id),
+            },
+            context={"request": request},
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("assigned_to", serializer.errors)
+
     def test_create_serializer_rejects_cross_team_assignee(self) -> None:
         request = self.factory.post("/api/v1/tasks/")
         request.user = self.owner

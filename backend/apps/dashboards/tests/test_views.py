@@ -177,7 +177,7 @@ class DashboardViewTests(APITestCase):
         self.assertIn(str(self.calendar_task.id), returned_ids)
 
     def test_team_status_distribution_endpoint_returns_chart_ready_payload(self) -> None:
-        self.authenticate(self.member)
+        self.authenticate(self.owner)
 
         response = self.client.get(reverse("api_v1:dashboards:team-status-distribution", args=[self.team.id]))
 
@@ -185,6 +185,26 @@ class DashboardViewTests(APITestCase):
         rows = response.data["data"]["status_distribution"]
         todo_row = next(item for item in rows if item["status"] == Task.Status.TODO)
         self.assertEqual(todo_row["count"], 1)
+
+    def test_member_is_blocked_from_team_analytics_endpoints(self) -> None:
+        self.authenticate(self.member)
+
+        response = self.client.get(reverse("api_v1:dashboards:team-status-distribution", args=[self.team.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_member_overview_returns_member_scoped_workspace_data(self) -> None:
+        self.authenticate(self.member)
+
+        response = self.client.get(reverse("api_v1:dashboards:team-member-overview", args=[self.team.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data["data"]
+        self.assertEqual(data["team_context"]["id"], str(self.team.id))
+        returned_ids = {item["id"] for item in data["my_assigned_tasks"]}
+        self.assertEqual(returned_ids, {str(self.done_task.id), str(self.overdue_task.id), str(self.calendar_task.id)})
+        self.assertIn("my_progress", data)
+        self.assertIn("notifications_preview", data)
 
     def test_staff_user_can_access_admin_dashboard_overview(self) -> None:
         self.authenticate(self.admin)

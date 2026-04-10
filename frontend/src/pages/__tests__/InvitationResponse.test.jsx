@@ -109,6 +109,6 @@ test('Invitation response accepts a matching invite and routes into the team wor
   await waitFor(() => {
     expect(apiMocks.invitationsAPI.accept).toHaveBeenCalledWith('token-123')
     expect(hydrateCurrentUser).toHaveBeenCalled()
-    expect(navigateMock).toHaveBeenCalledWith('/teams/team-42/overview', { replace: true })
+    expect(navigateMock).toHaveBeenCalledWith('/teams/team-42/overview?onboarding=member', { replace: true })
   })
 })

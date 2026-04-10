@@ -5,6 +5,7 @@ import LoadingState from '../components/LoadingState'
 import EmptyState from '../components/EmptyState'
 import { tasksAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
 import { formatDate, formatRelativeDate } from '../utils/formatters'
+import { resolveMembershipRole } from '../utils/permissions'
 
 const panelClass = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
 const cardClass = 'rounded-[22px] border border-slate-200 bg-[#fcfcfb]'
@@ -124,6 +125,7 @@ export default function TeamMilestones() {
   const nextMilestone = milestones
     .filter((milestone) => milestone.due_date && milestone.status !== 'completed')
     .sort((first, second) => new Date(first.due_date).getTime() - new Date(second.due_date).getTime())[0]
+  const canManageMilestones = resolveMembershipRole(team) === 'admin'
 
   return (
     <div className="space-y-6">
@@ -161,58 +163,60 @@ export default function TeamMilestones() {
         </div>
       </section>
 
-      <section className={`${panelClass} p-6 lg:p-7`}>
-        <h2 className="text-xl font-semibold text-slate-950">Create a milestone</h2>
-        <p className="mt-2 text-sm text-slate-600">Capture measurable outcomes with ownership and delivery dates.</p>
-        <form onSubmit={handleCreate} className="mt-5 grid gap-4 md:grid-cols-2">
-          <label className="text-sm font-semibold text-slate-900 md:col-span-2">
-            Title
-            <input
-              value={draft.title}
-              onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-              className="input-field mt-2"
-              placeholder="Launch release readiness"
-            />
-          </label>
-          <label className="text-sm font-semibold text-slate-900 md:col-span-2">
-            Description
-            <textarea
-              value={draft.description}
-              onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
-              className="input-field mt-2 min-h-[96px]"
-              placeholder="Describe success criteria and key tasks."
-            />
-          </label>
-          <label className="text-sm font-semibold text-slate-900">
-            Due date
-            <input
-              type="datetime-local"
-              value={draft.due_date}
-              onChange={(event) => setDraft((current) => ({ ...current, due_date: event.target.value }))}
-              className="input-field mt-2"
-            />
-          </label>
-          <label className="text-sm font-semibold text-slate-900">
-            Status
-            <select
-              value={draft.status}
-              onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
-              className="input-field mt-2"
-            >
-              {statusOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="md:col-span-2">
-            <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? 'Creating...' : 'Create milestone'}
-            </button>
-          </div>
-        </form>
-      </section>
+      {canManageMilestones ? (
+        <section className={`${panelClass} p-6 lg:p-7`}>
+          <h2 className="text-xl font-semibold text-slate-950">Create a milestone</h2>
+          <p className="mt-2 text-sm text-slate-600">Capture measurable outcomes with ownership and delivery dates.</p>
+          <form onSubmit={handleCreate} className="mt-5 grid gap-4 md:grid-cols-2">
+            <label className="text-sm font-semibold text-slate-900 md:col-span-2">
+              Title
+              <input
+                value={draft.title}
+                onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+                className="input-field mt-2"
+                placeholder="Launch release readiness"
+              />
+            </label>
+            <label className="text-sm font-semibold text-slate-900 md:col-span-2">
+              Description
+              <textarea
+                value={draft.description}
+                onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
+                className="input-field mt-2 min-h-[96px]"
+                placeholder="Describe success criteria and key tasks."
+              />
+            </label>
+            <label className="text-sm font-semibold text-slate-900">
+              Due date
+              <input
+                type="datetime-local"
+                value={draft.due_date}
+                onChange={(event) => setDraft((current) => ({ ...current, due_date: event.target.value }))}
+                className="input-field mt-2"
+              />
+            </label>
+            <label className="text-sm font-semibold text-slate-900">
+              Status
+              <select
+                value={draft.status}
+                onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
+                className="input-field mt-2"
+              >
+                {statusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="md:col-span-2">
+              <button type="submit" className="btn-primary" disabled={saving}>
+                {saving ? 'Creating...' : 'Create milestone'}
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : null}
 
       <section className={`${panelClass} p-6 lg:p-7`}>
         <div className="flex items-center justify-between gap-4">
@@ -245,9 +249,11 @@ export default function TeamMilestones() {
                   <h3 className="mt-2 text-xl font-semibold text-emerald-950">{milestone.title}</h3>
                   <p className="mt-2 text-sm text-soft">{milestone.description || 'No description provided yet.'}</p>
                 </div>
-                <button type="button" onClick={() => handleDelete(milestone)} className="btn-ghost">
-                  Delete
-                </button>
+                {canManageMilestones ? (
+                  <button type="button" onClick={() => handleDelete(milestone)} className="btn-ghost">
+                    Delete
+                  </button>
+                ) : null}
               </div>
 
               <div className="mt-4">
@@ -288,17 +294,23 @@ export default function TeamMilestones() {
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
                 <span className="text-slate-500">Due {milestone.due_date ? formatDate(milestone.due_date) : 'No date set'}</span>
-                <select
-                  value={milestone.status}
-                  onChange={(event) => handleStatusChange(milestone, event.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
-                >
-                  {statusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                {canManageMilestones ? (
+                  <select
+                    value={milestone.status}
+                    onChange={(event) => handleStatusChange(milestone, event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+                  >
+                    {statusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
+                    {statusMeta[milestone.status]?.label || milestone.status}
+                  </span>
+                )}
               </div>
             </div>
           ))

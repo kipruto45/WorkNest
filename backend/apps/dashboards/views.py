@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from apps.common.api.mixins import PaginatedAPIViewMixin
 from apps.common.responses import success_response
-from apps.dashboards.permissions import CanViewTeamDashboard, IsPlatformAdmin
+from apps.dashboards.permissions import CanViewTeamAnalytics, CanViewTeamDashboard, IsPlatformAdmin
 from apps.dashboards.selectors import (
     get_dashboard_team,
     get_user_assigned_tasks,
@@ -24,12 +24,14 @@ from apps.dashboards.serializers import (
     PersonalDashboardSummarySerializer,
     PriorityDistributionItemSerializer,
     StatusDistributionItemSerializer,
+    TeamMemberOverviewSerializer,
     TeamDashboardSummarySerializer,
     WorkloadDistributionSerializer,
 )
 from apps.dashboards.services import (
     build_deadline_calendar_feed,
     build_admin_dashboard_snapshot,
+    build_member_dashboard_overview,
     build_member_activity_metrics,
     build_personal_dashboard_summary,
     build_priority_distribution,
@@ -45,6 +47,17 @@ from apps.tasks.serializers import TaskListSerializer
 
 class TeamDashboardAccessMixin:
     permission_classes = [permissions.IsAuthenticated, CanViewTeamDashboard]
+
+    def get_team(self, request, team_id):
+        team = get_dashboard_team(team_id=team_id)
+        if not team:
+            raise NotFound("Team not found.")
+        self.check_object_permissions(request, team)
+        return team
+
+
+class TeamAnalyticsAccessMixin:
+    permission_classes = [permissions.IsAuthenticated, CanViewTeamAnalytics]
 
     def get_team(self, request, team_id):
         team = get_dashboard_team(team_id=team_id)
@@ -156,7 +169,38 @@ class TeamDashboardSummaryView(TeamDashboardAccessMixin, APIView):
         )
 
 
-class TeamDashboardActivityView(TeamDashboardAccessMixin, APIView):
+class TeamMemberOverviewView(TeamDashboardAccessMixin, APIView):
+    def get(self, request, team_id, *args, **kwargs):  # type: ignore[override]
+        team = self.get_team(request, team_id)
+        payload = build_member_dashboard_overview(team=team, user=request.user, reference_time=timezone.now())
+        collections = payload["collections"]
+        serializer = TeamMemberOverviewSerializer(
+            {
+                "team_context": payload["team_context"],
+                "welcome": payload["welcome"],
+                "my_progress": payload["my_progress"],
+                "my_assigned_tasks": collections["my_assigned_tasks"],
+                "due_today": collections["due_today"],
+                "due_soon": collections["due_soon"],
+                "overdue": collections["overdue"],
+                "calendar_preview": collections["calendar_preview"],
+                "recent_activity": collections["recent_activity"],
+                "notifications_preview": collections["notifications_preview"],
+                "notifications_unread_count": payload["notifications_unread_count"],
+                "members_snapshot": payload["members_snapshot"],
+                "latest_announcement": payload["latest_announcement"],
+                "announcements_count": payload["announcements_count"],
+            },
+            context={"request": request},
+        )
+        return success_response(
+            request=request,
+            message="Team member dashboard retrieved successfully.",
+            data=serializer.data,
+        )
+
+
+class TeamDashboardActivityView(TeamAnalyticsAccessMixin, APIView):
     def get(self, request, team_id, *args, **kwargs):  # type: ignore[override]
         team = self.get_team(request, team_id)
         data = build_member_activity_metrics(team=team, reference_time=timezone.now())
@@ -168,7 +212,7 @@ class TeamDashboardActivityView(TeamDashboardAccessMixin, APIView):
         )
 
 
-class TeamDashboardProgressView(TeamDashboardAccessMixin, APIView):
+class TeamDashboardProgressView(TeamAnalyticsAccessMixin, APIView):
     def get(self, request, team_id, *args, **kwargs):  # type: ignore[override]
         team = self.get_team(request, team_id)
         return success_response(
@@ -199,7 +243,7 @@ class TeamDashboardCalendarView(TeamDashboardAccessMixin, APIView):
         )
 
 
-class TeamDashboardWorkloadView(TeamDashboardAccessMixin, APIView):
+class TeamDashboardWorkloadView(TeamAnalyticsAccessMixin, APIView):
     def get(self, request, team_id, *args, **kwargs):  # type: ignore[override]
         team = self.get_team(request, team_id)
         data = build_workload_distribution(team=team, reference_time=timezone.now())
@@ -211,7 +255,7 @@ class TeamDashboardWorkloadView(TeamDashboardAccessMixin, APIView):
         )
 
 
-class TeamDashboardStatusDistributionView(TeamDashboardAccessMixin, APIView):
+class TeamDashboardStatusDistributionView(TeamAnalyticsAccessMixin, APIView):
     def get(self, request, team_id, *args, **kwargs):  # type: ignore[override]
         team = self.get_team(request, team_id)
         data = build_status_distribution(team=team)
@@ -223,7 +267,7 @@ class TeamDashboardStatusDistributionView(TeamDashboardAccessMixin, APIView):
         )
 
 
-class TeamDashboardPriorityDistributionView(TeamDashboardAccessMixin, APIView):
+class TeamDashboardPriorityDistributionView(TeamAnalyticsAccessMixin, APIView):
     def get(self, request, team_id, *args, **kwargs):  # type: ignore[override]
         team = self.get_team(request, team_id)
         data = build_priority_distribution(team=team)

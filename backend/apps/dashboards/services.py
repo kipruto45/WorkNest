@@ -30,8 +30,9 @@ from apps.dashboards.selectors import (
     get_user_assigned_tasks,
     get_user_completed_tasks_this_week,
 )
-from apps.memberships.models import TeamInvitation
+from apps.memberships.models import Membership, TeamInvitation
 from apps.notifications.models import Notification
+from apps.notifications.selectors import get_user_notifications
 from apps.tasks.models import Task
 from apps.teams.models import Team
 
@@ -129,6 +130,78 @@ def build_personal_dashboard_summary(*, user, reference_time=None) -> dict:
         },
         "status_distribution": build_status_distribution(user=user),
         "priority_distribution": build_priority_distribution(user=user),
+    }
+
+
+def build_member_dashboard_overview(*, team, user, reference_time=None) -> dict:
+    now = reference_time or timezone.now()
+    my_tasks = get_user_assigned_tasks(user).filter(team=team)
+    counts = aggregate_task_counts(my_tasks, reference_time=now)
+
+    overdue_tasks = my_tasks.exclude(status=Task.Status.DONE).filter(due_date__lt=now).order_by("due_date", "position", "-created_at")
+    due_today_tasks = my_tasks.exclude(status=Task.Status.DONE).filter(due_date__date=now.date()).order_by("due_date", "position", "-created_at")
+    due_soon_tasks = (
+        my_tasks.exclude(status=Task.Status.DONE)
+        .filter(due_date__gt=now, due_date__lte=now + timedelta(days=7))
+        .order_by("due_date", "position", "-created_at")
+    )
+    calendar_preview = (
+        my_tasks.exclude(status=Task.Status.DONE)
+        .filter(Q(due_date__isnull=False) | Q(start_at__isnull=False))
+        .order_by("due_date", "start_at", "position", "-created_at")
+    )[:8]
+
+    notifications_queryset = get_user_notifications(user=user, team_id=team.id)
+    unread_notifications = notifications_queryset.filter(is_read=False)
+    member_activity = build_member_activity_metrics(team=team, reference_time=now)
+    member_snapshots = member_activity[:8]
+
+    latest_announcement = (
+        team.announcements.select_related("published_by", "archived_by")
+        .filter(is_active=True)
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+        .order_by("-pinned_until", "-created_at")
+        .first()
+    )
+    announcements_count = (
+        team.announcements.filter(is_active=True)
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+        .count()
+    )
+
+    return {
+        "team_context": {
+            "id": str(team.id),
+            "name": team.name,
+            "slug": team.slug,
+            "member_count": team.memberships.filter(status=Membership.Status.ACTIVE).count(),
+        },
+        "welcome": {
+            "active_tasks": counts["pending_tasks"],
+            "due_this_week": counts["due_soon_tasks"],
+            "overdue_tasks": counts["overdue_tasks"],
+        },
+        "my_progress": {
+            "total": counts["total_tasks"],
+            "completed": counts["completed_tasks"],
+            "in_progress": counts["in_progress_tasks"] + counts["in_review_tasks"],
+            "pending": counts["todo_tasks"],
+            "overdue": counts["overdue_tasks"],
+            "completion_rate": _calculate_percentage(counts["completed_tasks"], counts["total_tasks"]),
+        },
+        "collections": {
+            "my_assigned_tasks": my_tasks.order_by("due_date", "position", "-created_at")[:8],
+            "due_today": due_today_tasks[:8],
+            "due_soon": due_soon_tasks[:8],
+            "overdue": overdue_tasks[:8],
+            "calendar_preview": calendar_preview,
+            "recent_activity": notifications_queryset[:8],
+            "notifications_preview": unread_notifications[:8],
+        },
+        "notifications_unread_count": unread_notifications.count(),
+        "members_snapshot": member_snapshots,
+        "latest_announcement": latest_announcement,
+        "announcements_count": announcements_count,
     }
 
 

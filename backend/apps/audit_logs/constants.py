@@ -38,6 +38,12 @@ class AuditAction(models.TextChoices):
     TEAM_DELETED = "team_deleted", "Team Deleted"
 
     MEMBER_INVITED = "member_invited", "Member Invited"
+    INVITE_LINK_CREATED = "invite_link_created", "Invite Link Created"
+    INVITE_LINK_COPIED = "invite_link_copied", "Invite Link Copied"
+    INVITE_LINK_REVOKED = "invite_link_revoked", "Invite Link Revoked"
+    INVITE_LINK_REGENERATED = "invite_link_regenerated", "Invite Link Regenerated"
+    INVITE_LINK_USED = "invite_link_used", "Invite Link Used"
+    MEMBERSHIP_CREATED_FROM_INVITE_LINK = "membership_created_from_invite_link", "Membership Created From Invite Link"
     INVITATION_RESENT = "invitation_resent", "Invitation Resent"
     INVITATION_REVOKED = "invitation_revoked", "Invitation Revoked"
     INVITATION_ACCEPTED = "invitation_accepted", "Invitation Accepted"

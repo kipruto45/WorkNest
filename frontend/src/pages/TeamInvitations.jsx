@@ -11,10 +11,13 @@ import { formatDate, toSentenceCase } from '../utils/formatters'
 import { canManageInvitations, resolveMembershipRole } from '../utils/permissions'
 import {
   buildInvitationPath,
+  buildInviteLinkUrl,
   canEditInvitation,
   canManageInvitePolicy,
   canRevokeOrResendInvitation,
   invitationFormSchema,
+  inviteLinkFormSchema,
+  canCreateInviteLink,
 } from '../utils/invitationFlow'
 
 const roleOptions = ['admin', 'manager', 'member']
@@ -30,7 +33,9 @@ export default function TeamInvitations() {
   const [policySaving, setPolicySaving] = useState(false)
   const [team, setTeam] = useState(null)
   const [invitations, setInvitations] = useState([])
+  const [inviteLinks, setInviteLinks] = useState([])
   const [showComposer, setShowComposer] = useState(false)
+  const [showLinkComposer, setShowLinkComposer] = useState(false)
   const [pageError, setPageError] = useState('')
   const {
     register,
@@ -48,12 +53,30 @@ export default function TeamInvitations() {
     },
   })
 
+  const {
+    register: linkRegister,
+    handleSubmit: linkHandleSubmit,
+    reset: linkReset,
+    setError: linkSetError,
+    clearErrors: linkClearErrors,
+    formState: { errors: linkErrors },
+  } = useForm({
+    resolver: zodResolver(inviteLinkFormSchema),
+    defaultValues: {
+      role: 'member',
+      label: '',
+      expires_at: null,
+      max_uses: null,
+    },
+  })
+
   const loadInvitations = useCallback(async () => {
     setLoading(true)
     setPageError('')
-    const [teamResult, invitationsResult] = await Promise.allSettled([
+    const [teamResult, invitationsResult, inviteLinksResult] = await Promise.allSettled([
       teamsAPI.getTeam(teamId),
       teamsAPI.getInvitations(teamId, { page_size: 100 }),
+      invitationsAPI.getInviteLinks(teamId),
     ])
 
     if (teamResult.status === 'fulfilled') {
@@ -89,6 +112,12 @@ export default function TeamInvitations() {
       setInvitations([])
       setPageError(parsed.message)
       toast.error(parsed.message)
+    }
+
+    if (inviteLinksResult.status === 'fulfilled') {
+      setInviteLinks(unwrapResults(inviteLinksResult.value))
+    } else {
+      setInviteLinks([])
     }
 
     setLoading(false)
@@ -175,6 +204,67 @@ export default function TeamInvitations() {
     }
   }
 
+  const onLinkSubmit = async (data) => {
+    setSubmitting(true)
+    linkClearErrors()
+    try {
+      const response = await invitationsAPI.createInviteLink(teamId, data)
+      const inviteLink = unwrapData(response)
+      if (inviteLink?.invite_link) {
+        await navigator.clipboard.writeText(inviteLink.invite_link)
+        toast.success('Invite link created and copied to clipboard.')
+      } else {
+        toast.success('Invite link created.')
+      }
+      linkReset({ role: 'member', label: '', expires_at: null, max_uses: null })
+      setShowLinkComposer(false)
+      await loadInvitations()
+    } catch (error) {
+      const parsed = extractApiError(error, {
+        fallbackMessage: 'Unable to create invite link.',
+      })
+      Object.entries(parsed.fieldErrors || {}).forEach(([field, message]) => {
+        const value = Array.isArray(message) ? message[0] : message
+        if (value) {
+          linkSetError(field, { message: value })
+        }
+      })
+      linkSetError('root', { message: parsed.message })
+      toast.error(parsed.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleLinkRevoke = async (linkId) => {
+    try {
+      await invitationsAPI.revokeInviteLink(teamId, linkId)
+      toast.success('Invite link revoked.')
+      await loadInvitations()
+    } catch (error) {
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to revoke invite link.' }).message)
+    }
+  }
+
+  const handleLinkRegenerate = async (linkId) => {
+    try {
+      await invitationsAPI.regenerateInviteLink(teamId, linkId)
+      toast.success('Invite link regenerated.')
+      await loadInvitations()
+    } catch (error) {
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to regenerate invite link.' }).message)
+    }
+  }
+
+  const handleLinkCopy = async (linkId) => {
+    try {
+      await invitationsAPI.copyInviteLink(teamId, linkId)
+      toast.success('Link copied to clipboard.')
+    } catch (error) {
+      toast.error(extractApiError(error, { fallbackMessage: 'Unable to copy link.' }).message)
+    }
+  }
+
   const sortedInvitations = useMemo(() => {
     const statusRank = { pending: 0, expired: 1, declined: 2, revoked: 3, accepted: 4 }
     return [...invitations].sort((left, right) => {
@@ -214,6 +304,7 @@ export default function TeamInvitations() {
     allowManagerInvites: team.allow_manager_invites,
   })
   const canEditPolicy = !isPersonalWorkspace && canManageInvitePolicy(role)
+  const canCreateLink = !isPersonalWorkspace && canCreateInviteLink(role)
 
   const openComposer = () => {
     clearErrors()
@@ -230,6 +321,17 @@ export default function TeamInvitations() {
     const nextParams = new URLSearchParams(searchParams)
     nextParams.delete('compose')
     setSearchParams(nextParams, { replace: true })
+  }
+
+  const openLinkComposer = () => {
+    linkClearErrors()
+    setShowLinkComposer(true)
+  }
+
+  const closeLinkComposer = () => {
+    linkClearErrors()
+    linkReset({ role: 'member', label: '', expires_at: null, max_uses: null })
+    setShowLinkComposer(false)
   }
 
   const handlePolicyToggle = async () => {
@@ -436,6 +538,99 @@ export default function TeamInvitations() {
         </div>
       </section>
 
+      <section className={`${panelClass} p-6 lg:p-7`}>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Invite links</p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-950">Shareable invite links</h2>
+          </div>
+          <p className="text-sm text-slate-500">{inviteLinks.length} total links</p>
+        </div>
+
+        <div className="mt-5 space-y-3">
+          {inviteLinks.length === 0 ? (
+            <EmptyState
+              title="No invite links yet"
+              description="Create a shareable link to let people join your team with one click."
+              action={
+                canCreateLink ? (
+                  <button type="button" onClick={openLinkComposer} className="btn-primary">
+                    Create first link
+                  </button>
+                ) : null
+              }
+            />
+          ) : (
+            inviteLinks.map((link) => {
+              const canAct = canCreateLink && link.status === 'active'
+              return (
+                <div key={link.id} className="rounded-[22px] border border-slate-200 bg-[#fcfcfb] p-4 transition-colors hover:bg-white">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <LinkStatusBadge status={link.status} />
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                          {toSentenceCase(link.role)}
+                        </span>
+                      </div>
+                      <h3 className="mt-3 truncate text-base font-semibold text-slate-950">
+                        {link.label || 'Unnamed link'}
+                      </h3>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">
+                        Created {formatDate(link.created_at)}.
+                        {link.expires_at ? ` Expires ${formatDate(link.expires_at)}.` : ' No expiry.'}
+                        {link.max_uses ? ` Max ${link.max_uses} uses.` : ''}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Used {link.current_uses} {link.max_uses ? `/ ${link.max_uses}` : ''} times
+                      </p>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-[140px,1fr]">
+                      <button
+                        type="button"
+                        onClick={() => handleLinkCopy(link.id)}
+                        disabled={!canAct}
+                        className="btn-secondary"
+                      >
+                        Copy link
+                      </button>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleLinkRegenerate(link.id)}
+                          disabled={!canAct}
+                          className="btn-secondary"
+                        >
+                          Regenerate
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleLinkRevoke(link.id)}
+                          disabled={!canAct}
+                          className="inline-flex items-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {canCreateLink && inviteLinks.length > 0 && (
+          <div className="mt-5">
+            <button type="button" onClick={openLinkComposer} className="btn-secondary">
+              Create new link
+            </button>
+          </div>
+        )}
+      </section>
+
       {showComposer && canInviteMembers ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/10 px-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.16)]">
@@ -576,6 +771,21 @@ function StatusBadge({ status }) {
   return (
     <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${toneMap[status] || toneMap.pending}`}>
       {toSentenceCase(status)}
+    </span>
+  )
+}
+
+function LinkStatusBadge({ status }) {
+  const toneMap = {
+    active: 'bg-emerald-50 text-emerald-700',
+    expired: 'bg-amber-50 text-amber-700',
+    revoked: 'bg-rose-50 text-rose-700',
+    maxed_out: 'bg-slate-100 text-slate-700',
+  }
+
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${toneMap[status] || toneMap.active}`}>
+      {toSentenceCase(status || 'active')}
     </span>
   )
 }

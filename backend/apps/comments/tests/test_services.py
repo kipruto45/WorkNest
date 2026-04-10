@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -82,3 +84,18 @@ class CommentServiceTests(TestCase):
         mentioned_emails = {user.email for user in mentions}
         self.assertIn("mercy@example.com", mentioned_emails)
         self.assertNotIn("outsider@example.com", mentioned_emails)
+
+    def test_create_comment_does_not_fail_when_realtime_send_errors(self) -> None:
+        with patch("apps.notifications.services.notify_comment_activity"), patch(
+            "apps.comments.services.send_comment_event",
+            side_effect=RuntimeError("redis unavailable"),
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                comment, mentions = create_comment(
+                    task=self.task,
+                    author=self.owner,
+                    content="Safe comment flow",
+                )
+
+        self.assertEqual(comment.content, "Safe comment flow")
+        self.assertEqual(mentions, [])

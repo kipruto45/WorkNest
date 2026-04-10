@@ -831,7 +831,7 @@ export default function TaskDetail() {
                   className="input-field min-h-[136px]"
                   value={task.labels?.map((label) => label.id) || []}
                   onChange={handleLabelsUpdate}
-                  disabled={savingMetaAction === 'labels'}
+                  disabled={!canManage || savingMetaAction === 'labels'}
                 >
                   {teamLabels.map((label) => (
                     <option key={label.id} value={label.id}>
@@ -839,33 +839,37 @@ export default function TaskDetail() {
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-slate-500">Hold Ctrl/Cmd to select multiple labels.</p>
+                <p className="text-xs text-slate-500">
+                  {canManage ? 'Hold Ctrl/Cmd to select multiple labels.' : 'Labels are managed by team leads.'}
+                </p>
 
-                <form onSubmit={handleCreateLabel} className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
-                  <p className="text-sm font-semibold text-emerald-950">Create a new label</p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-[1fr,auto,auto]">
-                    <input
-                      value={labelDraft.name}
-                      onChange={(event) => setLabelDraft((current) => ({ ...current, name: event.target.value }))}
-                      className="input-field"
-                      placeholder="Customer-facing"
-                    />
-                    <select
-                      value={labelDraft.color}
-                      onChange={(event) => setLabelDraft((current) => ({ ...current, color: event.target.value }))}
-                      className="input-field"
-                    >
-                      {labelPalette.map((color) => (
-                        <option key={color} value={color}>
-                          {color}
-                        </option>
-                      ))}
-                    </select>
-                    <button type="submit" disabled={savingMetaAction === 'create-label'} className="btn-secondary">
-                      {savingMetaAction === 'create-label' ? 'Creating...' : 'Create label'}
-                    </button>
-                  </div>
-                </form>
+                {canManage ? (
+                  <form onSubmit={handleCreateLabel} className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+                    <p className="text-sm font-semibold text-emerald-950">Create a new label</p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-[1fr,auto,auto]">
+                      <input
+                        value={labelDraft.name}
+                        onChange={(event) => setLabelDraft((current) => ({ ...current, name: event.target.value }))}
+                        className="input-field"
+                        placeholder="Customer-facing"
+                      />
+                      <select
+                        value={labelDraft.color}
+                        onChange={(event) => setLabelDraft((current) => ({ ...current, color: event.target.value }))}
+                        className="input-field"
+                      >
+                        {labelPalette.map((color) => (
+                          <option key={color} value={color}>
+                            {color}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="submit" disabled={savingMetaAction === 'create-label'} className="btn-secondary">
+                        {savingMetaAction === 'create-label' ? 'Creating...' : 'Create label'}
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
               </div>
             </div>
 
@@ -959,9 +963,11 @@ export default function TaskDetail() {
                           <p className="text-sm font-semibold text-slate-900">{dependency.from_task_title}</p>
                           <p className="text-xs text-slate-500">Status: {dependency.from_task_status?.replaceAll('_', ' ')}</p>
                         </div>
-                        <button type="button" onClick={() => handleRemoveDependency(dependency.id)} className="btn-ghost">
-                          Remove
-                        </button>
+                        {canManage ? (
+                          <button type="button" onClick={() => handleRemoveDependency(dependency.id)} className="btn-ghost">
+                            Remove
+                          </button>
+                        ) : null}
                       </div>
                     ))
                   )}
@@ -979,9 +985,11 @@ export default function TaskDetail() {
                           <p className="text-sm font-semibold text-slate-900">{dependency.to_task_title}</p>
                           <p className="text-xs text-slate-500">Status: {dependency.to_task_status?.replaceAll('_', ' ')}</p>
                         </div>
-                        <button type="button" onClick={() => handleRemoveDependency(dependency.id)} className="btn-ghost">
-                          Remove
-                        </button>
+                        {canManage ? (
+                          <button type="button" onClick={() => handleRemoveDependency(dependency.id)} className="btn-ghost">
+                            Remove
+                          </button>
+                        ) : null}
                       </div>
                     ))
                   )}
@@ -989,42 +997,46 @@ export default function TaskDetail() {
               </div>
             </div>
 
-            <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <input
-                  value={dependencySearch}
-                  onChange={(event) => setDependencySearch(event.target.value)}
-                  className="input-field flex-1"
-                  placeholder="Search tasks to link as dependencies"
-                />
-                <select value={dependencyType} onChange={(event) => setDependencyType(event.target.value)} className="input-field">
-                  <option value="blocks">Blocks</option>
-                  <option value="related_to">Related</option>
-                </select>
+            {canManage ? (
+              <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <input
+                    value={dependencySearch}
+                    onChange={(event) => setDependencySearch(event.target.value)}
+                    className="input-field flex-1"
+                    placeholder="Search tasks to link as dependencies"
+                  />
+                  <select value={dependencyType} onChange={(event) => setDependencyType(event.target.value)} className="input-field">
+                    <option value="blocks">Blocks</option>
+                    <option value="related_to">Related</option>
+                  </select>
+                </div>
+                <div className="mt-4 grid gap-2">
+                  {dependencyLoading ? (
+                    <p className="text-sm text-slate-500">Searching tasks...</p>
+                  ) : dependencyResults.length ? (
+                    dependencyResults.map((candidate) => (
+                      <button
+                        key={candidate.id}
+                        type="button"
+                        onClick={() => handleAddDependency(candidate.id)}
+                        className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{candidate.title}</p>
+                          <p className="text-xs text-slate-500">{candidate.team_name || team?.name || 'Team task'}</p>
+                        </div>
+                        <span className="text-xs font-semibold text-emerald-700">Link</span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-500">Search for tasks to create a dependency link.</p>
+                  )}
+                </div>
               </div>
-              <div className="mt-4 grid gap-2">
-                {dependencyLoading ? (
-                  <p className="text-sm text-slate-500">Searching tasks...</p>
-                ) : dependencyResults.length ? (
-                  dependencyResults.map((candidate) => (
-                    <button
-                      key={candidate.id}
-                      type="button"
-                      onClick={() => handleAddDependency(candidate.id)}
-                      className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">{candidate.title}</p>
-                        <p className="text-xs text-slate-500">{candidate.team_name || team?.name || 'Team task'}</p>
-                      </div>
-                      <span className="text-xs font-semibold text-emerald-700">Link</span>
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-sm text-slate-500">Search for tasks to create a dependency link.</p>
-                )}
-              </div>
-            </div>
+            ) : (
+              <p className="mt-5 text-sm text-slate-500">Dependencies can be managed by team leads.</p>
+            )}
           </section>
 
           <section className={`${panelClass} p-6 lg:p-7`}>
@@ -1112,7 +1124,8 @@ export default function TaskDetail() {
             </div>
           </section>
 
-          <section className={`${panelClass} p-6 lg:p-7`}>
+          {canManage ? (
+            <section className={`${panelClass} p-6 lg:p-7`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Guest access</p>
@@ -1154,7 +1167,8 @@ export default function TaskDetail() {
                 ))
               )}
             </div>
-          </section>
+            </section>
+          ) : null}
 
           <section className={`${panelClass} p-6 lg:p-7`}>
             <div className="flex items-center justify-between">
@@ -1178,7 +1192,7 @@ export default function TaskDetail() {
                         type="checkbox"
                         checked={item.is_completed}
                         onChange={() => handleChecklistToggle(item)}
-                        disabled={savingMetaAction === `checklist-${item.id}`}
+                        disabled={!canManage || savingMetaAction === `checklist-${item.id}`}
                       />
                       <span className={`text-sm ${item.is_completed ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
                         {item.title}
@@ -1187,7 +1201,7 @@ export default function TaskDetail() {
                     <button
                       type="button"
                       onClick={() => handleChecklistDelete(item.id)}
-                      disabled={savingMetaAction === `checklist-delete-${item.id}`}
+                      disabled={!canManage || savingMetaAction === `checklist-delete-${item.id}`}
                       className="btn-ghost"
                     >
                       Delete
@@ -1197,17 +1211,21 @@ export default function TaskDetail() {
               )}
             </div>
 
-            <form onSubmit={handleChecklistCreate} className="mt-5 flex flex-col gap-3 sm:flex-row">
-              <input
-                value={checklistDraft}
-                onChange={(event) => setChecklistDraft(event.target.value)}
-                className="input-field flex-1"
-                placeholder="Add a checklist item"
-              />
-              <button type="submit" disabled={savingMetaAction === 'checklist-create'} className="btn-primary">
-                {savingMetaAction === 'checklist-create' ? 'Adding...' : 'Add item'}
-              </button>
-            </form>
+            {canManage ? (
+              <form onSubmit={handleChecklistCreate} className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <input
+                  value={checklistDraft}
+                  onChange={(event) => setChecklistDraft(event.target.value)}
+                  className="input-field flex-1"
+                  placeholder="Add a checklist item"
+                />
+                <button type="submit" disabled={savingMetaAction === 'checklist-create'} className="btn-primary">
+                  {savingMetaAction === 'checklist-create' ? 'Adding...' : 'Add item'}
+                </button>
+              </form>
+            ) : (
+              <p className="mt-5 text-sm text-slate-500">Checklist changes are managed by team leads.</p>
+            )}
           </section>
 
           <section className={`${panelClass} p-6 lg:p-7`}>

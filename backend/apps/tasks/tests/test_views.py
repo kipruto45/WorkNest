@@ -118,7 +118,25 @@ class TaskEndpointTests(APITestCase):
         self.assertTrue(response.data["success"])
         self.assertEqual(response.data["data"]["assigned_to"], str(self.member.id))
 
-    def test_member_can_create_task_and_assign_teammate(self) -> None:
+    def test_member_can_create_task_assigned_to_self(self) -> None:
+        self.authenticate(self.member)
+
+        response = self.client.post(
+            reverse("api_v1:tasks:list-create"),
+            {
+                "team_id": str(self.team.id),
+                "title": "Document release notes",
+                "priority": Task.Priority.MEDIUM,
+                "assigned_to": str(self.member.id),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["data"]["assigned_to"], str(self.member.id))
+
+    def test_member_cannot_create_task_assigned_to_another_teammate(self) -> None:
         self.authenticate(self.member)
 
         response = self.client.post(
@@ -132,9 +150,9 @@ class TaskEndpointTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(response.data["success"])
-        self.assertEqual(response.data["data"]["assigned_to"], str(self.manager.id))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(response.data["success"])
+        self.assertIn("assigned_to", response.data["errors"])
 
     def test_outsider_cannot_create_task(self) -> None:
         self.authenticate(self.outsider)

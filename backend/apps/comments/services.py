@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from django.db import transaction
 from django.utils import timezone
 from apps.audit_logs.constants import AuditAction
@@ -11,6 +13,8 @@ from apps.comments.models import Comment, CommentReaction, CommentVersion
 from apps.comments.parsers import resolve_mentions_for_team
 from apps.realtime.constants import COMMENT_CREATED_EVENT, COMMENT_DELETED_EVENT, COMMENT_UPDATED_EVENT
 from apps.realtime.services import send_comment_event
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_content(content: str) -> str:
@@ -36,6 +40,13 @@ def extract_mentions_from_comment(*, content: str, team) -> list:
     return resolve_mentions_for_team(content=content, team=team)
 
 
+def _run_on_commit_safely(*, callback_name: str, callback) -> None:
+    try:
+        callback()
+    except Exception:  # pragma: no cover
+        logger.exception("comment_on_commit_callback_failed", extra={"callback": callback_name})
+
+
 @transaction.atomic
 def create_comment(*, task, author, content: str, parent: Comment | None = None) -> tuple[Comment, list]:
     if task.is_archived:
@@ -52,8 +63,18 @@ def create_comment(*, task, author, content: str, parent: Comment | None = None)
     mentions = extract_mentions_from_comment(content=normalized_content, team=task.team)
     from apps.notifications.services import notify_comment_activity
 
-    transaction.on_commit(lambda: notify_comment_activity(comment=comment, mentions=mentions))
-    transaction.on_commit(lambda: send_comment_event(comment=comment, event_name=COMMENT_CREATED_EVENT))
+    transaction.on_commit(
+        lambda: _run_on_commit_safely(
+            callback_name="notify_comment_activity",
+            callback=lambda: notify_comment_activity(comment=comment, mentions=mentions),
+        )
+    )
+    transaction.on_commit(
+        lambda: _run_on_commit_safely(
+            callback_name="send_comment_created_event",
+            callback=lambda: send_comment_event(comment=comment, event_name=COMMENT_CREATED_EVENT),
+        )
+    )
     log_comment_action(
         actor=author,
         action=AuditAction.COMMENT_CREATED,
@@ -85,8 +106,18 @@ def update_comment(*, comment: Comment, content: str, actor=None) -> tuple[Comme
     mentions = extract_mentions_from_comment(content=normalized_content, team=comment.task.team)
     from apps.notifications.services import notify_comment_mentions
 
-    transaction.on_commit(lambda: notify_comment_mentions(comment=comment, mentions=mentions))
-    transaction.on_commit(lambda: send_comment_event(comment=comment, event_name=COMMENT_UPDATED_EVENT))
+    transaction.on_commit(
+        lambda: _run_on_commit_safely(
+            callback_name="notify_comment_mentions",
+            callback=lambda: notify_comment_mentions(comment=comment, mentions=mentions),
+        )
+    )
+    transaction.on_commit(
+        lambda: _run_on_commit_safely(
+            callback_name="send_comment_updated_event",
+            callback=lambda: send_comment_event(comment=comment, event_name=COMMENT_UPDATED_EVENT),
+        )
+    )
     log_comment_action(
         actor=actor or comment.author,
         action=AuditAction.COMMENT_UPDATED,
@@ -115,7 +146,12 @@ def delete_comment(*, comment: Comment, actor=None) -> Comment:
         comment=comment,
         metadata=build_audit_metadata(parent_id=comment.parent_id, task_title=comment.task.title),
     )
-    transaction.on_commit(lambda: send_comment_event(comment=comment, event_name=COMMENT_DELETED_EVENT))
+    transaction.on_commit(
+        lambda: _run_on_commit_safely(
+            callback_name="send_comment_deleted_event",
+            callback=lambda: send_comment_event(comment=comment, event_name=COMMENT_DELETED_EVENT),
+        )
+    )
     return comment
 
 
@@ -137,9 +173,19 @@ def toggle_comment_reaction(*, comment: Comment, user, emoji: str) -> tuple[bool
     existing = CommentReaction.objects.filter(comment=comment, user=user, emoji=emoji).first()
     if existing:
         existing.delete()
-        transaction.on_commit(lambda: send_comment_event(comment=comment, event_name=COMMENT_UPDATED_EVENT))
+        transaction.on_commit(
+            lambda: _run_on_commit_safely(
+                callback_name="send_comment_reaction_removed_event",
+                callback=lambda: send_comment_event(comment=comment, event_name=COMMENT_UPDATED_EVENT),
+            )
+        )
         return False, None
 
     reaction = CommentReaction.objects.create(comment=comment, user=user, emoji=emoji)
-    transaction.on_commit(lambda: send_comment_event(comment=comment, event_name=COMMENT_UPDATED_EVENT))
+    transaction.on_commit(
+        lambda: _run_on_commit_safely(
+            callback_name="send_comment_reaction_added_event",
+            callback=lambda: send_comment_event(comment=comment, event_name=COMMENT_UPDATED_EVENT),
+        )
+    )
     return True, reaction

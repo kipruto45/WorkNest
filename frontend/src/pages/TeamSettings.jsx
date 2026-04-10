@@ -4,8 +4,9 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'react-toastify'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
+import Forbidden from './Forbidden'
 import { teamsAPI, unwrapData } from '../services/api'
-import { canManageMembers, resolveMembershipRole } from '../utils/permissions'
+import { resolveMembershipRole } from '../utils/permissions'
 import { formatDate, toSentenceCase } from '../utils/formatters'
 
 const panelClass = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
@@ -67,7 +68,11 @@ export default function TeamSettings() {
   }
 
   const currentRole = resolveMembershipRole(team)
-  const canManageWorkspace = canManageMembers(currentRole)
+  const canManageWorkspace = currentRole === 'admin'
+
+  if (!canManageWorkspace) {
+    return <Forbidden />
+  }
 
   const onSubmit = async (data) => {
     if (!canManageWorkspace) {
@@ -164,12 +169,6 @@ export default function TeamSettings() {
           </div>
         </div>
       </section>
-
-      {!canManageWorkspace ? (
-        <section className="rounded-[20px] border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-800">
-          You can view workspace settings, but only team admins can change these controls.
-        </section>
-      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.12fr,0.88fr]">
         <section className={`${panelClass} p-6 lg:p-7`}>

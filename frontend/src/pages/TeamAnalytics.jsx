@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
 import EmptyState from '../components/EmptyState'
+import Forbidden from './Forbidden'
 import { dashboardAPI, tasksAPI, teamsAPI, unwrapData } from '../services/api'
 import { clampPercent, formatDate, toSentenceCase } from '../utils/formatters'
+import { resolveMembershipRole } from '../utils/permissions'
 
 const panelClass = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
 const cardClass = 'rounded-[22px] border border-slate-200 bg-[#fcfcfb]'
@@ -58,9 +60,15 @@ export default function TeamAnalytics() {
   const statusTotal = Math.max(1, statuses.reduce((sum, item) => sum + Number(item.count || 0), 0))
   const priorityTotal = Math.max(1, priorities.reduce((sum, item) => sum + Number(item.count || 0), 0))
   const activeMilestones = milestones.filter((item) => String(item.status || '').toLowerCase() !== 'completed')
+  const role = resolveMembershipRole(team)
+  const canViewAnalytics = role === 'admin' || role === 'manager'
 
   if (loading || !team) {
     return <LoadingState label="Loading team analytics" />
+  }
+
+  if (!canViewAnalytics) {
+    return <Forbidden />
   }
 
   return (

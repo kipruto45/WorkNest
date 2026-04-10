@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.memberships.models import Membership
 from apps.teams.models import Team
 
 User = get_user_model()
@@ -136,3 +137,30 @@ class TeamViewTests(APITestCase):
         self.assertIn(active_response.data["data"]["name"], default_names)
         self.assertNotIn("Archived Team", default_names)
         self.assertIn("Archived Team", archived_names)
+
+    def test_team_detail_includes_member_capabilities_for_role_aware_ui(self) -> None:
+        owner = User.objects.create_user(email="owner-cap@example.com", password="StrongPass123!", name="Owner")
+        member = User.objects.create_user(email="member-cap@example.com", password="StrongPass123!", name="Member")
+        self.authenticate(owner)
+        create_response = self.client.post(
+            reverse("api_v1:teams:list-create"),
+            {"name": "Capabilities Team", "description": "Role metadata"},
+            format="json",
+        )
+        team_id = create_response.data["data"]["id"]
+        team = Team.objects.get(id=team_id)
+        team.memberships.create(
+            user=member,
+            role=Membership.Role.MEMBER,
+            status=Membership.Status.ACTIVE,
+            invited_by=owner,
+        )
+
+        self.authenticate(member)
+        response = self.client.get(reverse("api_v1:teams:detail", args=[team_id]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data"]["my_membership"]["role"], Membership.Role.MEMBER)
+        self.assertEqual(response.data["data"]["my_capabilities"]["can_manage_settings"], False)
+        self.assertEqual(response.data["data"]["my_capabilities"]["can_manage_invitations"], False)
+        self.assertEqual(response.data["data"]["my_capabilities"]["can_create_tasks"], True)

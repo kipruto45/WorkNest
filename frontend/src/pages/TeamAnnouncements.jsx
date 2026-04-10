@@ -41,7 +41,7 @@ export default function TeamAnnouncements() {
   }, [loadAnnouncements])
 
   const currentRole = resolveMembershipRole(team)
-  const canPublish = currentRole === 'admin' || currentRole === 'manager'
+  const canPublish = currentRole === 'admin'
 
   const filteredAnnouncements = useMemo(() => {
     const input = query.trim().toLowerCase()
@@ -57,7 +57,7 @@ export default function TeamAnnouncements() {
   const handlePublish = async (event) => {
     event.preventDefault()
     if (!canPublish) {
-      toast.error('Only team admins or managers can publish announcements.')
+      toast.error('Only team admins can publish announcements.')
       return
     }
     if (!draft.title.trim() || !draft.content.trim()) {

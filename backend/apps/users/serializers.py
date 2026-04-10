@@ -288,6 +288,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
                     "id": str(membership.team_id),
                     "name": membership.team.name,
                     "is_personal": bool(membership.team.is_personal),
+                    "allow_manager_invites": bool(membership.team.allow_manager_invites),
                     "my_role": membership.role,
                 }
             )

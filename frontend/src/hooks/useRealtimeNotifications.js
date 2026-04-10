@@ -9,7 +9,7 @@ import {
   NOTIFICATION_UPDATED_EVENT,
 } from '../utils/realtime'
 import { playNotificationSound } from '../utils/notificationSound'
-import { API_BASE_URL } from '../utils/clientConfig.js'
+import { API_BASE_URL, CLIENT_STORAGE_KEYS } from '../utils/clientConfig.js'
 
 export function useRealtimeNotifications() {
   const dispatch = useDispatch()
@@ -20,16 +20,23 @@ export function useRealtimeNotifications() {
       return undefined
     }
 
-    const socketUrl = buildRealtimeUrl({
-      apiUrl: API_BASE_URL,
-      accessToken: token,
-      path: '/ws/notifications/',
-    })
-
     let socket
     let reconnectTimer
 
+    const resolveAccessToken = () => localStorage.getItem(CLIENT_STORAGE_KEYS.sessionAccess) || token
+
     const connect = () => {
+      const accessToken = resolveAccessToken()
+      if (!accessToken) {
+        return
+      }
+
+      const socketUrl = buildRealtimeUrl({
+        apiUrl: API_BASE_URL,
+        accessToken,
+        path: '/ws/notifications/',
+      })
+
       socket = new WebSocket(socketUrl)
 
       socket.onopen = () => {
@@ -61,7 +68,13 @@ export function useRealtimeNotifications() {
       }
 
       socket.onclose = (event) => {
-        if ([4401, 4403].includes(event.code)) {
+        if (event.code === 4403) {
+          return
+        }
+        if (event.code === 4401) {
+          dispatch(fetchUnreadCount()).finally(() => {
+            reconnectTimer = window.setTimeout(connect, 1500)
+          })
           return
         }
         reconnectTimer = window.setTimeout(connect, 3000)

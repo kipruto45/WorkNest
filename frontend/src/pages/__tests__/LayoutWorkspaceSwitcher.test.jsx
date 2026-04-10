@@ -101,6 +101,28 @@ test('workspace switcher allows changing from personal to team workspace', async
   expect(await screen.findByText('Team Home')).toBeInTheDocument()
 })
 
+test('member team navigation hides admin-only links', async () => {
+  localStorage.setItem(CLIENT_STORAGE_KEYS.workspacePrefs, JSON.stringify({}))
+  const user = {
+    id: 'user-1',
+    name: 'Morgan',
+    email: 'morgan@example.com',
+    account_type: 'personal',
+    workspace_options: [
+      { id: 'personal-team', is_personal: true, name: 'Personal workspace', my_role: 'admin' },
+      { id: 'team-42', is_personal: false, name: 'Delivery Team', my_role: 'member' },
+    ],
+    default_team_id: 'team-42',
+  }
+
+  renderLayoutWithState(user, '/teams/team-42/overview')
+
+  expect(await screen.findByText('Team Home')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'My Tasks' })).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Invitations' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument()
+})
+
 test('team-only users cannot switch to personal workspace without personal account', async () => {
   localStorage.setItem(CLIENT_STORAGE_KEYS.workspacePrefs, JSON.stringify({}))
   const user = {

@@ -7,6 +7,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
@@ -21,7 +22,7 @@ from apps.integrations.email.services import (
     queue_team_invite_email,
 )
 from apps.integrations.models import EmailDelivery
-from apps.memberships.models import Membership, TeamInvitation
+from apps.memberships.models import Membership, TeamInvitation, TeamInviteLink
 from apps.memberships.selectors import get_team_member
 from apps.teams.permissions import can_manage_team_invites
 
@@ -39,6 +40,13 @@ def _build_invitation_link(*, token: str) -> str:
     if frontend_url:
         return f"{frontend_url}/invitations/{token}"
     return f"/invitations/{token}"
+
+
+def _build_invite_link_url(*, token: str) -> str:
+    frontend_url = _get_frontend_url().rstrip("/")
+    if frontend_url:
+        return f"{frontend_url}/invite-links/{token}"
+    return f"/invite-links/{token}"
 
 
 def _existing_user_for_email(email: str):
@@ -83,6 +91,25 @@ def _ensure_target_is_not_active_member(*, team, email: str) -> None:
     existing_membership = get_team_member(team=team, user=existing_user)
     if existing_membership and existing_membership.status == Membership.Status.ACTIVE:
         raise ValidationError({"email": ["This user is already an active member of the team."]})
+
+
+def _validate_invite_link_role(*, role: str, actor) -> None:
+    if role == Membership.Role.ADMIN and not bool(getattr(settings, "TEAM_ALLOW_ADMIN_ROLE_INVITE_LINKS", False)):
+        raise ValidationError({"role": ["Admin invite links are disabled by policy."]})
+    if role == Membership.Role.ADMIN and not bool(getattr(actor, "is_staff", False)):
+        # Explicitly guard admin-role links to privileged actors only.
+        raise ValidationError({"role": ["Only privileged admins can issue admin-role invite links."]})
+    if role == Membership.Role.MANAGER and not bool(getattr(settings, "TEAM_ALLOW_MANAGER_ROLE_INVITE_LINKS", True)):
+        raise ValidationError({"role": ["Manager invite links are disabled by policy."]})
+
+
+def _ensure_invite_link_manageable(*, invite_link: TeamInviteLink, actor) -> None:
+    if not can_manage_team_invites(team=invite_link.team, user=actor):
+        raise PermissionDenied("You do not have permission to manage invite links for this team.")
+    if invite_link.team.is_archived:
+        raise ValidationError({"team": ["Archived teams cannot manage invite links."]})
+    if invite_link.team.is_personal:
+        raise ValidationError({"team": ["Personal workspaces cannot use invite links."]})
 
 
 def _send_invitation_email(*, invitation: TeamInvitation) -> None:
@@ -237,6 +264,214 @@ def invite_member_to_team(*, team, invited_by, email: str, role: str, custom_mes
         ),
     )
     return invitation
+
+
+@transaction.atomic
+def create_team_invite_link(
+    *,
+    team,
+    actor,
+    role: str = Membership.Role.MEMBER,
+    label: str = "",
+    expires_at=None,
+    max_uses: int | None = None,
+) -> TeamInviteLink:
+    if team.is_archived:
+        raise ValidationError({"team": ["Archived teams cannot create invite links."]})
+    if team.is_personal:
+        raise ValidationError({"team": ["Personal workspaces cannot use invite links."]})
+    if not can_manage_team_invites(team=team, user=actor):
+        raise PermissionDenied("You do not have permission to create invite links for this team.")
+
+    membership = get_team_member(team=team, user=actor)
+    actor_role = membership.role if membership else None
+    if actor_role == Membership.Role.MANAGER and role != Membership.Role.MEMBER:
+        raise ValidationError({"role": ["Managers can only generate member invite links."]})
+    _validate_invite_link_role(role=role, actor=actor)
+
+    if expires_at and expires_at <= timezone.now():
+        raise ValidationError({"expires_at": ["Expiry must be in the future."]})
+
+    invite_link = TeamInviteLink.objects.create(
+        team=team,
+        role=role,
+        label=(label or "").strip(),
+        created_by=actor,
+        expires_at=expires_at,
+        max_uses=max_uses,
+    )
+
+    log_membership_action(
+        actor=actor,
+        action=AuditAction.INVITE_LINK_CREATED,
+        team=team,
+        target=invite_link,
+        metadata=build_audit_metadata(
+            team_name=team.name,
+            role=role,
+            label=invite_link.label,
+            expires_at=invite_link.expires_at,
+            max_uses=max_uses,
+            invite_link=_build_invite_link_url(token=invite_link.token),
+        ),
+    )
+    return invite_link
+
+
+@transaction.atomic
+def revoke_team_invite_link(*, invite_link: TeamInviteLink, actor) -> TeamInviteLink:
+    _ensure_invite_link_manageable(invite_link=invite_link, actor=actor)
+    if invite_link.revoked_at:
+        raise ValidationError({"invite_link": ["This invite link has already been revoked."]})
+
+    invite_link.is_active = False
+    invite_link.revoked_at = timezone.now()
+    invite_link.save(update_fields=["is_active", "revoked_at", "updated_at"])
+
+    log_membership_action(
+        actor=actor,
+        action=AuditAction.INVITE_LINK_REVOKED,
+        team=invite_link.team,
+        target=invite_link,
+        metadata=build_audit_metadata(
+            team_name=invite_link.team.name,
+            role=invite_link.role,
+            revoked_at=invite_link.revoked_at,
+            label=invite_link.label,
+        ),
+    )
+    return invite_link
+
+
+@transaction.atomic
+def regenerate_team_invite_link(*, invite_link: TeamInviteLink, actor) -> TeamInviteLink:
+    _ensure_invite_link_manageable(invite_link=invite_link, actor=actor)
+
+    invite_link.token = secrets.token_urlsafe(32)
+    invite_link.is_active = True
+    invite_link.revoked_at = None
+    invite_link.current_uses = 0
+    invite_link.last_used_at = None
+    if invite_link.expires_at and invite_link.expires_at <= timezone.now():
+        invite_link.expires_at = _get_invitation_expiry()
+    invite_link.save(
+        update_fields=[
+            "token",
+            "is_active",
+            "revoked_at",
+            "current_uses",
+            "last_used_at",
+            "expires_at",
+            "updated_at",
+        ]
+    )
+
+    log_membership_action(
+        actor=actor,
+        action=AuditAction.INVITE_LINK_REGENERATED,
+        team=invite_link.team,
+        target=invite_link,
+        metadata=build_audit_metadata(
+            team_name=invite_link.team.name,
+            role=invite_link.role,
+            label=invite_link.label,
+            expires_at=invite_link.expires_at,
+            max_uses=invite_link.max_uses,
+            invite_link=_build_invite_link_url(token=invite_link.token),
+        ),
+    )
+    return invite_link
+
+
+def resolve_team_invite_link(*, invite_link: TeamInviteLink) -> TeamInviteLink:
+    return invite_link
+
+
+@transaction.atomic
+def track_team_invite_link_copy(*, invite_link: TeamInviteLink, actor) -> TeamInviteLink:
+    _ensure_invite_link_manageable(invite_link=invite_link, actor=actor)
+    log_membership_action(
+        actor=actor,
+        action=AuditAction.INVITE_LINK_COPIED,
+        team=invite_link.team,
+        target=invite_link,
+        metadata=build_audit_metadata(
+            team_name=invite_link.team.name,
+            role=invite_link.role,
+            label=invite_link.label,
+        ),
+    )
+    return invite_link
+
+
+@transaction.atomic
+def accept_team_invite_link(*, invite_link: TeamInviteLink, user) -> Membership:
+    locked = TeamInviteLink.objects.select_for_update().select_related("team", "created_by").get(id=invite_link.id)
+    if not locked.is_active or locked.revoked_at:
+        raise ValidationError({"invite_link": ["This invite link has been revoked."]})
+    if locked.team.is_archived:
+        raise ValidationError({"invite_link": ["This team is archived and not accepting new members."]})
+    if locked.team.is_personal:
+        raise ValidationError({"invite_link": ["Personal workspaces do not support invite links."]})
+    if locked.is_expired:
+        raise ValidationError({"invite_link": ["This invite link has expired."]})
+    if locked.max_uses is not None and locked.current_uses >= locked.max_uses:
+        raise ValidationError({"invite_link": ["This invite link has reached its maximum uses."]})
+
+    membership, created = Membership.objects.get_or_create(
+        team=locked.team,
+        user=user,
+        defaults={
+            "role": locked.role,
+            "status": Membership.Status.ACTIVE,
+            "invited_by": locked.created_by,
+            "joined_at": timezone.now(),
+        },
+    )
+    if not created and membership.status == Membership.Status.ACTIVE:
+        raise ValidationError({"invite_link": ["You are already a member of this team."]})
+    if not created:
+        membership.role = locked.role
+        membership.status = Membership.Status.ACTIVE
+        membership.invited_by = locked.created_by
+        membership.joined_at = timezone.now()
+        membership.save(update_fields=["role", "status", "invited_by", "joined_at", "updated_at"])
+
+    TeamInviteLink.objects.filter(id=locked.id).update(
+        current_uses=F("current_uses") + 1,
+        last_used_at=timezone.now(),
+        updated_at=timezone.now(),
+    )
+    locked.refresh_from_db(fields=["current_uses", "last_used_at", "updated_at"])
+
+    log_membership_action(
+        actor=user,
+        action=AuditAction.INVITE_LINK_USED,
+        team=locked.team,
+        target=locked,
+        metadata=build_audit_metadata(
+            team_name=locked.team.name,
+            role=locked.role,
+            current_uses=locked.current_uses,
+            max_uses=locked.max_uses,
+            label=locked.label,
+        ),
+    )
+    log_membership_action(
+        actor=user,
+        action=AuditAction.MEMBERSHIP_CREATED_FROM_INVITE_LINK,
+        team=locked.team,
+        membership=membership,
+        target=locked,
+        metadata=build_audit_metadata(
+            team_name=locked.team.name,
+            role=membership.role,
+            user_id=user.id,
+            user_email=user.email,
+            label=locked.label,
+        ),
+    )
+    return membership
 
 
 def accept_team_invitation(*, invitation: TeamInvitation, user):
