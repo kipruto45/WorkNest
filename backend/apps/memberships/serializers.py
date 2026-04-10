@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from apps.integrations.email.builders import _get_frontend_url
 from apps.memberships.models import Membership, TeamInvitation
 from apps.users.serializers import UserPublicSerializer
 
@@ -52,6 +53,7 @@ class UpdateInvitationRoleSerializer(serializers.Serializer):
 
 class TeamInvitationSerializer(serializers.ModelSerializer):
     invited_by = UserPublicSerializer(read_only=True)
+    invitation_link = serializers.SerializerMethodField()
 
     class Meta:
         model = TeamInvitation
@@ -68,8 +70,14 @@ class TeamInvitationSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "invited_by",
+            "invitation_link",
         )
         read_only_fields = fields
+
+    def get_invitation_link(self, obj: TeamInvitation) -> str:
+        frontend_url = _get_frontend_url().rstrip("/")
+        path = f"/invitations/{obj.token}"
+        return f"{frontend_url}{path}" if frontend_url else path
 
 
 class TeamInvitationDetailSerializer(serializers.ModelSerializer):

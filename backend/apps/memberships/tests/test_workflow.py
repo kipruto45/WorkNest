@@ -79,6 +79,7 @@ class InvitationWorkflowTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         invitation = TeamInvitation.objects.get(email="newmember@example.com")
         self.assertEqual(invitation.custom_message, "Please start with the delivery board.")
+        self.assertTrue(response.data["data"]["invitation_link"].endswith(f"/invitations/{invitation.token}"))
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("Please start with the delivery board.", mail.outbox[0].alternatives[0][0])
 

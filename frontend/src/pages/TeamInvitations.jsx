@@ -10,6 +10,7 @@ import { extractApiError } from '../utils/apiErrors'
 import { formatDate, toSentenceCase } from '../utils/formatters'
 import { canManageInvitations, resolveMembershipRole } from '../utils/permissions'
 import {
+  buildInvitationPath,
   canEditInvitation,
   canManageInvitePolicy,
   canRevokeOrResendInvitation,
@@ -25,6 +26,7 @@ export default function TeamInvitations() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [submitMode, setSubmitMode] = useState('send')
   const [policySaving, setPolicySaving] = useState(false)
   const [team, setTeam] = useState(null)
   const [invitations, setInvitations] = useState([])
@@ -113,8 +115,15 @@ export default function TeamInvitations() {
     setSubmitting(true)
     clearErrors()
     try {
-      await teamsAPI.inviteMember(teamId, data)
-      toast.success('Invitation sent successfully.')
+      const response = await teamsAPI.inviteMember(teamId, data)
+      const invitation = unwrapData(response) || {}
+      const copied = submitMode === 'copy' ? await copyInviteLink(invitation) : false
+
+      if (copied) {
+        toast.success('Invite link generated and copied to clipboard.')
+      } else {
+        toast.success('Invitation sent successfully.')
+      }
       reset({ email: '', role: data.role, custom_message: '' })
       setShowComposer(false)
       await loadInvitations()
@@ -132,6 +141,7 @@ export default function TeamInvitations() {
       toast.error(parsed.message)
     } finally {
       setSubmitting(false)
+      setSubmitMode('send')
     }
   }
 
@@ -490,8 +500,21 @@ export default function TeamInvitations() {
                 <button type="button" onClick={closeComposer} className="btn-secondary">
                   Cancel
                 </button>
-                <button type="submit" disabled={submitting} className="btn-primary">
-                  {submitting ? 'Sending invitation...' : 'Send invitation'}
+                <button
+                  type="submit"
+                  onClick={() => setSubmitMode('copy')}
+                  disabled={submitting}
+                  className="btn-secondary"
+                >
+                  {submitting && submitMode === 'copy' ? 'Generating link...' : 'Generate link & copy'}
+                </button>
+                <button
+                  type="submit"
+                  onClick={() => setSubmitMode('send')}
+                  disabled={submitting}
+                  className="btn-primary"
+                >
+                  {submitting && submitMode === 'send' ? 'Sending invitation...' : 'Send invitation'}
                 </button>
               </div>
             </form>
@@ -500,6 +523,35 @@ export default function TeamInvitations() {
       ) : null}
     </div>
   )
+}
+
+async function copyInviteLink(invitation) {
+  const inviteLink = String(invitation?.invitation_link || '').trim()
+  const token = String(invitation?.token || '').trim()
+  const fallbackLink = token ? `${window.location.origin}${buildInvitationPath(token)}` : ''
+  const linkToCopy = inviteLink || fallbackLink
+  if (!linkToCopy) return false
+
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(linkToCopy)
+      return true
+    }
+  } catch (_error) {
+    // Fallback below.
+  }
+
+  const textArea = document.createElement('textarea')
+  textArea.value = linkToCopy
+  textArea.setAttribute('readonly', '')
+  textArea.style.position = 'fixed'
+  textArea.style.opacity = '0'
+  document.body.appendChild(textArea)
+  textArea.focus()
+  textArea.select()
+  const copied = document.execCommand('copy')
+  document.body.removeChild(textArea)
+  return copied
 }
 
 function SummaryTile({ label, value, note }) {
