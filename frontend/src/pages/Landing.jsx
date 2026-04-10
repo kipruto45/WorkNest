@@ -217,7 +217,7 @@ export default function Landing() {
       <main>
         <section className="relative overflow-hidden pb-24 pt-10 md:pb-28 md:pt-16">
           <div className={containerClass}>
-            <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,0.84fr)_minmax(0,1.16fr)] lg:gap-12 xl:gap-16">
+            <div className="grid items-start gap-14 lg:grid-cols-[minmax(0,0.84fr)_minmax(0,1.16fr)] lg:gap-12 xl:gap-16">
               <div className="fade-in">
                 <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-white/88 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700 shadow-[0_8px_18px_rgba(15,118,110,0.08)] backdrop-blur">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_5px_rgba(16,185,129,0.14)]" />
@@ -281,7 +281,7 @@ export default function Landing() {
                 </div>
               </div>
 
-              <div className="fade-in-delayed lg:-mt-6 xl:-mt-8">
+              <div className="fade-in-delayed">
                 <HeroWorkspacePreview />
               </div>
             </div>
