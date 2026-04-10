@@ -139,8 +139,17 @@ def log_team_action(*, actor, action: str, team, metadata: dict | None = None, t
     )
 
 
-def log_membership_action(*, actor, action: str, membership=None, invitation=None, team=None, metadata: dict | None = None) -> AuditLog:
-    target = membership or invitation
+def log_membership_action(
+    *,
+    actor,
+    action: str,
+    membership=None,
+    invitation=None,
+    team=None,
+    target=None,
+    metadata: dict | None = None,
+) -> AuditLog:
+    target = target or membership or invitation
     return create_audit_log(
         actor=actor,
         action=action,

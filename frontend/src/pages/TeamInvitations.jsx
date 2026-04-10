@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useSelector } from 'react-redux'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import EmptyState from '../components/EmptyState'
@@ -23,8 +24,35 @@ import {
 const roleOptions = ['admin', 'manager', 'member']
 const panelClass = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
 
+function getInviteEmailRoleOptions(role) {
+  if (role === 'manager') return ['member']
+  return roleOptions
+}
+
+function getInviteLinkRoleOptions(role, isStaff) {
+  if (role === 'manager') return ['member']
+  if (role !== 'admin') return []
+  return isStaff ? roleOptions : ['manager', 'member']
+}
+
+function normalizeInviteLinkPayload(values) {
+  const payload = {
+    role: values.role,
+    label: (values.label || '').trim(),
+  }
+  if (values.max_uses) payload.max_uses = Number(values.max_uses)
+  if (values.expires_at) {
+    const parsed = new Date(values.expires_at)
+    if (!Number.isNaN(parsed.getTime())) {
+      payload.expires_at = parsed.toISOString()
+    }
+  }
+  return payload
+}
+
 export default function TeamInvitations() {
   const { teamId } = useParams()
+  const currentUser = useSelector((state) => state.auth?.user || null)
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
@@ -144,7 +172,8 @@ export default function TeamInvitations() {
     setSubmitting(true)
     clearErrors()
     try {
-      const response = await teamsAPI.inviteMember(teamId, data)
+      const safeRole = inviteEmailRoleOptions.includes(data.role) ? data.role : 'member'
+      const response = await teamsAPI.inviteMember(teamId, { ...data, role: safeRole })
       const invitation = unwrapData(response) || {}
       const copied = submitMode === 'copy' ? await copyInviteLink(invitation) : false
 
@@ -208,10 +237,12 @@ export default function TeamInvitations() {
     setSubmitting(true)
     linkClearErrors()
     try {
-      const response = await invitationsAPI.createInviteLink(teamId, data)
+      const safeRole = inviteLinkRoleOptions.includes(data.role) ? data.role : 'member'
+      const payload = normalizeInviteLinkPayload({ ...data, role: safeRole })
+      const response = await invitationsAPI.createInviteLink(teamId, payload)
       const inviteLink = unwrapData(response)
       if (inviteLink?.invite_link) {
-        await navigator.clipboard.writeText(inviteLink.invite_link)
+        await copyTextToClipboard(inviteLink.invite_link)
         toast.success('Invite link created and copied to clipboard.')
       } else {
         toast.success('Invite link created.')
@@ -256,9 +287,17 @@ export default function TeamInvitations() {
     }
   }
 
-  const handleLinkCopy = async (linkId) => {
+  const handleLinkCopy = async (link) => {
     try {
-      await invitationsAPI.copyInviteLink(teamId, linkId)
+      const fallbackUrl = link?.token ? buildInviteLinkUrl(link.token) : ''
+      const linkUrl = String(link?.invite_link || fallbackUrl || '').trim()
+      if (!linkUrl) {
+        toast.error('Invite link URL is not available yet.')
+        return
+      }
+
+      await copyTextToClipboard(linkUrl)
+      await invitationsAPI.copyInviteLink(teamId, link.id)
       toast.success('Link copied to clipboard.')
     } catch (error) {
       toast.error(extractApiError(error, { fallbackMessage: 'Unable to copy link.' }).message)
@@ -304,7 +343,9 @@ export default function TeamInvitations() {
     allowManagerInvites: team.allow_manager_invites,
   })
   const canEditPolicy = !isPersonalWorkspace && canManageInvitePolicy(role)
-  const canCreateLink = !isPersonalWorkspace && canCreateInviteLink(role)
+  const canCreateLink = !isPersonalWorkspace && canCreateInviteLink(role, { allowManagerInvites: team.allow_manager_invites })
+  const inviteEmailRoleOptions = getInviteEmailRoleOptions(role)
+  const inviteLinkRoleOptions = getInviteLinkRoleOptions(role, Boolean(currentUser?.is_staff))
 
   const openComposer = () => {
     clearErrors()
@@ -473,6 +514,9 @@ export default function TeamInvitations() {
             />
           ) : (
             sortedInvitations.map((invitation) => {
+              const roleChoices = inviteEmailRoleOptions.includes(invitation.role)
+                ? inviteEmailRoleOptions
+                : [invitation.role, ...inviteEmailRoleOptions]
               const isEditable = canInviteMembers && canEditInvitation(invitation)
               const canTakeActions = canInviteMembers && canRevokeOrResendInvitation(invitation)
               return (
@@ -501,12 +545,16 @@ export default function TeamInvitations() {
                       <select
                         value={invitation.role}
                         onChange={(event) => handleRoleChange(invitation.id, event.target.value)}
-                        disabled={!isEditable}
+                        disabled={!isEditable || inviteEmailRoleOptions.length === 0}
                         className="input-field"
                       >
-                        {roleOptions.map((role) => (
-                          <option key={role} value={role}>
-                            {toSentenceCase(role)}
+                        {roleChoices.map((roleChoice) => (
+                          <option
+                            key={roleChoice}
+                            value={roleChoice}
+                            disabled={!inviteEmailRoleOptions.includes(roleChoice)}
+                          >
+                            {toSentenceCase(roleChoice)}
                           </option>
                         ))}
                       </select>
@@ -589,8 +637,8 @@ export default function TeamInvitations() {
                     <div className="grid gap-3 sm:grid-cols-[140px,1fr]">
                       <button
                         type="button"
-                        onClick={() => handleLinkCopy(link.id)}
-                        disabled={!canAct}
+                        onClick={() => handleLinkCopy(link)}
+                        disabled={!canCreateLink}
                         className="btn-secondary"
                       >
                         Copy link
@@ -631,6 +679,90 @@ export default function TeamInvitations() {
         )}
       </section>
 
+      {showLinkComposer && canCreateLink ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/10 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.16)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Invite link</p>
+                <h3 className="mt-2 text-2xl font-semibold text-slate-950">Create a secure shareable link</h3>
+                <p className="mt-2 text-sm leading-7 text-slate-600">
+                  Generate a reusable link with role, expiry, and usage limits to control how teammates join this workspace.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeLinkComposer}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                <span className="text-lg leading-none">×</span>
+              </button>
+            </div>
+
+            <form onSubmit={linkHandleSubmit(onLinkSubmit)} className="mt-6 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-900">Default role</label>
+                <select {...linkRegister('role')} className="input-field">
+                  {inviteLinkRoleOptions.map((roleOption) => (
+                    <option key={roleOption} value={roleOption}>
+                      {toSentenceCase(roleOption)}
+                    </option>
+                  ))}
+                </select>
+                {linkErrors.role ? <p className="mt-2 text-sm text-rose-600">{linkErrors.role.message}</p> : null}
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-900">Label</label>
+                <input
+                  {...linkRegister('label')}
+                  type="text"
+                  className="input-field"
+                  placeholder="Hiring sprint invite"
+                />
+                {linkErrors.label ? <p className="mt-2 text-sm text-rose-600">{linkErrors.label.message}</p> : null}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-900">Expires at</label>
+                  <input {...linkRegister('expires_at')} type="datetime-local" className="input-field" />
+                  {linkErrors.expires_at ? <p className="mt-2 text-sm text-rose-600">{linkErrors.expires_at.message}</p> : null}
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-900">Max uses</label>
+                  <input
+                    {...linkRegister('max_uses', {
+                      setValueAs: (value) => (value === '' || value == null ? null : Number(value)),
+                    })}
+                    type="number"
+                    min={1}
+                    className="input-field"
+                    placeholder="Unlimited"
+                  />
+                  {linkErrors.max_uses ? <p className="mt-2 text-sm text-rose-600">{linkErrors.max_uses.message}</p> : null}
+                </div>
+              </div>
+
+              {linkErrors.root ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {linkErrors.root.message}
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap justify-end gap-3">
+                <button type="button" onClick={closeLinkComposer} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={submitting} className="btn-primary">
+                  {submitting ? 'Creating link...' : 'Create link'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
       {showComposer && canInviteMembers ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-950/10 px-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.16)]">
@@ -666,9 +798,9 @@ export default function TeamInvitations() {
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-900">Role</label>
                 <select {...register('role')} className="input-field">
-                  {roleOptions.map((role) => (
-                    <option key={role} value={role}>
-                      {toSentenceCase(role)}
+                  {inviteEmailRoleOptions.map((roleOption) => (
+                    <option key={roleOption} value={roleOption}>
+                      {toSentenceCase(roleOption)}
                     </option>
                   ))}
                 </select>
@@ -720,16 +852,12 @@ export default function TeamInvitations() {
   )
 }
 
-async function copyInviteLink(invitation) {
-  const inviteLink = String(invitation?.invitation_link || '').trim()
-  const token = String(invitation?.token || '').trim()
-  const fallbackLink = token ? `${window.location.origin}${buildInvitationPath(token)}` : ''
-  const linkToCopy = inviteLink || fallbackLink
-  if (!linkToCopy) return false
-
+async function copyTextToClipboard(value) {
+  const text = String(value || '').trim()
+  if (!text) return false
   try {
     if (navigator?.clipboard?.writeText) {
-      await navigator.clipboard.writeText(linkToCopy)
+      await navigator.clipboard.writeText(text)
       return true
     }
   } catch (_error) {
@@ -737,7 +865,7 @@ async function copyInviteLink(invitation) {
   }
 
   const textArea = document.createElement('textarea')
-  textArea.value = linkToCopy
+  textArea.value = text
   textArea.setAttribute('readonly', '')
   textArea.style.position = 'fixed'
   textArea.style.opacity = '0'
@@ -747,6 +875,13 @@ async function copyInviteLink(invitation) {
   const copied = document.execCommand('copy')
   document.body.removeChild(textArea)
   return copied
+}
+
+async function copyInviteLink(invitation) {
+  const inviteLink = String(invitation?.invitation_link || '').trim()
+  const token = String(invitation?.token || '').trim()
+  const fallbackLink = token ? `${window.location.origin}${buildInvitationPath(token)}` : ''
+  return copyTextToClipboard(inviteLink || fallbackLink)
 }
 
 function SummaryTile({ label, value, note }) {

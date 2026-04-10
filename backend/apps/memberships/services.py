@@ -93,6 +93,23 @@ def _ensure_target_is_not_active_member(*, team, email: str) -> None:
         raise ValidationError({"email": ["This user is already an active member of the team."]})
 
 
+def _validate_email_invitation_role_for_actor(*, team, actor, role: str) -> None:
+    membership = get_team_member(team=team, user=actor)
+    if not membership or membership.status != Membership.Status.ACTIVE:
+        raise PermissionDenied("You do not have permission to invite members to this team.")
+
+    if membership.role == Membership.Role.ADMIN:
+        return
+
+    if membership.role != Membership.Role.MANAGER:
+        raise PermissionDenied("You do not have permission to invite members to this team.")
+
+    if role == Membership.Role.ADMIN:
+        raise ValidationError({"role": ["Managers cannot invite admins."]})
+    if role == Membership.Role.MANAGER and not bool(getattr(settings, "TEAM_ALLOW_MANAGER_ROLE_EMAIL_INVITES", False)):
+        raise ValidationError({"role": ["Manager-role invitations are disabled for managers by policy."]})
+
+
 def _validate_invite_link_role(*, role: str, actor) -> None:
     if role == Membership.Role.ADMIN and not bool(getattr(settings, "TEAM_ALLOW_ADMIN_ROLE_INVITE_LINKS", False)):
         raise ValidationError({"role": ["Admin invite links are disabled by policy."]})
@@ -222,6 +239,7 @@ def invite_member_to_team(*, team, invited_by, email: str, role: str, custom_mes
     inviter_email = str(getattr(invited_by, "email", "") or "").strip().lower()
     if inviter_email and inviter_email == normalized_email:
         raise ValidationError({"email": ["You are already part of this workspace. Invite another teammate instead."]})
+    _validate_email_invitation_role_for_actor(team=team, actor=invited_by, role=role)
     _ensure_target_is_not_active_member(team=team, email=normalized_email)
 
     pending_invitation = TeamInvitation.objects.filter(
@@ -649,6 +667,7 @@ def update_team_invitation_role(*, invitation: TeamInvitation, actor, new_role: 
         raise ValidationError({"invitation": ["Accepted invitations cannot be changed."]})
     if invitation.role == new_role:
         raise ValidationError({"role": ["The invitation already has this role."]})
+    _validate_email_invitation_role_for_actor(team=invitation.team, actor=actor, role=new_role)
 
     old_role = invitation.role
     invitation.role = new_role

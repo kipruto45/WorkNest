@@ -74,11 +74,3 @@ def get_team_invite_link_by_token(*, token: str) -> TeamInviteLink | None:
 
 def get_invite_link_by_id(*, invite_link_id) -> TeamInviteLink | None:
     return TeamInviteLink.objects.filter(id=invite_link_id).select_related("team", "created_by").first()
-
-
-def get_invite_link_by_id(*, invite_link_id) -> TeamInviteLink | None:
-    return TeamInviteLink.objects.filter(id=invite_link_id).select_related("team", "created_by").first()
-
-
-def get_invite_link_by_id(*, invite_link_id) -> TeamInviteLink | None:
-    return TeamInviteLink.objects.filter(id=invite_link_id).select_related("team", "created_by").first()

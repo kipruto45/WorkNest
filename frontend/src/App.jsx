@@ -51,6 +51,7 @@ const AdminUsers = lazy(() => import('./pages/AdminUsers'))
 const AdminCommunications = lazy(() => import('./pages/AdminCommunications'))
 const TeamSetup = lazy(() => import('./pages/TeamSetup'))
 const InvitationResponse = lazy(() => import('./pages/InvitationResponse'))
+const InviteLinkResponse = lazy(() => import('./pages/InviteLinkResponse'))
 const Forbidden = lazy(() => import('./pages/Forbidden'))
 const ServerError = lazy(() => import('./pages/ServerError'))
 const NotFound = lazy(() => import('./pages/NotFound'))
@@ -172,6 +173,8 @@ function App() {
           <Route path="/auth/google/callback" element={<OAuthCallback />} />
           <Route path="/invitations/:token" element={<InvitationResponse />} />
           <Route path="/accept-invitation" element={<InvitationResponse />} />
+          <Route path="/invite-links/:token" element={<InviteLinkResponse />} />
+          <Route path="/accept-invite-link" element={<InviteLinkResponse />} />
           <Route path="/403" element={<Forbidden />} />
           <Route path="/500" element={<ServerError />} />
 

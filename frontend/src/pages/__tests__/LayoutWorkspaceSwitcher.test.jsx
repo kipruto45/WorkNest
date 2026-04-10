@@ -67,6 +67,7 @@ function renderLayoutWithState(user, initialEntry = '/dashboard') {
             <Route path="/teams/:teamId/calendar" element={<div>Team Calendar</div>} />
             <Route path="/teams/:teamId/members" element={<div>Team Members</div>} />
             <Route path="/teams/:teamId/invitations" element={<div>Team Invites</div>} />
+            <Route path="/teams/:teamId/analytics" element={<div>Team Analytics</div>} />
             <Route path="/teams/:teamId/milestones" element={<div>Team Milestones</div>} />
             <Route path="/teams/:teamId/announcements" element={<div>Team Announcements</div>} />
             <Route path="/teams/:teamId/activity" element={<div>Team Activity</div>} />
@@ -120,6 +121,41 @@ test('member team navigation hides admin-only links', async () => {
   expect(await screen.findByText('Team Home')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'My Tasks' })).toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Invitations' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument()
+})
+
+test('manager navigation only shows invitations when manager invites are enabled', async () => {
+  localStorage.setItem(CLIENT_STORAGE_KEYS.workspacePrefs, JSON.stringify({}))
+  const userWithoutPolicy = {
+    id: 'user-1',
+    name: 'Morgan',
+    email: 'morgan@example.com',
+    account_type: 'personal',
+    workspace_options: [
+      { id: 'personal-team', is_personal: true, name: 'Personal workspace', my_role: 'admin' },
+      { id: 'team-42', is_personal: false, name: 'Delivery Team', my_role: 'manager', allow_manager_invites: false },
+    ],
+    default_team_id: 'team-42',
+  }
+
+  const { unmount } = renderLayoutWithState(userWithoutPolicy, '/teams/team-42/overview')
+  expect(await screen.findByText('Team Home')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Analytics' })).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Invitations' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument()
+  unmount()
+
+  const userWithPolicy = {
+    ...userWithoutPolicy,
+    workspace_options: [
+      { id: 'personal-team', is_personal: true, name: 'Personal workspace', my_role: 'admin' },
+      { id: 'team-42', is_personal: false, name: 'Delivery Team', my_role: 'manager', allow_manager_invites: true },
+    ],
+  }
+
+  renderLayoutWithState(userWithPolicy, '/teams/team-42/overview')
+  expect(await screen.findByRole('link', { name: 'Analytics' })).toBeInTheDocument()
+  expect(await screen.findByRole('link', { name: 'Invitations' })).toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument()
 })
 

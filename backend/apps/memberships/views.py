@@ -6,7 +6,12 @@ from rest_framework.exceptions import NotFound
 from rest_framework.views import APIView
 
 from apps.common.responses import success_response
-from apps.memberships.selectors import get_invitation_by_token, get_team_invite_link_by_id, get_team_invite_link_by_token
+from apps.memberships.selectors import (
+    get_invitation_by_id,
+    get_invitation_by_token,
+    get_team_invite_link_by_id,
+    get_team_invite_link_by_token,
+)
 from apps.memberships.serializers import (
     MembershipSerializer,
     TeamInvitationDetailSerializer,
@@ -20,14 +25,14 @@ from apps.memberships.services import (
     accept_team_invite_link,
     create_team_invite_link,
     decline_team_invitation,
-   refresh_team_invitation_state,
+    refresh_team_invitation_state,
     regenerate_team_invite_link,
     resend_team_invitation,
     revoke_team_invitation,
     revoke_team_invite_link,
     track_team_invite_link_copy,
 )
-from apps.memberships.selectors import get_invitation_by_id
+from apps.teams.permissions import require_team_inviter
 
 
 class TeamInvitationDetailView(APIView):
@@ -129,6 +134,7 @@ class TeamInviteLinkListCreateView(APIView):
             team = Team.objects.get(id=team_id)
         except Team.DoesNotExist:
             raise NotFound("Team not found.")
+        require_team_inviter(team=team, user=request.user)
         from apps.memberships.selectors import get_team_invite_links
 
         invite_links = get_team_invite_links(team=team)
@@ -146,6 +152,7 @@ class TeamInviteLinkListCreateView(APIView):
             team = Team.objects.get(id=team_id)
         except Team.DoesNotExist:
             raise NotFound("Team not found.")
+        require_team_inviter(team=team, user=request.user)
 
         serializer = TeamInviteLinkCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -175,6 +182,7 @@ class TeamInviteLinkRevokeView(APIView):
             team = Team.objects.get(id=team_id)
         except Team.DoesNotExist:
             raise NotFound("Team not found.")
+        require_team_inviter(team=team, user=request.user)
 
         invite_link = get_team_invite_link_by_id(team=team, invite_link_id=invite_link_id)
         if not invite_link:
@@ -199,6 +207,7 @@ class TeamInviteLinkRegenerateView(APIView):
             team = Team.objects.get(id=team_id)
         except Team.DoesNotExist:
             raise NotFound("Team not found.")
+        require_team_inviter(team=team, user=request.user)
 
         invite_link = get_team_invite_link_by_id(team=team, invite_link_id=invite_link_id)
         if not invite_link:
@@ -223,6 +232,7 @@ class TeamInviteLinkCopyView(APIView):
             team = Team.objects.get(id=team_id)
         except Team.DoesNotExist:
             raise NotFound("Team not found.")
+        require_team_inviter(team=team, user=request.user)
 
         invite_link = get_team_invite_link_by_id(team=team, invite_link_id=invite_link_id)
         if not invite_link:

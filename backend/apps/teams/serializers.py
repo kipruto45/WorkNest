@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.conf import settings
 from django.db import OperationalError, ProgrammingError
 from rest_framework import serializers
 
@@ -172,7 +173,7 @@ class TeamDetailSerializer(serializers.ModelSerializer):
             "can_manage_invitations": is_admin or (is_manager and bool(obj.allow_manager_invites)),
             "can_manage_settings": is_admin,
             "can_view_analytics": is_admin or is_manager,
-            "can_post_announcements": is_admin,
+            "can_post_announcements": is_admin or (is_manager and bool(getattr(settings, "TEAM_ALLOW_MANAGER_ANNOUNCEMENTS", True))),
             "can_manage_workspace": is_admin,
         }
 

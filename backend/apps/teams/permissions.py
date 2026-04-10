@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.conf import settings
 from rest_framework.exceptions import PermissionDenied
 
 from apps.memberships.models import Membership
@@ -41,3 +42,21 @@ def require_team_inviter(*, team, user) -> Membership:
     if membership.role == Membership.Role.MANAGER and bool(getattr(team, "allow_manager_invites", False)):
         return membership
     raise PermissionDenied("You do not have permission to manage invitations for this team.")
+
+
+def can_publish_team_announcements(*, team, user) -> bool:
+    membership = get_active_membership(team=team, user=user)
+    if not membership:
+        return False
+    if membership.role == Membership.Role.ADMIN:
+        return True
+    return membership.role == Membership.Role.MANAGER and bool(getattr(settings, "TEAM_ALLOW_MANAGER_ANNOUNCEMENTS", True))
+
+
+def require_team_announcement_publisher(*, team, user) -> Membership:
+    membership = require_team_member(team=team, user=user)
+    if membership.role == Membership.Role.ADMIN:
+        return membership
+    if membership.role == Membership.Role.MANAGER and bool(getattr(settings, "TEAM_ALLOW_MANAGER_ANNOUNCEMENTS", True)):
+        return membership
+    raise PermissionDenied("You do not have permission to publish team announcements.")

@@ -47,6 +47,7 @@ const routeMeta = [
   { match: /^\/teams\/[^/]+\/announcements/, title: 'Announcements', description: 'Team communication, updates, and shared messages.' },
   { match: /^\/teams\/[^/]+\/activity/, title: 'Activity Log', description: 'Recent team actions and collaboration timeline.' },
   { match: /^\/teams\/[^/]+\/members/, title: 'Team Members', description: 'Manage roles, access, and collaboration.' },
+  { match: /^\/teams\/[^/]+\/analytics/, title: 'Analytics', description: 'Operational metrics, workload, and team performance.' },
   { match: /^\/teams\/[^/]+\/invitations/, title: 'Invitations', description: 'Invite teammates and track responses.' },
   { match: /^\/teams\/[^/]+\/milestones/, title: 'Milestones', description: 'Delivery checkpoints and progress tracking.' },
   { match: /^\/teams\/[^/]+\/automation/, title: 'Automation', description: 'Workflow rules that keep delivery moving.' },
@@ -136,6 +137,7 @@ export default function Layout() {
         name: item.name || 'Workspace',
         isPersonal: Boolean(item.is_personal),
         role: item.my_role || '',
+        allow_manager_invites: Boolean(item.allow_manager_invites),
       }))
 
     if ((user?.account_type === 'personal' || user?.primary_mode === 'personal') && !normalized.some((item) => item.isPersonal)) {
@@ -203,14 +205,12 @@ export default function Layout() {
     [teamWorkspaces, activeTeamId]
   )
   const activeTeamRole = resolveMembershipRole({ my_role: activeTeamWorkspace?.role })
+  const isAdminWorkspace = activeTeamRole === 'admin'
   const isMemberWorkspace = activeTeamRole === 'member'
-  const canAccessInvitations =
-    activeTeamRole === 'admin' ||
-    activeTeamRole === 'manager' ||
-    canManageInvitations({
-      role: activeTeamRole,
-      allowManagerInvites: Boolean(activeTeamWorkspace?.allow_manager_invites),
-    })
+  const canAccessInvitations = canManageInvitations({
+    role: activeTeamRole,
+    allowManagerInvites: Boolean(activeTeamWorkspace?.allow_manager_invites),
+  })
   const teamNav = activeTeamId
     ? isMemberWorkspace
       ? [
@@ -228,13 +228,14 @@ export default function Layout() {
           { label: 'Tasks', to: teamBasePath, icon: QueueIcon },
           { label: 'Milestones', to: `${teamBasePath}/milestones`, icon: FlagIcon },
           { label: 'Members', to: `${teamBasePath}/members`, icon: PeopleIcon },
+          { label: 'Analytics', to: `${teamBasePath}/analytics`, icon: AuditIcon },
           ...(canAccessInvitations ? [{ label: 'Invitations', to: `${teamBasePath}/invitations`, icon: MailIcon }] : []),
           { label: 'Calendar', to: `${teamBasePath}/calendar`, icon: CalendarIcon },
           { label: 'Announcements', to: `${teamBasePath}/announcements`, icon: MegaphoneIcon },
           { label: 'Activity', to: `${teamBasePath}/activity`, icon: AuditIcon },
           { label: 'Automation', to: `${teamBasePath}/automation`, icon: AutomateIcon },
           { label: 'Notifications', to: '/notifications', icon: BellIcon },
-          { label: 'Settings', to: `${teamBasePath}/settings`, icon: SettingsIcon },
+          ...(isAdminWorkspace ? [{ label: 'Settings', to: `${teamBasePath}/settings`, icon: SettingsIcon }] : []),
         ]
     : [
         { label: 'Team Setup', to: '/team-setup', icon: HomeIcon },
@@ -354,6 +355,7 @@ export default function Layout() {
             { id: 'create-task', label: 'Create task', hint: 'Capture a new work item fast', to: '/tasks?compose=1' },
             { id: 'milestones', label: 'Review milestones', hint: 'Check delivery checkpoints', to: `${teamBasePath}/milestones` },
             { id: 'members', label: 'Review members', hint: 'See team roster', to: `${teamBasePath}/members` },
+            { id: 'analytics', label: 'Open analytics', hint: 'Track workload and completion trends', to: `${teamBasePath}/analytics` },
             ...(canAccessInvitations
               ? [{ id: 'invitations', label: 'Invite teammates', hint: 'Manage invitations', to: `${teamBasePath}/invitations` }]
               : []),
@@ -493,8 +495,8 @@ export default function Layout() {
   }
 
   return (
-    <div className="app-shell px-2 py-2 sm:px-3 sm:py-3 md:px-5 md:py-5">
-      <div className="relative flex min-h-[calc(100vh-16px)] overflow-hidden rounded-[26px] border border-slate-200/90 bg-[rgba(255,255,255,0.72)] shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:min-h-[calc(100vh-24px)] sm:rounded-[32px]">
+    <div className="app-shell h-screen overflow-hidden px-2 py-2 sm:px-3 sm:py-3 md:px-5 md:py-5">
+      <div className="relative flex h-[calc(100vh-16px)] overflow-hidden rounded-[26px] border border-slate-200/90 bg-[rgba(255,255,255,0.72)] shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:h-[calc(100vh-24px)] sm:rounded-[32px]">
         {!isDesktop && sidebarOpen ? (
           <button
             type="button"
@@ -505,7 +507,7 @@ export default function Layout() {
         ) : null}
 
         <aside
-          className={`absolute inset-y-0 left-0 z-30 border-r border-slate-200/80 bg-[rgba(250,250,247,0.96)] shadow-[0_24px_60px_rgba(15,23,42,0.12)] transition-all duration-300 lg:relative lg:translate-x-0 lg:bg-[rgba(250,250,247,0.86)] lg:shadow-none ${
+          className={`absolute inset-y-0 left-0 z-30 overflow-hidden border-r border-slate-200/80 bg-[rgba(250,250,247,0.96)] shadow-[0_24px_60px_rgba(15,23,42,0.12)] transition-all duration-300 lg:relative lg:translate-x-0 lg:bg-[rgba(250,250,247,0.86)] lg:shadow-none ${
             isDesktop
               ? sidebarOpen
                 ? 'w-72'

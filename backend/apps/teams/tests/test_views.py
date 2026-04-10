@@ -164,3 +164,58 @@ class TeamViewTests(APITestCase):
         self.assertEqual(response.data["data"]["my_capabilities"]["can_manage_settings"], False)
         self.assertEqual(response.data["data"]["my_capabilities"]["can_manage_invitations"], False)
         self.assertEqual(response.data["data"]["my_capabilities"]["can_create_tasks"], True)
+
+    def test_manager_can_publish_team_announcement_when_policy_allows(self) -> None:
+        owner = User.objects.create_user(email="owner-announce@example.com", password="StrongPass123!", name="Owner")
+        manager = User.objects.create_user(email="manager-announce@example.com", password="StrongPass123!", name="Manager")
+        self.authenticate(owner)
+        create_response = self.client.post(
+            reverse("api_v1:teams:list-create"),
+            {"name": "Announcement Team", "description": "Comms"},
+            format="json",
+        )
+        team_id = create_response.data["data"]["id"]
+        team = Team.objects.get(id=team_id)
+        team.memberships.create(
+            user=manager,
+            role=Membership.Role.MANAGER,
+            status=Membership.Status.ACTIVE,
+            invited_by=owner,
+        )
+
+        self.authenticate(manager)
+        response = self.client.post(
+            reverse("api_v1:teams:announcements", args=[team_id]),
+            {"title": "Delivery update", "content": "Sprint goals are on track."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["data"]["title"], "Delivery update")
+
+    def test_member_cannot_publish_team_announcement(self) -> None:
+        owner = User.objects.create_user(email="owner-announce-two@example.com", password="StrongPass123!", name="Owner")
+        member = User.objects.create_user(email="member-announce@example.com", password="StrongPass123!", name="Member")
+        self.authenticate(owner)
+        create_response = self.client.post(
+            reverse("api_v1:teams:list-create"),
+            {"name": "Announcement Team 2", "description": "Comms"},
+            format="json",
+        )
+        team_id = create_response.data["data"]["id"]
+        team = Team.objects.get(id=team_id)
+        team.memberships.create(
+            user=member,
+            role=Membership.Role.MEMBER,
+            status=Membership.Status.ACTIVE,
+            invited_by=owner,
+        )
+
+        self.authenticate(member)
+        response = self.client.post(
+            reverse("api_v1:teams:announcements", args=[team_id]),
+            {"title": "Attempted update", "content": "Member should not publish."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

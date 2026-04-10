@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
 import EmptyState from '../components/EmptyState'
 import Forbidden from './Forbidden'
 import { dashboardAPI, tasksAPI, teamsAPI, unwrapData } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
 import { clampPercent, formatDate, toSentenceCase } from '../utils/formatters'
 import { resolveMembershipRole } from '../utils/permissions'
 
@@ -14,6 +15,8 @@ const palette = ['bg-emerald-600', 'bg-sky-600', 'bg-violet-600', 'bg-amber-500'
 export default function TeamAnalytics() {
   const { teamId } = useParams()
   const [loading, setLoading] = useState(true)
+  const [accessDenied, setAccessDenied] = useState(false)
+  const [pageError, setPageError] = useState('')
   const [team, setTeam] = useState(null)
   const [summary, setSummary] = useState({})
   const [progress, setProgress] = useState({})
@@ -22,11 +25,13 @@ export default function TeamAnalytics() {
   const [priorities, setPriorities] = useState([])
   const [milestones, setMilestones] = useState([])
 
-  useEffect(() => {
-    const loadAnalytics = async () => {
-      setLoading(true)
-      try {
-        const [teamResponse, summaryResponse, progressResponse, workloadResponse, statusResponse, priorityResponse, milestoneResponse] = await Promise.all([
+  const loadAnalytics = useCallback(async () => {
+    setLoading(true)
+    setAccessDenied(false)
+    setPageError('')
+    try {
+      const [teamResponse, summaryResponse, progressResponse, workloadResponse, statusResponse, priorityResponse, milestoneResponse] =
+        await Promise.all([
           teamsAPI.getTeam(teamId),
           dashboardAPI.getTeamSummary(teamId),
           dashboardAPI.getTeamProgress(teamId),
@@ -36,21 +41,38 @@ export default function TeamAnalytics() {
           tasksAPI.getMilestones(teamId, { page_size: 6 }),
         ])
 
-        setTeam(unwrapData(teamResponse))
-        setSummary(unwrapData(summaryResponse)?.summary || {})
-        setProgress(unwrapData(progressResponse)?.progress || {})
-        setWorkload(unwrapData(workloadResponse)?.workload || [])
-        setStatuses(unwrapData(statusResponse)?.status_distribution || [])
-        setPriorities(unwrapData(priorityResponse)?.priority_distribution || [])
-        const milestonePayload = unwrapData(milestoneResponse)
-        setMilestones(Array.isArray(milestonePayload) ? milestonePayload : milestonePayload?.results || [])
-      } finally {
-        setLoading(false)
+      setTeam(unwrapData(teamResponse))
+      setSummary(unwrapData(summaryResponse)?.summary || {})
+      setProgress(unwrapData(progressResponse)?.progress || {})
+      setWorkload(unwrapData(workloadResponse)?.workload || [])
+      setStatuses(unwrapData(statusResponse)?.status_distribution || [])
+      setPriorities(unwrapData(priorityResponse)?.priority_distribution || [])
+      const milestonePayload = unwrapData(milestoneResponse)
+      setMilestones(Array.isArray(milestonePayload) ? milestonePayload : milestonePayload?.results || [])
+    } catch (error) {
+      const parsed = extractApiError(error, {
+        fallbackMessage: 'Unable to load team analytics right now.',
+      })
+      if (parsed.status === 403) {
+        setAccessDenied(true)
+      } else {
+        setPageError(parsed.message)
       }
+      setTeam(null)
+      setSummary({})
+      setProgress({})
+      setWorkload([])
+      setStatuses([])
+      setPriorities([])
+      setMilestones([])
+    } finally {
+      setLoading(false)
     }
-
-    loadAnalytics()
   }, [teamId])
+
+  useEffect(() => {
+    loadAnalytics()
+  }, [loadAnalytics])
 
   const completionRate = clampPercent(progress.completion_rate ?? summary.completion_rate ?? 0)
   const completedTasks = progress.completed_tasks ?? summary.completed_tasks ?? 0
@@ -63,8 +85,26 @@ export default function TeamAnalytics() {
   const role = resolveMembershipRole(team)
   const canViewAnalytics = role === 'admin' || role === 'manager'
 
-  if (loading || !team) {
+  if (loading) {
     return <LoadingState label="Loading team analytics" />
+  }
+
+  if (accessDenied) {
+    return <Forbidden />
+  }
+
+  if (!team) {
+    return (
+      <EmptyState
+        title="Team analytics are unavailable"
+        description={pageError || 'We could not load this team workspace right now.'}
+        action={
+          <button type="button" onClick={loadAnalytics} className="btn-secondary">
+            Retry
+          </button>
+        }
+      />
+    )
   }
 
   if (!canViewAnalytics) {

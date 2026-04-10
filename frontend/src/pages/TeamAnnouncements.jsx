@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
+import Forbidden from './Forbidden'
 import { teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
 import { formatDate, formatRelativeDate, toSentenceCase } from '../utils/formatters'
 import { resolveMembershipRole } from '../utils/permissions'
 
@@ -14,6 +16,8 @@ export default function TeamAnnouncements() {
   const { teamId } = useParams()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [accessDenied, setAccessDenied] = useState(false)
+  const [pageError, setPageError] = useState('')
   const [team, setTeam] = useState(null)
   const [announcements, setAnnouncements] = useState([])
   const [query, setQuery] = useState('')
@@ -21,6 +25,8 @@ export default function TeamAnnouncements() {
 
   const loadAnnouncements = useCallback(async () => {
     setLoading(true)
+    setAccessDenied(false)
+    setPageError('')
     try {
       const [teamResponse, announcementsResponse] = await Promise.all([
         teamsAPI.getTeam(teamId),
@@ -29,7 +35,16 @@ export default function TeamAnnouncements() {
       setTeam(unwrapData(teamResponse))
       setAnnouncements(unwrapResults(announcementsResponse))
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Unable to load team announcements.')
+      const parsed = extractApiError(error, {
+        fallbackMessage: 'Unable to load team announcements.',
+      })
+      if (parsed.status === 403) {
+        setAccessDenied(true)
+      } else {
+        setPageError(parsed.message)
+        toast.error(parsed.message)
+      }
+      setTeam(null)
       setAnnouncements([])
     } finally {
       setLoading(false)
@@ -41,7 +56,7 @@ export default function TeamAnnouncements() {
   }, [loadAnnouncements])
 
   const currentRole = resolveMembershipRole(team)
-  const canPublish = currentRole === 'admin'
+  const canPublish = Boolean(team?.my_capabilities?.can_post_announcements) || currentRole === 'admin' || currentRole === 'manager'
 
   const filteredAnnouncements = useMemo(() => {
     const input = query.trim().toLowerCase()
@@ -57,7 +72,7 @@ export default function TeamAnnouncements() {
   const handlePublish = async (event) => {
     event.preventDefault()
     if (!canPublish) {
-      toast.error('Only team admins can publish announcements.')
+      toast.error('You do not have permission to publish announcements.')
       return
     }
     if (!draft.title.trim() || !draft.content.trim()) {
@@ -81,8 +96,26 @@ export default function TeamAnnouncements() {
     }
   }
 
-  if (loading || !team) {
+  if (loading) {
     return <LoadingState label="Loading announcements" />
+  }
+
+  if (accessDenied) {
+    return <Forbidden />
+  }
+
+  if (!team) {
+    return (
+      <EmptyState
+        title="Announcements are unavailable"
+        description={pageError || 'We could not load this team workspace right now.'}
+        action={
+          <button type="button" onClick={loadAnnouncements} className="btn-secondary">
+            Retry
+          </button>
+        }
+      />
+    )
   }
 
   return (

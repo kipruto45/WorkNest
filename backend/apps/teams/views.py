@@ -26,7 +26,12 @@ from apps.memberships.services import (
     remove_member_from_team,
     update_team_invitation_role,
 )
-from apps.teams.permissions import require_team_admin, require_team_inviter, require_team_member
+from apps.teams.permissions import (
+    require_team_admin,
+    require_team_announcement_publisher,
+    require_team_inviter,
+    require_team_member,
+)
 from apps.teams.selectors import (
     get_pinned_teams,
     get_recent_team_visits,
@@ -366,7 +371,7 @@ class TeamAnnouncementListCreateView(PaginatedAPIViewMixin, APIView):
         team = get_team_by_id_for_user(team_id=pk, user=request.user)
         if not team:
             raise NotFound("Team not found.")
-        require_team_admin(team=team, user=request.user)
+        require_team_announcement_publisher(team=team, user=request.user)
         serializer = TeamAnnouncementCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         announcement = create_team_announcement(
@@ -393,7 +398,7 @@ class TeamAnnouncementDetailView(APIView):
         team = get_team_by_id_for_user(team_id=pk, user=request.user)
         if not team:
             raise NotFound("Team not found.")
-        require_team_admin(team=team, user=request.user)
+        require_team_announcement_publisher(team=team, user=request.user)
         announcement = TeamAnnouncement.objects.filter(team=team, pk=announcement_id).first()
         if not announcement:
             raise NotFound("Announcement not found.")

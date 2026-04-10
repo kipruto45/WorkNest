@@ -106,9 +106,14 @@ export default function InvitationResponse() {
         toast.success('Invitation accepted.')
         setInvitation((current) => (current ? { ...current, status: 'accepted' } : current))
         if (team?.id) {
-          if (String(invitation?.role || '').toLowerCase() === 'member') {
+          const invitedRole = String(invitation?.role || '').toLowerCase()
+          if (invitedRole === 'member') {
             rememberMemberOnboarding(team.id)
             navigate(`/teams/${team.id}/overview?onboarding=member`, { replace: true })
+            return
+          }
+          if (invitedRole === 'manager') {
+            navigate(`/teams/${team.id}/overview?onboarding=manager`, { replace: true })
             return
           }
           navigate(`/teams/${team.id}/overview`, { replace: true })

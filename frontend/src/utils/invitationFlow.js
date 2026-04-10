@@ -52,6 +52,7 @@ export function canManageInviteLinks(role) {
   return role === 'admin'
 }
 
-export function canCreateInviteLink(role) {
-  return role === 'admin'
+export function canCreateInviteLink(role, { allowManagerInvites = false } = {}) {
+  if (role === 'admin') return true
+  return role === 'manager' && allowManagerInvites
 }

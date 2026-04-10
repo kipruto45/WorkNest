@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
+import Forbidden from './Forbidden'
 import { auditLogsAPI, teamsAPI, unwrapData, unwrapResults } from '../services/api'
+import { extractApiError } from '../utils/apiErrors'
 import { formatDate, formatRelativeDate, toSentenceCase } from '../utils/formatters'
 
 const panelClass = 'rounded-[26px] border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]'
@@ -11,28 +14,44 @@ const cardClass = 'rounded-[22px] border border-slate-200 bg-[#fcfcfb]'
 export default function TeamActivity() {
   const { teamId } = useParams()
   const [loading, setLoading] = useState(true)
+  const [accessDenied, setAccessDenied] = useState(false)
+  const [pageError, setPageError] = useState('')
   const [team, setTeam] = useState(null)
   const [logs, setLogs] = useState([])
   const [query, setQuery] = useState('')
   const [actionFilter, setActionFilter] = useState('all')
 
-  useEffect(() => {
-    const loadLogs = async () => {
-      setLoading(true)
-      try {
-        const [teamResponse, logsResponse] = await Promise.all([
-          teamsAPI.getTeam(teamId),
-          auditLogsAPI.getForTeam(teamId, { page_size: 120 }),
-        ])
-        setTeam(unwrapData(teamResponse))
-        setLogs(unwrapResults(logsResponse))
-      } finally {
-        setLoading(false)
+  const loadLogs = useCallback(async () => {
+    setLoading(true)
+    setAccessDenied(false)
+    setPageError('')
+    try {
+      const [teamResponse, logsResponse] = await Promise.all([
+        teamsAPI.getTeam(teamId),
+        auditLogsAPI.getForTeam(teamId, { page_size: 120 }),
+      ])
+      setTeam(unwrapData(teamResponse))
+      setLogs(unwrapResults(logsResponse))
+    } catch (error) {
+      const parsed = extractApiError(error, {
+        fallbackMessage: 'Unable to load the team activity timeline.',
+      })
+      if (parsed.status === 403) {
+        setAccessDenied(true)
+      } else {
+        setPageError(parsed.message)
+        toast.error(parsed.message)
       }
+      setTeam(null)
+      setLogs([])
+    } finally {
+      setLoading(false)
     }
-
-    loadLogs()
   }, [teamId])
+
+  useEffect(() => {
+    loadLogs()
+  }, [loadLogs])
 
   const actionOptions = useMemo(() => {
     const unique = new Set(logs.map((log) => String(log.action || '').toLowerCase()).filter(Boolean))
@@ -52,8 +71,26 @@ export default function TeamActivity() {
 
   const recentActors = new Set(filteredLogs.map((log) => log.actor?.id).filter(Boolean)).size
 
-  if (loading || !team) {
+  if (loading) {
     return <LoadingState label="Loading team activity" />
+  }
+
+  if (accessDenied) {
+    return <Forbidden />
+  }
+
+  if (!team) {
+    return (
+      <EmptyState
+        title="Team activity is unavailable"
+        description={pageError || 'We could not load this team workspace right now.'}
+        action={
+          <button type="button" onClick={loadLogs} className="btn-secondary">
+            Retry
+          </button>
+        }
+      />
+    )
   }
 
   return (

@@ -104,6 +104,7 @@ export default function TeamOverview() {
   const [pinningTeam, setPinningTeam] = useState(false)
   const [workspaceQuery, setWorkspaceQuery] = useState('')
   const [showMemberOnboarding, setShowMemberOnboarding] = useState(false)
+  const [showManagerOnboarding, setShowManagerOnboarding] = useState(false)
   const deferredWorkspaceQuery = useDeferredValue(workspaceQuery.trim().toLowerCase())
 
   useEffect(() => {
@@ -522,7 +523,8 @@ export default function TeamOverview() {
   const canCreateTasks = canCreateTask(currentRole)
   const canInviteMembers = canManageInvitations({ role: currentRole, allowManagerInvites: team?.allow_manager_invites })
   const canManageTeamMembers = canManageMembers(currentRole)
-  const canPublishAnnouncements = currentRole === 'admin'
+  const canPublishAnnouncements =
+    Boolean(team?.my_capabilities?.can_post_announcements) || currentRole === 'admin' || currentRole === 'manager'
   const isMemberView = currentRole === 'member'
 
   const myAssignedTasks = useMemo(() => {
@@ -588,20 +590,32 @@ export default function TeamOverview() {
   useEffect(() => {
     if (!teamId || !isMemberView) {
       setShowMemberOnboarding(false)
-      return
+    } else {
+      const hasWelcomeParam = new URLSearchParams(location.search).get('onboarding') === 'member'
+      const pendingTeams = readMemberOnboardingTeams()
+      const hasPendingOnboarding = Boolean(pendingTeams[String(teamId)])
+      setShowMemberOnboarding(hasWelcomeParam || hasPendingOnboarding)
     }
 
-    const hasWelcomeParam = new URLSearchParams(location.search).get('onboarding') === 'member'
-    const pendingTeams = readMemberOnboardingTeams()
-    const hasPendingOnboarding = Boolean(pendingTeams[String(teamId)])
-    setShowMemberOnboarding(hasWelcomeParam || hasPendingOnboarding)
-  }, [isMemberView, location.search, teamId])
+    const onboardingParam = new URLSearchParams(location.search).get('onboarding')
+    setShowManagerOnboarding(Boolean(teamId && currentRole === 'manager' && onboardingParam === 'manager'))
+  }, [currentRole, isMemberView, location.search, teamId])
 
   const dismissMemberOnboarding = () => {
     clearMemberOnboardingTeam(teamId)
     setShowMemberOnboarding(false)
     const nextParams = new URLSearchParams(location.search)
     if (nextParams.get('onboarding') === 'member') {
+      nextParams.delete('onboarding')
+      const query = nextParams.toString()
+      navigate(query ? `${location.pathname}?${query}` : location.pathname, { replace: true })
+    }
+  }
+
+  const dismissManagerOnboarding = () => {
+    setShowManagerOnboarding(false)
+    const nextParams = new URLSearchParams(location.search)
+    if (nextParams.get('onboarding') === 'manager') {
       nextParams.delete('onboarding')
       const query = nextParams.toString()
       navigate(query ? `${location.pathname}?${query}` : location.pathname, { replace: true })
@@ -927,6 +941,38 @@ export default function TeamOverview() {
 
   return (
     <div className="space-y-6">
+      {showManagerOnboarding ? (
+        <section className="rounded-[22px] border border-sky-200 bg-sky-50/70 px-5 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Welcome to {team.name}</p>
+              <h2 className="mt-1 text-xl font-semibold text-sky-950">You joined this team as a Manager.</h2>
+              <p className="mt-2 max-w-3xl text-sm text-sky-900/80">
+                Coordinate delivery with team tasks, workload visibility, announcements, and operational deadlines from this workspace.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={dismissManagerOnboarding}
+              className="rounded-xl border border-sky-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-sky-700"
+            >
+              Dismiss
+            </button>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link to={`/teams/${teamId}`} className="btn-primary">
+              Create task
+            </Link>
+            <Link to={`/teams/${teamId}/calendar`} className="btn-secondary">
+              Open calendar
+            </Link>
+            <Link to={`/teams/${teamId}/analytics`} className="btn-secondary">
+              View analytics
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
       {fetchError ? (
         <section className="rounded-[20px] border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-800">
           <div className="flex flex-wrap items-center justify-between gap-3">
