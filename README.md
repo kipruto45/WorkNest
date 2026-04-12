@@ -11,16 +11,6 @@ A full-stack task management and team collaboration platform with realtime notif
 - **Database**: PostgreSQL or MySQL
 - **Cache/Queue**: Redis
 
-## Folder Structure
-
-```
-worknest-php-backend/  # PHP backend
-backend/               # Python backend (Django)
-frontend/              # React + Vite frontend
-deploy/                # Deployment blueprints
-docker-compose.yml     # Local development stack
-```
-
 ## Quick Start
 
 ### Using Python Backend (Django)
