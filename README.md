@@ -14,7 +14,7 @@ A full-stack task management and team collaboration platform with realtime notif
 ## Folder Structure
 
 ```
-worknest-php-backend/  # PHP backend (Slim)
+worknest-php-backend/  # PHP backend
 backend/               # Python backend (Django)
 frontend/              # React + Vite frontend
 deploy/                # Deployment blueprints
@@ -64,10 +64,48 @@ docker compose up --build
 - Backend API: `http://localhost:8000/api/v1/` (Python) or `http://localhost:8000/` (PHP)
 - Frontend: `http://localhost:5173/`
 - PostgreSQL: `localhost:5432`
+- MySQL: `localhost:3306`
 - Redis: `localhost:6379`
+
+## Environment Variables
+
+### PHP Backend
+```env
+DB_CONNECTION=mysql
+DB_HOST=localhost
+DB_PORT=3306
+DB_DATABASE=worknest
+DB_USERNAME=root
+DB_PASSWORD=any
+
+DATABASE_URL=mysql://root:@localhost:3306/worknest
+```
+
+### Python Backend
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/worknest
+REDIS_URL=redis://localhost:6379/0
+```
 
 ## Deployment
 
 - Frontend: Vercel, Netlify, or Docker
 - Backend (Python): Render, Railway, Fly.io
 - Backend (PHP): Any PHP hosting (Railway, Render, shared hosting)
+
+## PHP Services
+
+PHP backend is located in `worknest-php-backend/`:
+
+- **Database Schema**: `database/schema/schema.sql` (MySQL 8+)
+- **Seeders**: `database/seeders/`
+- **Routes**: `routes/api.php`
+- **Config**: `config/`
+- **Storage**: `storage/`
+
+## Live URLs
+
+- **Frontend**: https://work-nest-lemon.vercel.app/
+- **Backend (Python)**: https://worknest-backend-t6dw.onrender.com
+- **Backend (PHP)**: https://worknest-php.onrender.com
+- **Database**: dpg-d7a9punpm1nc73c1jsdg-a
