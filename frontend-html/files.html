@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Files - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/topbar.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/badges.css">
+  <link rel="stylesheet" href="assets/css/dropdowns.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo"><div class="sidebar-logo-icon">W</div><span class="sidebar-logo-text">WorkNest</span></div></div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section"><div class="sidebar-section-title">Main</div>
+          <a href="dashboard.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Dashboard</span></a>
+          <a href="my-tasks.html" class="sidebar-nav-item"><span class="sidebar-nav-text">My Tasks</span></a>
+          <a href="files.html" class="sidebar-nav-item active"><span class="sidebar-nav-text">Files</span></a>
+        </div>
+      </nav>
+      <div class="sidebar-footer"><div class="sidebar-team-selector"><div class="sidebar-team-avatar">AC</div><div class="sidebar-team-info"><div class="sidebar-team-name">Acme Corp</div></div></div></div>
+    </aside>
+    <header class="topbar"><div class="topbar-left"><div class="topbar-search"><input type="text" class="topbar-search-input" placeholder="Search files..."></div></div><div class="topbar-right"><div class="topbar-user"><div class="topbar-user-avatar">JD</div></div></div></header>
+    <main class="main-content">
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-header-left"><h1 class="page-title">Files</h1><p class="page-subtitle">Manage and organize your files.</p></div>
+          <div class="page-actions"><button class="btn btn-primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Upload</button></div>
+        </div>
+        <div class="card">
+          <div style="padding: var(--space-4);">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4);">
+              <div class="file-item"><div style="width: 48px; height: 48px; background: #dbeafe; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; margin-bottom: var(--space-2);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="font-weight: 500;">mockups-v2.fig</div><div style="font-size: 0.75rem; color: var(--text-tertiary);">2.4 MB</div></div>
+              <div class="file-item"><div style="width: 48px; height: 48px; background: #fef3c7; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; margin-bottom: var(--space-2);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="font-weight: 500;">brand-guidelines.pdf</div><div style="font-size: 0.75rem; color: var(--text-tertiary);">1.8 MB</div></div>
+              <div class="file-item"><div style="width: 48px; height: 48px; background: #d1fae5; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; margin-bottom: var(--space-2);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div><div style="font-weight: 500;">screenshot.png</div><div style="font-size: 0.75rem; color: var(--text-tertiary);">856 KB</div></div>
+              <div class="file-item"><div style="width: 48px; height: 48px; background: #fce7f3; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; margin-bottom: var(--space-2);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="font-weight: 500;">project-specs.docx</div><div style="font-size: 0.75rem; color: var(--text-tertiary);">245 KB</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personal Dashboard - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/topbar.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/badges.css">
+  <link rel="stylesheet" href="assets/css/dropdowns.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo"><div class="sidebar-logo-icon">W</div><span class="sidebar-logo-text">WorkNest</span></div></div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section"><div class="sidebar-section-title">Main</div>
+          <a href="dashboard.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Dashboard</span></a>
+          <a href="personal-dashboard.html" class="sidebar-nav-item active"><span class="sidebar-nav-text">Personal</span></a>
+        </div>
+      </nav>
+      <div class="sidebar-footer"><div class="sidebar-team-selector"><div class="sidebar-team-avatar">JD</div><div class="sidebar-team-info"><div class="sidebar-team-name">John Doe</div></div></div></div>
+    </aside>
+    <header class="topbar"><div class="topbar-right"><div class="topbar-user"><div class="topbar-user-avatar">JD</div></div></div></header>
+    <main class="main-content">
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-header-left">
+            <h1 class="page-title">Personal Dashboard</h1>
+            <p class="page-subtitle">Your personal task overview and statistics.</p>
+          </div>
+        </div>
+        <div class="grid grid-4" style="margin-bottom: var(--space-6);">
+          <div class="card stat-card"><div class="stat-card-header"><div class="stat-card-icon primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/></svg></div></div><div class="stat-card-value">24</div><div class="stat-card-label">Total Tasks</div></div>
+          <div class="card stat-card"><div class="stat-card-header"><div class="stat-card-icon success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/></svg></div></div><div class="stat-card-value">18</div><div class="stat-card-label">Completed</div></div>
+          <div class="card stat-card"><div class="stat-card-header"><div class="stat-card-icon warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div><div class="stat-card-value">4</div><div class="stat-card-label">In Progress</div></div>
+          <div class="card stat-card"><div class="stat-card-header"><div class="stat-card-icon danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg></div></div><div class="stat-card-value">2</div><div class="stat-card-label">Overdue</div></div>
+        </div>
+        <div class="grid grid-2" style="gap: var(--space-6);">
+          <div class="card"><div class="card-header"><h3 class="card-title">Today's Tasks</h3></div><div class="card-body" style="padding: var(--space-4);"><div style="display: flex; justify-content: space-between; padding: var(--space-2) 0;"><span>Design dashboard mockups</span><span class="badge badge-warning">High</span></div><div style="display: flex; justify-content: space-between; padding: var(--space-2) 0;"><span>Review PRs</span><span class="badge badge-info">Medium</span></div></div></div>
+          <div class="card"><div class="card-header"><h3 class="card-title">This Week</h3></div><div class="card-body" style="padding: var(--space-4);"><div style="display: flex; justify-content: space-between; padding: var(--space-2) 0;"><span>Tasks due</span><strong>8</strong></div><div style="display: flex; justify-content: space-between; padding: var(--space-2) 0;"><span>Completed</span><strong>12</strong></div></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

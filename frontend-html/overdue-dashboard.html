@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overdue Tasks - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/topbar.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/badges.css">
+  <link rel="stylesheet" href="assets/css/tables.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar"><div class="sidebar-header"><div class="sidebar-logo"><div class="sidebar-logo-icon">W</div></div></div></aside>
+    <main class="main-content">
+      <div class="page-container">
+        <div class="page-header"><div class="page-header-left"><h1 class="page-title">Overdue Tasks</h1><p class="page-subtitle">Tasks that need immediate attention.</p></div></div>
+        <div class="card">
+          <div class="table-container">
+            <table class="table">
+              <thead><tr><th>Task</th><th>Assignee</th><th>Due Date</th><th>Days Overdue</th><th>Priority</th></tr></thead>
+              <tbody>
+                <tr><td><span style="font-weight: 500;">Setup monitoring alerts</span></td><td><div class="avatar avatar-sm" style="background: #10b981;">AK</div></td><td style="color: var(--color-danger);">Dec 8</td><td><span class="badge badge-danger">2 days</span></td><td><span class="badge badge-info">Medium</span></td></tr>
+                <tr><td><span style="font-weight: 500;">Fix login bug on mobile</span></td><td><div class="avatar avatar-sm" style="background: #14b8a6;">CB</div></td><td style="color: var(--color-danger);">Dec 5</td><td><span class="badge badge-danger">5 days</span></td><td><span class="badge badge-danger">Critical</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

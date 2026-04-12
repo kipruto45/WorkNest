@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Overview - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/topbar.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/badges.css">
+  <link rel="stylesheet" href="assets/css/dropdowns.css">
+  <link rel="stylesheet" href="assets/css/tables.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo"><div class="sidebar-logo-icon">W</div><span class="sidebar-logo-text">WorkNest</span></div></div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section"><div class="sidebar-section-title">Admin</div>
+          <a href="admin-overview.html" class="sidebar-nav-item active"><span class="sidebar-nav-text">Overview</span></a>
+          <a href="admin-users.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Users</span></a>
+          <a href="admin-teams.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Teams</span></a>
+          <a href="admin-integrations.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Integrations</span></a>
+        </div>
+      </nav>
+      <div class="sidebar-footer"><div class="sidebar-team-selector"><div class="sidebar-team-avatar">AC</div><div class="sidebar-team-info"><div class="sidebar-team-name">Acme Corp</div><div class="sidebar-team-role">Owner</div></div></div></div>
+    </aside>
+    <header class="topbar"><div class="topbar-right"><div class="topbar-user"><div class="topbar-user-avatar">JD</div></div></div></header>
+    <main class="main-content">
+      <div class="page-container">
+        <div class="page-header"><div class="page-header-left"><h1 class="page-title">Admin Overview</h1><p class="page-subtitle">System-wide statistics and settings.</p></div></div>
+        <div class="grid grid-4" style="margin-bottom: var(--space-6);">
+          <div class="card stat-card"><div class="stat-card-value">156</div><div class="stat-card-label">Total Users</div></div>
+          <div class="card stat-card"><div class="stat-card-value">12</div><div class="stat-card-label">Teams</div></div>
+          <div class="card stat-card"><div class="stat-card-value">48</div><div class="stat-card-label">Active Tasks</div></div>
+          <div class="card stat-card"><div class="stat-card-value">2.4GB</div><div class="stat-card-label">Storage Used</div></div>
+        </div>
+        <div class="grid grid-2" style="gap: var(--space-6);">
+          <div class="card"><div class="card-header"><h3 class="card-title">Recent Signups</h3></div><div class="card-body" style="padding: var(--space-4);"><div style="display: flex; justify-content: space-between; padding: var(--space-2) 0;"><span>Mike Wilson</span><span style="color: var(--text-tertiary);">Today</span></div><div style="display: flex; justify-content: space-between; padding: var(--space-2) 0;"><span>Lisa Chen</span><span style="color: var(--text-tertiary);">Yesterday</span></div></div></div>
+          <div class="card"><div class="card-header"><h3 class="card-title">System Health</h3></div><div class="card-body" style="padding: var(--space-4);"><div style="display: flex; justify-content: space-between; padding: var(--space-2) 0;"><span>API Status</span><span class="badge badge-success">Operational</span></div><div style="display: flex; justify-content: space-between; padding: var(--space-2) 0;"><span>Database</span><span class="badge badge-success">Healthy</span></div></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

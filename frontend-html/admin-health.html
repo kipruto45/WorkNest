@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Health - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/badges.css">
+</head>
+<body>
+  <div class="page-container" style="max-width: 1000px; margin: 50px auto;">
+    <h1 class="page-title">System Health</h1>
+    <div class="grid grid-3" style="gap: var(--space-6);">
+      <div class="card"><h3>API Server</h3><p style="color: var(--text-secondary);">Response time: 45ms</p><span class="badge badge-success">Healthy</span></div>
+      <div class="card"><h3>Database</h3><p style="color: var(--text-secondary);">Connections: 12/100</p><span class="badge badge-success">Healthy</span></div>
+      <div class="card"><h3>Cache</h3><p style="color: var(--text-secondary);">Hit rate: 94%</p><span class="badge badge-success">Healthy</span></div>
+    </div>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

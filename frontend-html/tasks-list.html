@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tasks List - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/topbar.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/badges.css">
+  <link rel="stylesheet" href="assets/css/dropdowns.css">
+  <link rel="stylesheet" href="assets/css/tables.css">
+  <link rel="stylesheet" href="assets/css/forms.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo"><div class="sidebar-logo-icon">W</div><span class="sidebar-logo-text">WorkNest</span></div></div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section"><div class="sidebar-section-title">Main</div>
+          <a href="dashboard.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Dashboard</span></a>
+          <a href="my-tasks.html" class="sidebar-nav-item"><span class="sidebar-nav-text">My Tasks</span><span class="sidebar-nav-badge">5</span></a>
+          <a href="teams.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Teams</span></a>
+          <a href="files.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Files</span></a>
+        </div>
+        <div class="sidebar-section"><div class="sidebar-section-title">Tools</div>
+          <a href="tasks-board.html" class="sidebar-nav-item active"><span class="sidebar-nav-text">Board</span></a>
+          <a href="tasks-list.html" class="sidebar-nav-item"><span class="sidebar-nav-text">List</span></a>
+          <a href="tasks-calendar.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Calendar</span></a>
+        </div>
+      </nav>
+      <div class="sidebar-footer"><div class="sidebar-team-selector"><div class="sidebar-team-avatar">AC</div><div class="sidebar-team-info"><div class="sidebar-team-name">Acme Corp</div><div class="sidebar-team-role">Admin</div></div></div></div>
+    </aside>
+    <header class="topbar">
+      <div class="topbar-left"><button class="topbar-mobile-toggle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></div>
+      <div class="topbar-right"><button class="topbar-icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="topbar-badge"></span></button><div class="topbar-user"><div class="topbar-user-avatar">JD</div></div></div>
+    </header>
+    <main class="main-content">
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="breadcrumbs"><a href="#">Acme Corp</a><span class="separator">/</span><span>All Tasks</span></div>
+            <h1 class="page-title">Tasks List</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-secondary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>Filter</button>
+            <button class="btn btn-primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Task</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-container">
+            <table class="table">
+              <thead><tr><th style="width: 40px;"><input type="checkbox" class="form-checkbox"></th><th>Task</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Due Date</th><th>Tags</th><th style="width: 60px;"></th></tr></thead>
+              <tbody>
+                <tr><td><input type="checkbox" class="form-checkbox"></td><td><div style="display: flex; align-items: center; gap: var(--space-3);"><div style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary);"></div><span style="font-weight: 500;">Design new dashboard mockups</span></div></td><td><span class="badge badge-info">In Progress</span></td><td><span class="badge badge-warning">High</span></td><td><div class="avatar avatar-sm" style="background: #6366f1;">SM</div></td><td style="color: var(--color-danger);">Today</td><td><span class="badge badge-secondary">Design</span></td><td><button class="btn btn-ghost btn-icon btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></td></tr>
+                <tr><td><input type="checkbox" class="form-checkbox"></td><td><div style="display: flex; align-items: center; gap: var(--space-3);"><div style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary);"></div><span style="font-weight: 500;">Update API documentation</span></div></td><td><span class="badge badge-secondary">To Do</span></td><td><span class="badge badge-info">Medium</span></td><td><div class="avatar avatar-sm" style="background: #10b981;">AK</div></td><td>Tomorrow</td><td><span class="badge badge-secondary">Docs</span></td><td><button class="btn btn-ghost btn-icon btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></td></tr>
+                <tr><td><input type="checkbox" class="form-checkbox"></td><td><div style="display: flex; align-items: center; gap: var(--space-3);"><div style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-success);"></div><span style="text-decoration: line-through; opacity: 0.7;">Fix login bug on mobile</span></div></td><td><span class="badge badge-success">Done</span></td><td><span class="badge badge-danger">Critical</span></td><td><div class="avatar avatar-sm" style="background: #14b8a6;">CB</div></td><td>Dec 8</td><td><span class="badge badge-secondary">Bug</span></td><td><button class="btn btn-ghost btn-icon btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer"><div class="table-info">Showing 3 of 24 tasks</div><div class="pagination"><button class="btn btn-ghost btn-sm" disabled>Previous</button><button class="btn btn-ghost btn-sm active">1</button><button class="btn btn-ghost btn-sm">2</button><button class="btn btn-ghost btn-sm">Next</button></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

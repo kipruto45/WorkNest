@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Attachment - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/forms.css">
+</head>
+<body>
+  <div class="page-container" style="max-width: 600px; margin: 50px auto;">
+    <h1 class="page-title">Upload Attachment</h1>
+    <div class="card">
+      <div style="border: 2px dashed var(--border); border-radius: var(--radius-lg); padding: var(--space-12); text-align: center;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" style="margin: 0 auto var(--space-4);"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p style="color: var(--text-secondary); margin-bottom: var(--space-4);">Drag and drop files here, or click to browse</p>
+        <button class="btn btn-secondary">Browse Files</button>
+      </div>
+      <div class="form-group" style="margin-top: var(--space-4);"><label class="form-label">Or paste URL</label><input type="url" class="form-input" placeholder="https://..."></div>
+      <button class="btn btn-primary" style="margin-top: var(--space-4);">Upload</button>
+    </div>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Details - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/topbar.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/badges.css">
+  <link rel="stylesheet" href="assets/css/dropdowns.css">
+  <link rel="stylesheet" href="assets/css/forms.css">
+  <link rel="stylesheet" href="assets/css/tabs.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo"><div class="sidebar-logo-icon">W</div><span class="sidebar-logo-text">WorkNest</span></div></div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section"><div class="sidebar-section-title">Main</div>
+          <a href="my-tasks.html" class="sidebar-nav-item"><span class="sidebar-nav-text">My Tasks</span></a>
+        </div>
+      </nav>
+      <div class="sidebar-footer"><div class="sidebar-team-selector"><div class="sidebar-team-avatar">AC</div><div class="sidebar-team-info"><div class="sidebar-team-name">Acme Corp</div></div></div></div>
+    </aside>
+    <header class="topbar">
+      <div class="topbar-left"><button class="topbar-mobile-toggle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></div>
+      <div class="topbar-right"><div class="topbar-user"><div class="topbar-user-avatar">JD</div></div></div>
+    </header>
+    <main class="main-content">
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="breadcrumbs"><a href="my-tasks.html">Tasks</a><span class="separator">/</span><span>Design new dashboard</span></div>
+            <h1 class="page-title">Design new dashboard</h1>
+          </div>
+          <div class="page-actions">
+            <a href="task-edit.html" class="btn btn-secondary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit</a>
+            <button class="btn btn-primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Mark Complete</button>
+          </div>
+        </div>
+        <div class="grid grid-3" style="gap: var(--space-6);">
+          <div style="grid-column: span 2;">
+            <div class="card">
+              <div style="display: flex; gap: var(--space-4); margin-bottom: var(--space-6);">
+                <span class="badge badge-info">In Progress</span>
+                <span class="badge badge-warning">High</span>
+              </div>
+              <h3 style="margin-bottom: var(--space-4);">Description</h3>
+              <p style="color: var(--text-secondary); line-height: 1.7; margin-bottom: var(--space-6);">Create high-fidelity mockups for the new dashboard design with modern UI components. The design should be responsive and follow our brand guidelines.</p>
+              <div style="border-top: 1px solid var(--border); padding-top: var(--space-4);">
+                <div style="display: flex; align-items: center; gap: var(--space-3);">
+                  <span style="color: var(--text-tertiary);">Assignees:</span>
+                  <div class="avatar avatar-sm" style="background: #6366f1;">SM</div>
+                  <div class="avatar avatar-sm" style="background: #10b981;">JD</div>
+                </div>
+              </div>
+            </div>
+            <div class="card" style="margin-top: var(--space-6);">
+              <div class="tabs" style="padding: var(--space-2); border-bottom: 1px solid var(--border);">
+                <button class="tab active">Comments (3)</button>
+                <button class="tab">Attachments (2)</button>
+                <button class="tab">Activity</button>
+              </div>
+              <div style="padding: var(--space-4);">
+                <div style="display: flex; gap: var(--space-3); margin-bottom: var(--space-4);">
+                  <div class="avatar" style="background: #10b981;">SM</div>
+                  <div style="flex: 1;">
+                    <div style="font-weight: 500;">Sarah Miller</div>
+                    <div style="color: var(--text-secondary); font-size: 0.875rem;">I've updated the color palette based on our brand guidelines. Please review when you get a chance.</div>
+                    <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: var(--space-2);">2 hours ago</div>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-top: var(--space-4);">
+                  <textarea class="form-textarea" rows="2" placeholder="Add a comment..."></textarea>
+                  <button class="btn btn-primary btn-sm" style="margin-top: var(--space-2);">Post Comment</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <h3 style="margin-bottom: var(--space-4);">Details</h3>
+              <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+                <div><div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: var(--space-1);">Due Date</div><div style="font-weight: 500;">Dec 10, 2024</div></div>
+                <div><div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: var(--space-1);">Created</div><div style="font-weight: 500;">Dec 5, 2024</div></div>
+                <div><div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: var(--space-1);">Project</div><div style="font-weight: 500;">Website Redesign</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

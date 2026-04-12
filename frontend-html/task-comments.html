@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Comments - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/topbar.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/forms.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar"><div class="sidebar-header"><div class="sidebar-logo"><div class="sidebar-logo-icon">W</div></div></div></aside>
+    <main class="main-content">
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="breadcrumbs"><a href="task-details.html">Design new dashboard</a><span class="separator">/</span><span>Comments</span></div>
+            <h1 class="page-title">Comments</h1>
+          </div>
+        </div>
+        <div class="card">
+          <div style="padding: var(--space-4);">
+            <div style="display: flex; gap: var(--space-3); margin-bottom: var(--space-6);">
+              <div class="avatar" style="background: #10b981;">SM</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 500;">Sarah Miller <span style="color: var(--text-tertiary); font-weight: 400;">- 2 hours ago</span></div>
+                <div style="color: var(--text-secondary); margin-top: var(--space-2);">I've updated the color palette based on our brand guidelines. Please review when you get a chance.</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: var(--space-3); margin-bottom: var(--space-6);">
+              <div class="avatar" style="background: #6366f1;">JD</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 500;">John Doe <span style="color: var(--text-tertiary); font-weight: 400;">- 4 hours ago</span></div>
+                <div style="color: var(--text-secondary); margin-top: var(--space-2);">Looks great! Can we also add a dark mode option?</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: var(--space-3);">
+              <div class="avatar" style="background: #f59e0b;">AK</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 500;">Alex Kim <span style="color: var(--text-tertiary); font-weight: 400;">- Yesterday</span></div>
+                <div style="color: var(--text-secondary); margin-top: var(--space-2);">I've added some new icons to the component library.</div>
+              </div>
+            </div>
+          </div>
+          <div style="padding: var(--space-4); border-top: 1px solid var(--border);">
+            <textarea class="form-textarea" rows="3" placeholder="Write a comment..."></textarea>
+            <button class="btn btn-primary" style="margin-top: var(--space-3);">Post Comment</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

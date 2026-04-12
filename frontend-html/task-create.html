@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Task - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/topbar.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/badges.css">
+  <link rel="stylesheet" href="assets/css/dropdowns.css">
+  <link rel="stylesheet" href="assets/css/forms.css">
+  <link rel="stylesheet" href="assets/css/modals.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo"><div class="sidebar-logo-icon">W</div><span class="sidebar-logo-text">WorkNest</span></div></div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section"><div class="sidebar-section-title">Main</div>
+          <a href="my-tasks.html" class="sidebar-nav-item"><span class="sidebar-nav-text">My Tasks</span></a>
+          <a href="tasks-board.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Board</span></a>
+        </div>
+      </nav>
+      <div class="sidebar-footer"><div class="sidebar-team-selector"><div class="sidebar-team-avatar">AC</div><div class="sidebar-team-info"><div class="sidebar-team-name">Acme Corp</div></div></div></div>
+    </aside>
+    <header class="topbar">
+      <div class="topbar-left"><button class="topbar-mobile-toggle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></div>
+      <div class="topbar-right"><button class="topbar-icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></button><div class="topbar-user"><div class="topbar-user-avatar">JD</div></div></div>
+    </header>
+    <main class="main-content">
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="breadcrumbs"><a href="my-tasks.html">Tasks</a><span class="separator">/</span><span>Create Task</span></div>
+            <h1 class="page-title">Create New Task</h1>
+          </div>
+        </div>
+        <div class="grid grid-2" style="gap: var(--space-6);">
+          <div class="card">
+            <h3 class="card-title" style="margin-bottom: var(--space-6);">Task Details</h3>
+            <div class="form-group"><label class="form-label required">Title</label><input type="text" class="form-input" placeholder="Enter task title" required></div>
+            <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" rows="4" placeholder="Describe the task..."></textarea></div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Status</label><select class="form-select"><option>To Do</option><option>In Progress</option><option>In Review</option></select></div>
+              <div class="form-group"><label class="form-label">Priority</label><select class="form-select"><option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option></select></div>
+            </div>
+            <div class="form-group"><label class="form-label">Due Date</label><input type="date" class="form-input"></div>
+          </div>
+          <div class="card">
+            <h3 class="card-title" style="margin-bottom: var(--space-6);">Assignment</h3>
+            <div class="form-group"><label class="form-label">Assignees</label>
+              <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                <div class="avatar" style="background: #6366f1; cursor: pointer;">JD</div>
+                <div class="avatar" style="background: #10b981; cursor: pointer;">SM</div>
+                <button class="btn btn-ghost btn-sm" style="border: 1px dashed var(--border);">+</button>
+              </div>
+            </div>
+            <div class="form-group"><label class="form-label">Tags</label><input type="text" class="form-input" placeholder="Add tags..."></div>
+            <div style="display: flex; gap: var(--space-3); margin-top: var(--space-6);">
+              <button class="btn btn-primary">Create Task</button>
+              <a href="my-tasks.html" class="btn btn-ghost">Cancel</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

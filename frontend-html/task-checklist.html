@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Checklist - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/topbar.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/forms.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar"><div class="sidebar-header"><div class="sidebar-logo"><div class="sidebar-logo-icon">W</div><span class="sidebar-logo-text">WorkNest</span></div></div></aside>
+    <main class="main-content">
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="breadcrumbs"><a href="task-details.html">Design new dashboard</a><span class="separator">/</span><span>Checklist</span></div>
+            <h1 class="page-title">Task Checklist</h1>
+          </div>
+        </div>
+        <div class="card">
+          <div style="padding: var(--space-4);">
+            <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
+              <input type="checkbox" class="form-checkbox" checked>
+              <span style="text-decoration: line-through; color: var(--text-secondary);">Create wireframes</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
+              <input type="checkbox" class="form-checkbox" checked>
+              <span style="text-decoration: line-through; color: var(--text-secondary);">Design color palette</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
+              <input type="checkbox" class="form-checkbox" checked>
+              <span style="text-decoration: line-through; color: var(--text-secondary);">Create component library</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
+              <input type="checkbox" class="form-checkbox">
+              <span>Design dashboard layout</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
+              <input type="checkbox" class="form-checkbox">
+              <span>Add responsive breakpoints</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
+              <input type="checkbox" class="form-checkbox">
+              <span>Review with team</span>
+            </div>
+          </div>
+          <div style="padding: var(--space-4); border-top: 1px solid var(--border);">
+            <div style="display: flex; gap: var(--space-2);">
+              <input type="text" class="form-input" placeholder="Add new item...">
+              <button class="btn btn-primary btn-sm">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tasks Calendar - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/topbar.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/badges.css">
+  <link rel="stylesheet" href="assets/css/dropdowns.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo"><div class="sidebar-logo-icon">W</div><span class="sidebar-logo-text">WorkNest</span></div></div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section"><div class="sidebar-section-title">Main</div>
+          <a href="my-tasks.html" class="sidebar-nav-item"><span class="sidebar-nav-text">My Tasks</span></a>
+          <a href="tasks-board.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Board</span></a>
+          <a href="tasks-calendar.html" class="sidebar-nav-item active"><span class="sidebar-nav-text">Calendar</span></a>
+        </div>
+      </nav>
+      <div class="sidebar-footer"><div class="sidebar-team-selector"><div class="sidebar-team-avatar">AC</div><div class="sidebar-team-info"><div class="sidebar-team-name">Acme Corp</div></div></div></div>
+    </aside>
+    <header class="topbar">
+      <div class="topbar-left"><button class="topbar-mobile-toggle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></div>
+      <div class="topbar-right"><button class="topbar-icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></button><div class="topbar-user"><div class="topbar-user-avatar">JD</div></div></div>
+    </header>
+    <main class="main-content">
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="breadcrumbs"><a href="#">Acme Corp</a><span class="separator">/</span><span>Calendar</span></div>
+            <h1 class="page-title">Tasks Calendar</h1>
+          </div>
+          <div class="page-actions"><button class="btn btn-primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Task</button></div>
+        </div>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-4); border-bottom: 1px solid var(--border);">
+            <button class="btn btn-ghost btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>Prev</button>
+            <h3 style="font-weight: 600;">December 2024</h3>
+            <button class="btn btn-ghost btn-sm">Next<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--border);">
+            <div style="padding: var(--space-3); text-align: center; font-weight: 600; color: var(--text-tertiary);">Sun</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: 600; color: var(--text-tertiary);">Mon</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: 600; color: var(--text-tertiary);">Tue</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: 600; color: var(--text-tertiary);">Wed</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: 600; color: var(--text-tertiary);">Thu</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: 600; color: var(--text-tertiary);">Fri</div>
+            <div style="padding: var(--space-3); text-align: center; font-weight: 600; color: var(--text-tertiary);">Sat</div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(7, 1fr);">
+            <div style="min-height: 100px; padding: var(--space-2); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); color: var(--text-tertiary);">1</div>
+            <div style="min-height: 100px; padding: var(--space-2); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); color: var(--text-tertiary);">2</div>
+            <div style="min-height: 100px; padding: var(--space-2); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); color: var(--text-tertiary);">3</div>
+            <div style="min-height: 100px; padding: var(--space-2); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); color: var(--text-tertiary);">4</div>
+            <div style="min-height: 100px; padding: var(--space-2); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);"><div style="background: var(--color-primary); color: white; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; margin-bottom: 4px;">Design new dashboard</div></div>
+            <div style="min-height: 100px; padding: var(--space-2); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);"></div>
+            <div style="min-height: 100px; padding: var(--space-2); border-bottom: 1px solid var(--border);"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
