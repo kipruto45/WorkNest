@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team Settings - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/topbar.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/badges.css">
+  <link rel="stylesheet" href="assets/css/dropdowns.css">
+  <link rel="stylesheet" href="assets/css/forms.css">
+  <link rel="stylesheet" href="assets/css/tabs.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <div class="sidebar-logo-icon">W</div>
+          <span class="sidebar-logo-text">WorkNest</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section"><div class="sidebar-section-title">Main</div>
+          <a href="dashboard.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Dashboard</span></a>
+          <a href="teams.html" class="sidebar-nav-item active"><span class="sidebar-nav-text">Teams</span></a>
+        </div>
+        <div class="sidebar-section"><div class="sidebar-section-title">Settings</div>
+          <a href="account-settings.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Settings</span></a>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-team-selector"><div class="sidebar-team-avatar">AC</div><div class="sidebar-team-info"><div class="sidebar-team-name">Acme Corp</div><div class="sidebar-team-role">Admin</div></div></div>
+      </div>
+    </aside>
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-mobile-toggle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div class="topbar-search"><svg class="topbar-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" class="topbar-search-input" placeholder="Search..."></div>
+      </div>
+      <div class="topbar-right">
+        <button class="topbar-icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="topbar-badge"></span></button>
+        <div class="topbar-user"><div class="topbar-user-avatar">JD</div></div>
+      </div>
+    </header>
+    <main class="main-content">
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="breadcrumbs"><a href="teams.html">Teams</a><span class="separator">/</span><a href="team-overview.html">Acme Corp</a><span class="separator">/</span><span>Settings</span></div>
+            <h1 class="page-title">Team Settings</h1>
+          </div>
+        </div>
+        <div class="grid grid-3" style="gap: var(--space-6);">
+          <div style="grid-column: span 1;">
+            <div class="card">
+              <nav class="settings-nav">
+                <a href="team-overview.html" class="settings-nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Overview</a>
+                <a href="team-members.html" class="settings-nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Members</a>
+                <a href="team-roles.html" class="settings-nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Roles</a>
+                <a href="team-invitations.html" class="settings-nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Invitations</a>
+                <a href="#" class="settings-nav-item active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4"/></svg>Settings</a>
+              </nav>
+            </div>
+          </div>
+          <div style="grid-column: span 2;">
+            <div class="card"><h3 class="card-title" style="margin-bottom: var(--space-6);">General Settings</h3>
+              <div class="form-group"><label class="form-label">Team Name</label><input type="text" class="form-input" value="Acme Corp"></div>
+              <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" rows="3">Main organization team handling all core projects and operations.</textarea></div>
+              <div class="form-group"><label class="form-label">Visibility</label>
+                <select class="form-select"><option>Private</option><option selected>Team Visible</option><option>Public</option></select>
+              </div>
+              <button class="btn btn-primary">Save Changes</button>
+            </div>
+            <div class="card" style="margin-top: var(--space-6);"><h3 class="card-title" style="margin-bottom: var(--space-6);">Danger Zone</h3>
+              <div style="padding: var(--space-4); border: 1px solid var(--color-danger); border-radius: var(--radius-md);">
+                <h4 style="color: var(--color-danger); margin-bottom: var(--space-2);">Delete Team</h4>
+                <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--space-4);">Once you delete a team, there is no going back. Please be certain.</p>
+                <button class="btn btn-danger">Delete Team</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <style>
+    .settings-nav { display: flex; flex-direction: column; gap: var(--space-1); }
+    .settings-nav-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); color: var(--text-secondary); text-decoration: none; transition: all 0.2s; }
+    .settings-nav-item:hover { background: var(--bg-secondary); color: var(--text-primary); }
+    .settings-nav-item.active { background: var(--color-primary); color: white; }
+    .btn-danger { background: var(--color-danger); color: white; border: none; }
+    .btn-danger:hover { background: #dc2626; }
+  </style>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

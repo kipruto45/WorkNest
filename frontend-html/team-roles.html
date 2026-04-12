@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team Roles - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/sidebar.css">
+  <link rel="stylesheet" href="assets/css/topbar.css">
+  <link rel="stylesheet" href="assets/css/cards.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/badges.css">
+  <link rel="stylesheet" href="assets/css/dropdowns.css">
+  <link rel="stylesheet" href="assets/css/tables.css">
+  <link rel="stylesheet" href="assets/css/forms.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo"><div class="sidebar-logo-icon">W</div><span class="sidebar-logo-text">WorkNest</span></div></div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section"><div class="sidebar-section-title">Main</div>
+          <a href="dashboard.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Dashboard</span></a>
+          <a href="teams.html" class="sidebar-nav-item active"><span class="sidebar-nav-text">Teams</span></a>
+        </div>
+        <div class="sidebar-section"><div class="sidebar-section-title">Settings</div>
+          <a href="account-settings.html" class="sidebar-nav-item"><span class="sidebar-nav-text">Settings</span></a>
+        </div>
+      </nav>
+      <div class="sidebar-footer"><div class="sidebar-team-selector"><div class="sidebar-team-avatar">AC</div><div class="sidebar-team-info"><div class="sidebar-team-name">Acme Corp</div><div class="sidebar-team-role">Admin</div></div></div></div>
+    </aside>
+    <header class="topbar">
+      <div class="topbar-left"><button class="topbar-mobile-toggle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></div>
+      <div class="topbar-right"><button class="topbar-icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="topbar-badge"></span></button><div class="topbar-user"><div class="topbar-user-avatar">JD</div></div></div>
+    </header>
+    <main class="main-content">
+      <div class="page-container">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="breadcrumbs"><a href="teams.html">Teams</a><span class="separator">/</span><a href="team-overview.html">Acme Corp</a><span class="separator">/</span><span>Roles</span></div>
+            <h1 class="page-title">Team Roles</h1>
+          </div>
+          <div class="page-actions"><button class="btn btn-primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Create Role</button></div>
+        </div>
+        <div class="grid grid-3" style="gap: var(--space-6);">
+          <div class="card">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4);">
+              <h3 style="font-weight: 600;">Admin</h3>
+              <span class="badge badge-primary">3 users</span>
+            </div>
+            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--space-4);">Full access to all features and settings.</p>
+            <div style="border-top: 1px solid var(--border); padding-top: var(--space-4);">
+              <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: var(--space-2);">Permissions</div>
+              <div style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
+                <span class="badge badge-secondary">Manage Tasks</span>
+                <span class="badge badge-secondary">Manage Members</span>
+                <span class="badge badge-secondary">Edit Settings</span>
+                <span class="badge badge-secondary">Delete Team</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4);">
+              <h3 style="font-weight: 600;">Member</h3>
+              <span class="badge badge-info">8 users</span>
+            </div>
+            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--space-4);">Can create and manage tasks within the team.</p>
+            <div style="border-top: 1px solid var(--border); padding-top: var(--space-4);">
+              <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: var(--space-2);">Permissions</div>
+              <div style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
+                <span class="badge badge-secondary">Create Tasks</span>
+                <span class="badge badge-secondary">Assign Tasks</span>
+                <span class="badge badge-secondary">View Files</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4);">
+              <h3 style="font-weight: 600;">Viewer</h3>
+              <span class="badge badge-warning">2 users</span>
+            </div>
+            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--space-4);">Read-only access to team content.</p>
+            <div style="border-top: 1px solid var(--border); padding-top: var(--space-4);">
+              <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: var(--space-2);">Permissions</div>
+              <div style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
+                <span class="badge badge-secondary">View Tasks</span>
+                <span class="badge badge-secondary">View Files</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

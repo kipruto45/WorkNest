@@ -1,0 +1,71 @@
+@media (max-width: 640px) {
+  .hidden-xs { display: none !important; }
+  .block-xs { display: block !important; }
+  .flex-xs { display: flex !important; }
+  .grid-xs { display: grid !important; }
+  .w-full-xs { width: 100% !important; }
+  .p-0-xs { padding: 0 !important; }
+  .p-2-xs { padding: 0.5rem !important; }
+  .p-4-xs { padding: 1rem !important; }
+  .m-0-xs { margin: 0 !important; }
+  .m-auto-xs { margin: auto !important; }
+  .text-center-xs { text-align: center !important; }
+  .flex-col-xs { flex-direction: column !important; }
+  .flex-wrap-xs { flex-wrap: wrap !important; }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .hidden-sm { display: none !important; }
+  .block-sm { display: block !important; }
+  .flex-sm { display: flex !important; }
+  .w-full-sm { width: 100% !important; }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .hidden-md { display: none !important; }
+  .block-md { display: block !important; }
+  .flex-md { display: flex !important; }
+}
+
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .hidden-lg { display: none !important; }
+  .block-lg { display: block !important; }
+}
+
+@media (min-width: 1281px) {
+  .hidden-xl { display: none !important; }
+  .block-xl { display: block !important; }
+}
+
+@media (prefers-color-scheme: dark) {
+  .dark:bg-gray-900 { background-color: #111827; }
+  .dark:text-white { color: white; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  .print-break-before { break-before: page; }
+  .print-break-after { break-after: page; }
+}
+
+@media (orientation: portrait) {
+  .portrait-only { display: block !important; }
+  .landscape-only { display: none !important; }
+}
+
+@media (orientation: landscape) {
+  .landscape-only { display: block !important; }
+  .portrait-only { display: none !important; }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .touch-friendly { min-height: 44px; min-width: 44px; }
+}

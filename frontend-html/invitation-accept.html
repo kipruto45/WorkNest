@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accept Invitation - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/auth.css">
+  <link rel="stylesheet" href="assets/css/forms.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/animations.css">
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-split">
+      <div class="auth-main auth-centered">
+        <div class="auth-brand">
+          <div class="auth-logo">W</div>
+          <span class="auth-logo-text">WorkNest</span>
+        </div>
+        
+        <div class="team-invite-banner">
+          <div class="team-invite-avatar" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">AC</div>
+          <div class="team-invite-info">
+            <h3>You're invited to join</h3>
+            <p><strong>Acme Corp</strong> team</p>
+          </div>
+        </div>
+        
+        <h1 class="auth-title">Create your account</h1>
+        <p class="auth-subtitle">Set up your account to join the team</p>
+        
+        <form class="auth-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label required">First name</label>
+              <input type="text" class="form-input" placeholder="John" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label required">Last name</label>
+              <input type="text" class="form-input" placeholder="Doe" required>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label required">Email address</label>
+            <input type="email" class="form-input" value="john.doe@example.com" disabled>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label required">Password</label>
+            <input type="password" class="form-input" placeholder="Create a password" required>
+          </div>
+          
+          <button type="submit" class="btn btn-primary btn-lg w-full">Join Team</button>
+        </form>
+        
+        <p class="auth-footer">
+          Already have an account? <a href="login.html">Sign in</a>
+        </p>
+      </div>
+      
+      <div class="auth-illustration">
+        <div class="auth-illustration-pattern"></div>
+        <div class="auth-illustration-content">
+          <h2>Welcome to the team</h2>
+          <p>Join your colleagues and start collaborating on projects right away.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <style>
+    .team-invite-banner { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-4); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: var(--space-6); }
+    .team-invite-avatar { width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 1.25rem; }
+    .team-invite-info h3 { font-size: 0.875rem; color: var(--text-tertiary); margin: 0 0 var(--space-1); }
+    .team-invite-info p { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin: 0; }
+  </style>
+</body>
+</html>

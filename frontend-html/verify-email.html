@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Email - WorkNest</title>
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/reset.css">
+  <link rel="stylesheet" href="assets/css/utilities.css">
+  <link rel="stylesheet" href="assets/css/auth.css">
+  <link rel="stylesheet" href="assets/css/forms.css">
+  <link rel="stylesheet" href="assets/css/buttons.css">
+  <link rel="stylesheet" href="assets/css/animations.css">
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-split">
+      <div class="auth-main auth-centered">
+        <div class="auth-brand">
+          <div class="auth-logo">W</div>
+          <span class="auth-logo-text">WorkNest</span>
+        </div>
+        
+        <div class="auth-icon-large">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </div>
+        
+        <h1 class="auth-title">Check your email</h1>
+        <p class="auth-subtitle">We sent a verification link to <strong>john.doe@example.com</strong>. Click the link to activate your account.</p>
+        
+        <div class="auth-resend">
+          <p>Didn't receive the email?</p>
+          <button class="btn btn-ghost">Resend verification email</button>
+        </div>
+        
+        <div class="auth-back-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          <a href="login.html">Back to login</a>
+        </div>
+      </div>
+      
+      <div class="auth-illustration">
+        <div class="auth-illustration-pattern"></div>
+        <div class="auth-illustration-content">
+          <h2>Verify your email</h2>
+          <p>Click the link in the email we sent you to activate your WorkNest account.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <style>
+    .auth-icon-large { width: 64px; height: 64px; margin: 0 auto var(--space-6); background: var(--bg-tertiary); border-radius: 16px; display: flex; align-items: center; justify-content: center; }
+    .auth-icon-large svg { width: 32px; height: 32px; color: var(--color-primary); }
+    .auth-resend { padding: var(--space-4); background: var(--bg-secondary); border-radius: var(--radius-md); text-align: center; margin-top: var(--space-6); }
+    .auth-resend p { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--space-2); }
+  </style>
+</body>
+</html>
