@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+import { Analytics } from '@vercel/analytics/react'
 import Layout from './components/Layout'
 import { hydrateCurrentUser } from './features/authSlice'
 import { resolvePostAuthPath } from './utils/authRouting'
@@ -139,6 +140,7 @@ function App() {
         toastClassName="!rounded-[20px] !border !border-slate-200/90 !bg-[rgba(255,255,255,0.96)] !px-4 !py-3 !text-slate-950 !shadow-[0_18px_44px_rgba(15,23,42,0.12)] !backdrop-blur-xl"
         bodyClassName="!m-0 !p-0 !text-sm !font-medium"
       />
+      <Analytics />
 
       <Suspense fallback={<RouteFallback />}>
         <Routes>
